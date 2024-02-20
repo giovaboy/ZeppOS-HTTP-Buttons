@@ -1,0 +1,45 @@
+msgid "example"
+msgstr "This is an example in app-side"
+
+msgid "delete"
+msgstr "DELETE"
+
+msgid "addPage"
+msgstr "Add Page"
+
+msgid "pageTitle"
+msgstr "Page Title"
+
+msgid "deletePage"
+msgstr "Delete Page"
+
+msgid "addRow"
+msgstr "Add Row"
+
+msgid "deleteRow"
+msgstr "Delete Row"
+
+msgid "rowNumber"
+msgstr "Row Number"
+
+msgid "row"
+msgstr "Row:"
+
+msgid "w"
+msgstr "Width %"
+
+msgid "text_color"
+msgstr "Text Color"
+
+msgid "back_color"
+msgstr "Background Color"
+
+msgid "addButton"
+msgstr "Add Button"
+
+
+msgid "buttonText"
+msgstr "Button Text"
+
+msgid "deleteButton"
+msgstr "Delete Button"
