@@ -1,9 +1,11 @@
 import { px } from "@zos/utils"
 import { createWidget, widget, align, prop, text_style, event } from '@zos/ui'
 import { setScrollMode, SCROLL_MODE_SWIPER } from '@zos/page'
-import { DEVICE_WIDTH, DEVICE_HEIGHT, TEXT_SIZE, BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_RED, COLOR_VIOLET, COLOR_WHITE, COLOR_YELLOW } from '../utils/constants.js';
+import { getDeviceInfo } from '@zos/device';
+import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_RED, COLOR_VIOLET, COLOR_WHITE, COLOR_YELLOW } from '../utils/constants.js';
 
-import { data } from '../data/data.js'
+const { width: DEVICE_WIDTH, height: DEVICE_HEIGHT } = getDeviceInfo();
+export const TEXT_SIZE = DEVICE_WIDTH / 16;
 
 export const layout = {
   refs: {},
@@ -11,19 +13,14 @@ export const layout = {
     /* BUILD UI */
     let data = JSON.parse(vm.state.data)
 
-    // console.log(DEVICE_WIDTH)
-    // console.log(vm.state.data)
-    // console.log("data",data)
-
-
     setScrollMode({
       mode: SCROLL_MODE_SWIPER,
       options: {
         height: DEVICE_HEIGHT,
         count: data.pages.length,
         scroll_complete_func(info) {
-          console.log('scroll complete')
-          console.log(JSON.stringify(info))
+          // console.log('scroll complete')
+          // console.log(JSON.stringify(info))
         }
       },
     });
@@ -53,7 +50,7 @@ export const layout = {
           w: px(DEVICE_WIDTH),
           h: px(titleHeigth),
           color: page.text_color || COLOR_WHITE,
-          text: page.title || 'Page ',
+          text: page.title,
           text_size: page.text_size || TEXT_SIZE,
           align_h: align.CENTER_H,
           align_v: align.CENTER_V,
@@ -104,12 +101,12 @@ export const layout = {
               x: px(startXforThisBtn),
               y: px(paddingYbtn + (titleHeigth) + offsetYrow + offsetYpage),
               w: px(widthOfTheButton),
-              h: px((DEVICE_HEIGHT - titleHeigth) / page.rows.length - (paddingYbtn * 2)),
+              h: px((DEVICE_HEIGHT - titleHeigth) / page.rows.length - (paddingYbtn * 2)),// TODO: customizable row height
               radius: button.radius || BTN_RADIUS,
               normal_color: button.back_color || COLOR_GRAY,
-              press_color: btnPressColor(button.back_color, 1.3),
+              press_color: btnPressColor(button.back_color || COLOR_GRAY, 1.3),
               click_func: () => {
-                console.log('button click');
+                //console.log('button click');
                 vm.getYourData(button.request, pi)
               }
             });

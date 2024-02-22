@@ -1,9 +1,6 @@
 import { BaseSideService } from '@zeppos/zml/base-side'
 import { settingsLib } from '@zeppos/zml/base-side'
-import { data } from '../data/data.js'
-
-const DEFAULT_DATA = { "pages": [{ "title": "page_1","text_size": 30,"back_color": 0x000000,"text_color": 0xffffff, "rows": [{ "buttons": [{ "text":"btn1_1", "w": 25, "spacer":false, "request":{"url":"","method":"","params": "",}}] }] }] };
-
+import { DEFAULT_DATA } from '../utils/constants.js'
 
 function getData() {
   console.log('getData')
@@ -24,10 +21,7 @@ AppSideService(
     },
     onSettingsChange({ key, newValue, oldValue }) {
       console.log('settings changed:',key)
-      //this.call({
-        //result: 
         getData()
-      //})
     },
     onRun() {},
     onDestroy() {}

@@ -1,24 +1,18 @@
 import { gettext } from 'i18n'
-//import { COLOR_BLACK, COLOR_WHITE } from '../utils/constants';
-//import { DEFAULT_DATA } from '../utils/constants.js'
-
-const DEFAULT_BUTTON = { text: 'new', spacer: false, w: 20, request: {} };
-const DEFAULT_ROW = { buttons: [DEFAULT_BUTTON] };
-const DEFAULT_PAGE = { rows: [DEFAULT_ROW] };
-const DEFAULT_DATA = { pages: [DEFAULT_PAGE] };
+import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE, COLOR_BLACK, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_RED, COLOR_VIOLET, COLOR_WHITE, COLOR_YELLOW } from '../utils/constants.js'
 
 function toColor(num) {
   let colorString = undefined;
-  if (num) {
-    colorString = "#" + num.toString(16).padStart(6, '0');
-  }
+   if (num != null) {
+      colorString = "#" + num.toString(16).padStart(6, '0');
+   }
   return colorString;
 }
 
 const wRange = () => {
   let arr = [];
   const limit = 100;
-  const step = 5;
+  const step = 3;
 
   for (let i = 0; i <= limit; i = i + step) {
     arr.push({
@@ -29,15 +23,18 @@ const wRange = () => {
   return (arr)
 }
 
-function indexRange(limit) {
+function indexRange(index, limit) {
   let arr = [];
   const step = 1;
 
+  arr.push({ name: '--', value: 999 })
   for (let i = 0; i <= limit; i = i + step) {
-    arr.push({
-      name: (i+1).toString(),
-      value: i
-    })
+    if (i != index) {
+      arr.push({
+        name: gettext('orderTo') + (i + 1).toString(),
+        value: i
+      })
+    }
   };
   return (arr)
 }
@@ -58,15 +55,16 @@ const tSizeRange = () => {
 
 const colors = () => {
   let arr = [
-    { name: 'black', value: 0x000000 },
-    { name: 'white', value: 0xffffff },
-    { name: 'orange', value: 0xFFA500 },
-    { name: 'red', value: 0x8B0000 },
-    { name: 'green', value: 0x3cb371 },
-    { name: 'blue', value: 0x0884d0 },
-    { name: 'yellow', value: 0xFFFF00 },
-    { name: 'indigo', value: 0x4B0082 },
-    { name: 'violet', value: 0xEE82EE }
+    { name: 'black', value: COLOR_BLACK },
+    { name: 'white', value: COLOR_WHITE },
+    { name: 'orange', value: COLOR_ORANGE },
+    { name: 'red', value: COLOR_RED },
+    { name: 'green', value: COLOR_GREEN },
+    { name: 'blue', value: COLOR_BLUE },
+    { name: 'yellow', value: COLOR_YELLOW },
+    { name: 'indigo', value: COLOR_INDIGO },
+    { name: 'violet', value: COLOR_VIOLET },
+    { name: 'gray', value: COLOR_GRAY }
   ]
 
   return (arr)
@@ -78,10 +76,9 @@ AppSettingsPage({
     props: {}
   },
   addPage(title) {
-    let page = DEFAULT_PAGE;
-    page.title = title;
-    page.rows = [];
-    this.state.data[0].pages.push(page);
+    let newPage = DEFAULT_PAGE;
+    newPage.title = title;
+    this.state.data[0].pages.push(newPage);
     this.setItem()
   },
   editPage(prop, val, pindex) {
@@ -107,7 +104,7 @@ AppSettingsPage({
     })
     this.setItem()
   },
-  movePage(pindex, toindex){
+  movePage(pindex, toindex) {
     var temp = this.state.data[0].pages[pindex];
     this.state.data[0].pages[pindex] = this.state.data[0].pages[toindex];
     this.state.data[0].pages[toindex] = temp;
@@ -125,15 +122,14 @@ AppSettingsPage({
     })
     this.setItem()
   },
-  moveRow(pindex, rindex, toindex){
+  moveRow(pindex, rindex, toindex) {
     var temp = this.state.data[0].pages[pindex].rows[rindex];
     this.state.data[0].pages[pindex].rows[rindex] = this.state.data[0].pages[pindex].rows[toindex];
     this.state.data[0].pages[pindex].rows[toindex] = temp;
-
     this.setItem();
   },
   addButton(pageindex, rowindex) {
-    let button = { text: 'new', spacer: false, w: 20, request: {} };
+    let button = DEFAULT_BUTTON;
     this.state.data[0].pages[pageindex].rows[rowindex].buttons.push(button);
     this.setItem()
   },
@@ -175,11 +171,10 @@ AppSettingsPage({
     }
     this.setItem()
   },
-  moveButton(pindex, rindex, bindex, toindex){
+  moveButton(pindex, rindex, bindex, toindex) {
     var temp = this.state.data[0].pages[pindex].rows[rindex].buttons[bindex];
     this.state.data[0].pages[pindex].rows[rindex].buttons[bindex] = this.state.data[0].pages[pindex].rows[rindex].buttons[toindex];
     this.state.data[0].pages[pindex].rows[rindex].buttons[toindex] = temp;
-
     this.setItem();
   },
   deleteButton(pindex, rindex, bindex) {
@@ -203,14 +198,37 @@ AppSettingsPage({
     console.log('setState - data: ', this.state.data)
   },
   deleteState() {
-    if (this.state.props.settingsStorage.getItem('data')) {
-      this.state.props.settingsStorage.removeItem('data');
-    }
+    this.state.data = [DEFAULT_DATA]
+    this.setItem()
   },
   build(props) {
     this.setState(props)
     //this.deleteState()
     const contentItems = []
+    const welcomeText = View(
+      {},
+      [
+        Text({
+          bold: true,
+          align: 'center',
+          paragraph: true,
+          style: {
+            //color: '#333',
+            fontSize: '36px'
+          }
+        }, [gettext('title_text')]),
+        Text({
+          bold: false,
+          align: 'left',
+          paragraph: true,
+          style: {
+            //color: '#333',
+            fontSize: '16px',
+            padding: '10px 0'
+          }
+        }, [gettext('welcome_text')])
+      ]
+    )
     const addBTN = View(
       {
         style: {
@@ -239,7 +257,7 @@ AppSettingsPage({
         style: {
           fontSize: '12px', lineHeight: '30px', borderRadius: '30px', background: '#db2c2c', color: 'white', textAlign: 'center', padding: '0 15px', width: '30%'
         },
-        label: ('DeleteStorage'),
+        label: gettext('delete_storage'),
         onClick: () => {
           this.deleteState()
         }
@@ -247,19 +265,22 @@ AppSettingsPage({
       ]
     );
     const confBTN = View(
-      { style: {
-        fontSize: '12px',
-        lineHeight: '30px',
-        borderRadius: '30px',
-        //background: '#409EFF',
-        color: 'black',
-        textAlign: 'center',
-        padding: '0 15px',
-        width: '30%'
-      }},
+      {
+        style: {
+          fontSize: '12px',
+          lineHeight: '30px',
+          borderRadius: '30px',
+          background: '#dedede',
+          color: 'black',
+          textAlign: 'left',
+          padding: '0 15px',
+          margin: '6px 0',
+          width: '30%'
+        }
+      },
       [TextInput({
         label: gettext('conf'),
-        subStyle: {display:'none'},
+        subStyle: { display: 'none' },
         value: JSON.stringify(this.state.data),
         onChange: (value) => {
           this.state.props.settingsStorage.setItem('data', value)
@@ -278,7 +299,8 @@ AppSettingsPage({
               padding: '6px 0',
               marginBottom: '6px',
               display: 'flex',
-              flexDirection: 'row'
+              flexDirection: 'row',
+              alignItems: 'flex-start'
             }
           },
           [
@@ -287,25 +309,25 @@ AppSettingsPage({
                 style: {
                   flex: 1,
                   display: 'flex',
-                  flexDirection: 'row',
+                  flexDirection: 'column',
                   justfyContent: 'center',
                   alignItems: 'center'
                 }
               },
               [
                 TextInput({
-                  label: gettext('pageTitle'),
+                  placeholder: gettext('pageTitle'),
                   bold: true,
-                  value: page.title,
+                  value: page.title || gettext('**NO TEXT**'),
                   subStyle: {
                     textAlign: 'center',
-                    fontSize: '14px',
-                    color: toColor(page.text_color),
-                    background: toColor(page.back_color)
+                    fontSize: '18px',
+                    color: toColor(page.text_color || COLOR_BLACK),
+                    background: toColor(page.back_color || COLOR_WHITE)
                   },
                   maxLength: 200,
                   onChange: (title) => {
-                    if (title.length <= 200) {
+                    if (title.length <= 200 || title != gettext('**NO TEXT**')) {
                       this.editPage('title', title, pindex)
                     } else {
                       console.log("page title can't be too long!")
@@ -323,34 +345,36 @@ AppSettingsPage({
                     }
                   },
                   [Select({
-                    title: gettext('pageOrder'),
-                    label: pindex + 1,
-                    value: pindex,
-                    options: indexRange(this.state.data[0].pages.length - 1),
+                    //title: gettext('pageOrder'),
+                    //label: pindex + 1,
+                    value: undefined,
+                    options: indexRange(pindex, this.state.data[0].pages.length - 1),
                     onChange: (value) => {
-                      this.movePage(pindex, value)
+                      if (value < 999) {
+                        this.movePage(pindex, value)
+                      }
                     }
                   }),
-                    Select({
-                      title: gettext('back_color'),
-                      //label: page.back_color,
-                      value: page.back_color,
-                      style:{color: 'red'},
-                      subStyle: {color: 'red'},
-                      options: colors(),
-                      onChange: (value) => {
-                        this.editPage('back_color', value, pindex)
-                      }
-                    }),
-                    Select({
-                      title: gettext('text_color'),
-                      //label: page.text_color,
-                      value: page.text_color,
-                      options: colors(),
-                      onChange: (value) => {
-                        this.editPage('text_color', value, pindex)
-                      }
-                    })]),
+                  Select({
+                    title: gettext('back_color'),
+                    //label: page.back_color,
+                    value: page.back_color,
+                    //style:{color: 'red'},
+                    //subStyle: {color: 'red'},
+                    options: colors(),
+                    onChange: (value) => {
+                      this.editPage('back_color', value, pindex)
+                    }
+                  }),
+                  Select({
+                    title: gettext('text_color'),
+                    //label: page.text_color,
+                    value: page.text_color,
+                    options: colors(),
+                    onChange: (value) => {
+                      this.editPage('text_color', value, pindex)
+                    }
+                  })]),
               ]
             ),
             Button({
@@ -389,12 +413,15 @@ AppSettingsPage({
           View(
             {
               style: {
-                borderBottom: '1px solid #eaeaea',
+                border: '1px solid #eaeaea',
+                borderRadius: '8px',
                 padding: '6px 0',
                 marginBottom: '6px',
-                marginLeft: '6px',
+                //marginLeft: '6px',
                 display: 'flex',
-                flexDirection: 'row'
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                background: '#f5f5f5'
               }
             },
             [
@@ -403,28 +430,30 @@ AppSettingsPage({
                   style: {
                     flex: 1,
                     display: 'flex',
-                    flexDirection: 'row',
+                    flexDirection: 'column',
                     justfyContent: 'center',
                     alignItems: 'center'
                   }
                 },
                 [
                   Text({
-                    label: gettext('rowNumber'),
                     bold: false,
-                    value: rindex + 1,
+                    align: 'center',
+                    paragraph: false,
                     style: {
-                      color: '#333',
-                      fontSize: '14px'
+                      //color: '#333',
+                      fontSize: '16px'
                     }
-                  }, [gettext('page')+ ' - '+(pindex + 1) +gettext('row') + ' - ' + (rindex + 1)]),
+                  }, [/*gettext('page')+(pindex + 1)+' - ' +*/gettext('row') + (rindex + 1)]),
                   Select({
-                    title: gettext('rowOrder'),
-                    label: rindex + 1,
-                    value: rindex,
-                    options: indexRange(page.rows.length - 1),
+                    //title: gettext('rowOrder')+(rindex + 1),
+                    //label: rindex + 1,
+                    //value: rindex,
+                    options: indexRange(rindex, page.rows.length - 1),
                     onChange: (value) => {
-                      this.moveRow(pindex, rindex, value)
+                      if (value < 999) {
+                        this.moveRow(pindex, rindex, value)
+                      }
                     }
                   })
                 ]
@@ -467,13 +496,14 @@ AppSettingsPage({
                 style: {
                   //borderBottom: '1px solid #eaeaea',
                   border: '1px solid #d5d5d5',
-                  borderRadius: '20',
-                  padding: '6px 0',
+                  borderRadius: '8px',
+                  padding: '6px 1px',
                   marginBottom: '6px',
-                  marginLeft: '10px',
+                  //marginLeft: '10px',
                   display: 'flex',
                   flexDirection: 'row',
-                  background: '#eaeaea'
+                  background: '#eaeaea',
+                  alignItems: 'flex-start'
                 }
               },
               [
@@ -484,7 +514,7 @@ AppSettingsPage({
                       display: 'flex',
                       flexDirection: 'row',
                       justfyContent: 'center',
-                      alignItems: 'center'
+                      alignItems: 'normal'
                     }
                   },
                   [View(
@@ -493,28 +523,41 @@ AppSettingsPage({
                         flex: 1,
                         flexDirection: 'column',
                         justfyContent: 'center',
-                        alignItems: 'flex-start',
+                        alignItems: 'stretch',
                         display: 'flex'
                       }
                     },
                     [
                       TextInput({
-                        label: gettext('buttonText'),
+                        //label: gettext('buttonText'),
+                        placeholder: gettext('buttonText'),
                         bold: false,
-                        value: button.text,
-                        //labelStyle: { fontSize: '12px' },
+                        value: button.spacer ? gettext('**SPACER**') : button.text || gettext('**NO TEXT**'),
+                        labelStyle: { fontSize: '12px', display: 'none' },
                         subStyle: {
                           textAlign: 'center',
-                          fontSize: '14px',
-                          color: toColor(button.text_color || 0x000000),
-                          background: toColor(button.back_color || 0xffffff)
+                          fontSize: '16px',
+                          color: button.spacer ? toColor(COLOR_BLACK) : toColor(button.text_color || COLOR_BLACK),
+                          background: button.spacer ? toColor(null) : toColor(button.back_color || null),
+                          borderRadius: button.radius ? (button.radius + 'px') : '0px'
                         },
                         maxLength: 200,
                         onChange: (text) => {
-                          if (text.length > 0 && text.length <= 200) {
+                          if (text.length <= 200 || text != gettext('**NO TEXT**') || text != gettext('**SPACER**')) {
                             this.editButton('text', text, pindex, rindex, bindex)
                           } else {
                             console.log("button title can't be empty or too long!")
+                          }
+                        }
+                      }),
+                      Select({
+                        //title: gettext('buttonOrder'),
+                        //label: bindex + 1,
+                        //value: bindex,
+                        options: indexRange(rindex, page.rows[rindex].buttons.length - 1),
+                        onChange: (value) => {
+                          if (value < 999) {
+                            this.moveButton(pindex, rindex, bindex, value)
                           }
                         }
                       }),
@@ -537,15 +580,6 @@ AppSettingsPage({
                         options: wRange(),
                         onChange: (value) => {
                           this.editButton('w', value, pindex, rindex, bindex)
-                        }
-                      }),
-                      Select({
-                        title: gettext('buttonOrder'),
-                        label: bindex + 1,
-                        value: bindex,
-                        options: indexRange(page.rows[rindex].buttons.length - 1),
-                        onChange: (value) => {
-                          this.moveButton(pindex, rindex, bindex, value)
                         }
                       })
                     ]),
@@ -587,7 +621,7 @@ AppSettingsPage({
                         }
                       }),
                       Select({
-                        title: gettext('textSize'),
+                        title: gettext('text_size'),
                         //label: bindex,
                         value: bindex,
                         options: tSizeRange(),
@@ -697,13 +731,14 @@ AppSettingsPage({
         }
       },
       [
+        welcomeText,
         addBTN,
         contentItems.length > 0 &&
         View(
           {
             style: {
               marginTop: '12px',
-              padding: '10px',
+              padding: '4px',
               border: '1px solid #eaeaea',
               borderRadius: '6px',
               backgroundColor: 'white'

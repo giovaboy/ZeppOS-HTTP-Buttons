@@ -1,13 +1,8 @@
-import { getText } from '@zos/i18n'
-import * as hmUI from "@zos/ui";
-import { readFileSync, writeFileSync } from '@zos/fs'
-import { exit } from '@zos/router'
 import { BasePage } from "@zeppos/zml/base-page";
 import { log as Logger, px } from '@zos/utils'
 import { layout } from 'zosLoader:./index.[pf].layout.js'
 
 const logger = Logger.getLogger("api-buttons");
-
 
 Page(
   BasePage({
@@ -29,9 +24,7 @@ Page(
         method: 'GET_DATA'
       })
         .then(({ result }) => {
-          logger.log("result", result)
           this.state.data = result.substring(1, result.length-1)
-          //logger.log("this.state.data",  this.state.data)
           layout.render(this)
         })
         .catch((res) => {
@@ -65,8 +58,8 @@ Page(
 
       })
       .catch((error) => {
-        logger.error('error=>', error)
-        layout.notifyResult(error, pageid, true)
+        logger.error('error=>', JSON.stringify(error))
+        layout.notifyResult(JSON.stringify(error), pageid, true)
       });
 
 
@@ -81,7 +74,6 @@ Page(
   },
   onDestroy(){
     logger.debug('page onDestroy invoked')
-    //exit()
   },
 })
 )

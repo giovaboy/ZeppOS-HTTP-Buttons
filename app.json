@@ -2,7 +2,7 @@
   "configVersion": "v3",
   "app": {
     "appId": 27390,
-    "appName": "API-Buttons",
+    "appName": "HTTP-Buttons",
     "appType": "app",
     "version": {
       "code": 1,
@@ -10,7 +10,7 @@
     },
     "icon": "icon.png",
     "vender": "giova",
-    "description": "Some buttons calling custom REST API"
+    "description": "Some buttons firing HTTP requests"
   },
   "permissions": ["data:os.device.info", "device:os.local_storage"],
   "runtime": {
@@ -53,7 +53,7 @@
   },
   "i18n": {
     "en-US": {
-      "appName": "API-Buttons"
+      "appName": "HTTP-Buttons"
     }
   },
   "defaultLanguage": "en-US"

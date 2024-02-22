@@ -1,8 +1,14 @@
-msgid "example"
-msgstr "This is an example in app-side"
+msgid "title_text"
+msgstr "HTTP-Buttons"
 
-msgid "delete"
-msgstr "DELETE"
+msgid "welcome_text"
+msgstr "Hi! From here you can set up HTTP-Buttons, you can add and reorder pages, rows and buttons. You can edit a lot of properties but you can also modify the JSON string clicking the config button at the bottom of the page."
+
+msgid "conf"
+msgstr "Configuration"
+
+msgid "delete_storage"
+msgstr "Re-Init configuration"
 
 msgid "addPage"
 msgstr "Add Page"
@@ -22,6 +28,9 @@ msgstr "Delete Row"
 msgid "rowNumber"
 msgstr "Row Number"
 
+msgid "page"
+msgstr "Page:"
+
 msgid "row"
 msgstr "Row:"
 
@@ -31,15 +40,26 @@ msgstr "Width %"
 msgid "text_color"
 msgstr "Text Color"
 
+msgid "text_size"
+msgstr "Text Size"
+
 msgid "back_color"
 msgstr "Background Color"
 
 msgid "addButton"
 msgstr "Add Button"
 
-
 msgid "buttonText"
 msgstr "Button Text"
 
 msgid "deleteButton"
 msgstr "Delete Button"
+
+msgid "orderTo"
+msgstr "Change order -> "
+
+msgid "**NO TEXT**"
+msgstr "**NO TEXT**"
+
+msgid "isSpacer"
+msgstr "Spacer"
