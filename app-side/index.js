@@ -1,5 +1,4 @@
-import { BaseSideService } from '@zeppos/zml/base-side'
-import { settingsLib } from '@zeppos/zml/base-side'
+import { BaseSideService, settingsLib } from '@zeppos/zml/base-side'
 import { DEFAULT_DATA } from '../utils/constants.js'
 
 function getData() {
@@ -19,9 +18,9 @@ AppSideService(
         })
       }
     },
-    onSettingsChange({ key, newValue, oldValue }) {
+    onSettingsChange({ key, newValue, oldValue }) {//can we push to the watch from here?
       console.log('settings changed:',key)
-        getData()
+        //getData()
     },
     onRun() {},
     onDestroy() {}

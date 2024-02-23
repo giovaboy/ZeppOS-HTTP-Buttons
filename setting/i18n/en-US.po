@@ -63,3 +63,15 @@ msgstr "**NO TEXT**"
 
 msgid "isSpacer"
 msgstr "Spacer"
+
+msgid "response_style"
+msgstr "Response Style"
+
+msgid "system_toast"
+msgstr "Toast"
+
+msgid "custom_toast"
+msgstr "Custom Toast"
+
+msgid "system_modal"
+msgstr "Modal"

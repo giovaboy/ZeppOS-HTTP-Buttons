@@ -1,8 +1,9 @@
 import { px } from "@zos/utils"
 import { createWidget, widget, align, prop, text_style, event } from '@zos/ui'
 import { setScrollMode, SCROLL_MODE_SWIPER } from '@zos/page'
-import { getDeviceInfo } from '@zos/device';
-import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_RED, COLOR_VIOLET, COLOR_WHITE, COLOR_YELLOW } from '../utils/constants.js';
+import { getDeviceInfo } from '@zos/device'
+import { showToast } from '@zos/interaction'
+import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST,  COLOR_GRAY, COLOR_RED,  COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL } from '../utils/constants.js';
 
 const { width: DEVICE_WIDTH, height: DEVICE_HEIGHT } = getDeviceInfo();
 export const TEXT_SIZE = DEVICE_WIDTH / 16;
@@ -150,20 +151,45 @@ export const layout = {
     this.refs.resultToast.setProperty(prop.VISIBLE, false);
     this.refs.resultText.setProperty(prop.VISIBLE, false);
 
-
   },
-  notifyResult(txt, pageid, iserror) {
-    console.log('notifyResult', txt);
-    this.refs.resultText.setProperty(prop.MORE, {
-      y: px(346) + (pageid * DEVICE_HEIGHT),
-      color: iserror ? COLOR_WHITE : COLOR_WHITE,
-      text: txt
-    });
-    this.refs.resultToast.setProperty(prop.MORE, {
-      y: px(350) + (pageid * DEVICE_HEIGHT),
-      color: iserror ? COLOR_RED : COLOR_GRAY
-    });
-    this.refs.resultToast.setProperty(prop.VISIBLE, true);
-    this.refs.resultText.setProperty(prop.VISIBLE, true);
+  notifyResult(txt, pageid, isError, type) {
+    if (type == SYSTEM_TOAST) {
+      showToast({
+        content: txt,
+      })
+    } else if (type == CUSTOM_TOAST) {
+      console.log('notifyResult', txt);
+      this.refs.resultText.setProperty(prop.MORE, {
+        y: px(346) + (pageid * DEVICE_HEIGHT),
+        color: isError ? COLOR_WHITE : COLOR_WHITE,
+        text: txt
+      });
+      this.refs.resultToast.setProperty(prop.MORE, {
+        y: px(350) + (pageid * DEVICE_HEIGHT),
+        color: isError ? COLOR_RED : COLOR_GRAY
+      });
+      this.refs.resultToast.setProperty(prop.VISIBLE, true);
+      this.refs.resultText.setProperty(prop.VISIBLE, true);
+    } else if (type == SYSTEM_MODAL) {
+      this.refs.systemModal = createModal({
+        content: txt,
+        autoHide: true,
+        onClick: (keyInfo) => {
+          console.log(keyInfo)
+          const { type } = keyInfo
+          if (type === MODAL_CONFIRM) {
+            console.log('confirm')
+          } else {
+            this.refs.systemModal.show(false)
+          }
+        },
+      })
+      this.refs.systemModal.show(true)
+
+    } else {
+      showToast({
+      content: txt,
+    })
+  }
   },
 }

@@ -1,11 +1,29 @@
 import { gettext } from 'i18n'
-import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE, COLOR_BLACK, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_RED, COLOR_VIOLET, COLOR_WHITE, COLOR_YELLOW } from '../utils/constants.js'
+import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE, COLOR_BLACK, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_RED, COLOR_VIOLET, COLOR_WHITE, COLOR_YELLOW, SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL } from '../utils/constants.js'
+
+function validateURL(str) {
+  if (str == gettext('**URL**')) {
+    return false;
+  } else {
+    const pattern = new RegExp(
+      '^(https?:\\/\\/)?' + // protocol
+        '((([a-z\\d]([a-z\\d-]*[a-z\\d])*)\\.)+[a-z]{2,}|' + // domain name
+        '((\\d{1,3}\\.){3}\\d{1,3}))' + // OR IP (v4) address
+        '(\\:\\d+)?(\\/[-a-z\\d%_.~+]*)*' + // port and path
+        '(\\?[;&a-z\\d%_.~+=-]*)?' + // query string
+        '(\\#[-a-z\\d_]*)?$', // fragment locator
+      'i'
+    );
+    return pattern.test(str);
+    //return true
+  }
+}
 
 function toColor(num) {
   let colorString = undefined;
-   if (num != null) {
-      colorString = "#" + num.toString(16).padStart(6, '0');
-   }
+  if (num != null) {
+    colorString = "#" + num.toString(16).padStart(6, '0');
+  }
   return colorString;
 }
 
@@ -168,6 +186,9 @@ AppSettingsPage({
       case 'params':
         this.state.data[0].pages[pindex].rows[rindex].buttons[bindex].request.params = val;
         break;
+      case 'responsestyle':
+        this.state.data[0].pages[pindex].rows[rindex].buttons[bindex].request.responsestyle = val;
+        break;
     }
     this.setItem()
   },
@@ -185,7 +206,7 @@ AppSettingsPage({
   },
   setItem() {
     const newString = JSON.stringify(this.state.data)
-    //console.log(newString)
+    console.log(newString)
     this.state.props.settingsStorage.setItem('data', newString)
   },
   setState(props) {
@@ -630,77 +651,91 @@ AppSettingsPage({
                         }
                       }),
                       TextInput({
-                        label: gettext('url'),
+                        //label: gettext('url'),
+                        //labelStyle: { fontSize: '12px' },
                         bold: false,
-                        value: button.request.url,
-                        labelStyle: { fontSize: '10px' },
+                        value: button.request.url || gettext('**URL**'),
+                        placeholder: gettext('insert_url'),
                         subStyle: {
-                          color: '#333',
-                          fontSize: '10px'
+                          color: button.request.url ? COLOR_BLACK : COLOR_BLACK,//'#756f6f',
+                          fontSize: '14px'
                         },
                         maxLength: 200,
-                        onChange: (url) => {
-                          if (url.length > 0 && url.length <= 200) {
-                            this.editButton('url', url, pindex, rindex, bindex)
+                        onChange: (value) => {
+                          if (validateURL(value)) { //} || value != gettext('**URL**')) {
+                            this.editButton('url', value, pindex, rindex, bindex)
                           } else {
-                            console.log("button url can't be empty or too long!")
+                            this.editButton('url', null, pindex, rindex, bindex)
+                            return Toast({
+                              message: gettext('insert_valid_url'),
+                            })
+                            console.log("url not valid!")
                           }
                         }
                       }),
                       TextInput({
-                        label: gettext('method'),
+                        //label: gettext('method'),
+                        //labelStyle: { fontSize: '10px' },
                         bold: false,
-                        value: button.request.method,
-                        labelStyle: { fontSize: '10px' },
+                        value: button.request.method || gettext('**METHOD**'),
                         subStyle: {
-                          color: '#333',
-                          fontSize: '10px'
+                          color: button.request.method ? COLOR_BLACK : COLOR_BLACK,//'#756f6f',
+                          fontSize: '14px'
                         },
                         maxLength: 200,
-                        onChange: (method) => {
-                          if (method.length > 0 && method.length <= 200) {
-                            this.editButton('method', method, pindex, rindex, bindex)
+                        onChange: (value) => {
+                          if (value.length > 0 && value.length <= 200 || value != gettext('**METHOD**')) {
+                            this.editButton('method', value, pindex, rindex, bindex)
                           } else {
                             console.log("button method can't be empty or too long!")
                           }
                         }
                       }),
                       TextInput({
-                        label: gettext('headers'),
+                        //label: gettext('headers'),
+                        //labelStyle: { fontSize: '10px' },
                         bold: false,
-                        value: button.request.headers,
-                        labelStyle: { fontSize: '10px' },
+                        value: button.request.headers || gettext('**HEADERS**'),
                         subStyle: {
-                          color: '#333',
-                          fontSize: '10px'
+                          color: button.request.headers ? COLOR_BLACK : COLOR_BLACK,//'#756f6f',
+                          fontSize: '14px'
                         },
                         maxLength: 200,
-                        onChange: (headers) => {
-                          if (headers.length > 0 && headers.length <= 200) {
-                            this.editButton('headers', headers, pindex, rindex, bindex)
+                        onChange: (value) => {
+                          if (value.length > 0 && value.length <= 200 || value != gettext('**HEADERS**')) {
+                            this.editButton('headers', value, pindex, rindex, bindex)
                           } else {
                             console.log("button headers can't be empty or too long!")
                           }
                         }
                       }),
                       TextInput({
-                        label: gettext('params'),
+                        //label: gettext('params'),
+                        //labelStyle: { fontSize: '10px' },
                         bold: false,
-                        value: button.request.params,
-                        labelStyle: { fontSize: '10px' },
+                        value: button.request.params || gettext('**PARAMS**'),
                         subStyle: {
-                          color: '#333',
-                          fontSize: '10px'
+                          color: button.request.params ? COLOR_BLACK : COLOR_BLACK,//'#756f6f',
+                          fontSize: '14px'
                         },
                         maxLength: 200,
-                        onChange: (params) => {
-                          if (params.length > 0 && params.length <= 200) {
-                            this.editButton('params', params, pindex, rindex, bindex)
+                        onChange: (value) => {
+                          if (value.length > 0 && value.length <= 200 || value != gettext('**PARAMS**')) {
+                            this.editButton('params', value, pindex, rindex, bindex)
                           } else {
                             console.log("button params can't be empty or too long!")
                           }
                         }
-                      })]),
+                      }),
+                      Select({
+                        title: gettext('response_style'),
+                        value: button.request.responsestyle,
+                        options: [{ name: gettext('system_toast'), value: SYSTEM_TOAST }, { name: gettext('custom_toast'), value: CUSTOM_TOAST }, { name: gettext('system_modal'), value: SYSTEM_MODAL }],
+                        onChange: (value) => {
+                          this.editButton('responsestyle', value, pindex, rindex, bindex)
+                        }
+                      }),
+                    ]),
                   ]
                 ),
 

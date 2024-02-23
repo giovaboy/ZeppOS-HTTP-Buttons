@@ -24,6 +24,10 @@ export const COLOR_INDIGO = 0x4B0082;
 export const COLOR_VIOLET = 0xEE82EE;
 export const COLOR_GRAY = 0x808080;
 export const COLOR_GRAY_TOAST = 0x626262;
+
+export const CUSTOM_TOAST = 0
+export const SYSTEM_TOAST = 1
+export const SYSTEM_MODAL = 2
 /** HELPERS */
 
 /**
