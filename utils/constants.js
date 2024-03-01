@@ -1,8 +1,8 @@
 export const DEFAULT_SPACER = { text: 'SPACER', spacer: true, w: 20, request: {} };
 export const DEFAULT_BUTTON = { text: 'button!', spacer: false, w: 60, request: {} };
-export const DEFAULT_ROW = { buttons: [DEFAULT_SPACER, DEFAULT_BUTTON] };
+export const DEFAULT_ROW = { h: 100, buttons: [DEFAULT_SPACER, DEFAULT_BUTTON] };
 export const DEFAULT_PAGE = { rows: [DEFAULT_ROW] };
-export const DEFAULT_DATA = { pages: [DEFAULT_PAGE] };
+export const DEFAULT_DATA = { variables: {"var1":"1", "var2":"2"}, pages: [DEFAULT_PAGE] };
 
 export const BTN_WIDTH = 100;
 export const BTN_HEIGHT = 40;

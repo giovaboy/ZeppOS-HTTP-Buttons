@@ -7,25 +7,31 @@ msgstr "Hi! From here you can set up HTTP-Buttons, you can add and reorder pages
 msgid "conf"
 msgstr "Configuration"
 
+msgid "fix_conf"
+msgstr "Fix Configuration"
+
+msgid "config_error_text"
+msgstr "⚠️\nCannot load the current configuration, you can try to fix it or reset it to default."
+
 msgid "delete_storage"
 msgstr "Re-Init configuration"
 
-msgid "addPage"
+msgid "add_page"
 msgstr "Add Page"
 
-msgid "pageTitle"
+msgid "page_title"
 msgstr "Page Title"
 
-msgid "deletePage"
+msgid "delete_page"
 msgstr "Delete Page"
 
-msgid "addRow"
+msgid "add_row"
 msgstr "Add Row"
 
-msgid "deleteRow"
+msgid "delete_row"
 msgstr "Delete Row"
 
-msgid "rowNumber"
+msgid "row_number"
 msgstr "Row Number"
 
 msgid "page"
@@ -37,6 +43,9 @@ msgstr "Row:"
 msgid "w"
 msgstr "Width %"
 
+msgid "h"
+msgstr "Height %"
+
 msgid "text_color"
 msgstr "Text Color"
 
@@ -46,22 +55,22 @@ msgstr "Text Size"
 msgid "back_color"
 msgstr "Background Color"
 
-msgid "addButton"
+msgid "add_button"
 msgstr "Add Button"
 
-msgid "buttonText"
+msgid "button_text"
 msgstr "Button Text"
 
-msgid "deleteButton"
+msgid "delete_button"
 msgstr "Delete Button"
 
-msgid "orderTo"
+msgid "order_to"
 msgstr "Change order -> "
 
 msgid "**NO TEXT**"
 msgstr "**NO TEXT**"
 
-msgid "isSpacer"
+msgid "is_spacer"
 msgstr "Spacer"
 
 msgid "response_style"
@@ -75,3 +84,16 @@ msgstr "Custom Toast"
 
 msgid "system_modal"
 msgstr "Modal"
+
+msgid "add_variable"
+msgstr "Add Variable"
+
+msgid "edit_variable"
+msgstr "Rename"
+
+msgid "delete_variable"
+msgstr "Delete"
+
+
+msgid "rename_variable"
+msgstr "rename"

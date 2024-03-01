@@ -30,18 +30,26 @@ Page(
     },
 
     getYourData(request, pageid) {
+      let url = request.url;
+      let dt = JSON.parse(this.state.data)
+      if (dt.variables) {
+        Object.entries(dt.variables).forEach(([key, value]) => {
+          let search = "".concat("{",key,"}")
+          logger.log('gloabal_var_replace', search, value)
+          url = url.replaceAll(search, value)
+        })
+      }
+
       logger.log("method", request.method)
-      logger.log("url", request.url)
-      logger.log("params", request.params)
+      logger.log("url", url)
       logger.log("headers", request.headers)
       logger.log("body", request.body)
       logger.log("pageid", pageid)
       logger.log("responsestyle", request.responsestyle)
 
       const task = this.httpRequest({
+        url: url,
         method: request.method,
-        url: request.url,
-        params: request.params || undefined,
         headers: request.headers || undefined,
         body: request.body || undefined,
         timeout: 5000
