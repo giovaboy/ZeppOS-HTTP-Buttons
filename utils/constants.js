@@ -1,5 +1,5 @@
-export const DEFAULT_SPACER = { text: 'SPACER', spacer: true, w: 20, request: {} };
-export const DEFAULT_BUTTON = { text: 'button!', spacer: false, w: 60, request: {} };
+export const DEFAULT_SPACER = { text: "SPACER", spacer: true, w: "30", request: {} };
+export const DEFAULT_BUTTON = { text: "Click me!", spacer: false, w: "40", request: {} };
 export const DEFAULT_ROW = { h: 100, buttons: [DEFAULT_SPACER, DEFAULT_BUTTON] };
 export const DEFAULT_PAGE = { rows: [DEFAULT_ROW] };
 export const DEFAULT_DATA = { variables: {"var1":"1", "var2":"2"}, pages: [DEFAULT_PAGE] };
@@ -28,6 +28,13 @@ export const COLOR_GRAY_TOAST = 0x626262;
 export const CUSTOM_TOAST = 0
 export const SYSTEM_TOAST = 1
 export const SYSTEM_MODAL = 2
+export const NO_NOTIFICATION = 3
+
+export const NOTIFICATION_X = 60
+export const NOTIFICATION_Y = 350
+export const NOTIFICATION_WIDTH = 360
+export const NOTIFICATION_H_MIN = 40
+export const NOTIFICATION_TEXT_SIZE = 32
 /** HELPERS */
 
 /**

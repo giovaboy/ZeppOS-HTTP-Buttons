@@ -1,5 +1,5 @@
 import { gettext } from 'i18n'
-import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE, COLOR_BLACK, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_RED, COLOR_VIOLET, COLOR_WHITE, COLOR_YELLOW, SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL } from '../utils/constants.js'
+import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE, COLOR_BLACK, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_RED, COLOR_VIOLET, COLOR_WHITE, COLOR_YELLOW, SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION } from '../utils/constants.js'
 
 function tryParseJSON(json) {
   try {
@@ -282,7 +282,6 @@ AppSettingsPage({
           align: 'center',
           paragraph: true,
           style: {
-            //color: '#333',
             fontSize: '36px'
           }
         }, [gettext('title_text')]),
@@ -291,9 +290,8 @@ AppSettingsPage({
           align: 'left',
           paragraph: true,
           style: {
-            //color: '#333',
             fontSize: '16px',
-            padding: '10px 0'
+            padding: '10px 10px'
           }
         }, [gettext('welcome_text')])
       ]
@@ -420,6 +418,17 @@ AppSettingsPage({
     if (this.state.data[0]) {
       //variables
       //if ("variables" in this.state.data[0]) {
+        contentVariables.push(
+          Text({
+            bold: true,
+            align: 'left',
+            paragraph: true,
+            style: {
+              fontSize: '16px',
+              padding: '4px 4px'
+            }
+          }, [gettext('variables')])
+        )
       Object.entries(this.state.data[0].variables).forEach(([vindex, value]) => {
         contentVariables.push(
           View(
@@ -431,31 +440,65 @@ AppSettingsPage({
                 display: 'flex',
                 flexDirection: 'row',
                 alignItems: 'center',
-                justifyContent: 'space-between',
               }
             },
-            [TextInput({
-              label: vindex,
-              placeholder: vindex,
-              bold: false,
-              value: value,
-              labelStyle:{fontWeight: 'bold'},
-              subStyle: {
-                textAlign: 'center',
-                fontSize: '14px',
-                color: COLOR_BLACK,
-                background: COLOR_WHITE
-              },
-              maxLength: 200,
-              onChange: (val) => {
-                if (val.length <= 200) {
-                  this.editGlobalVariable(vindex, val)
-                } else {
-                  console.log("global_variable title can't be too long!")
+            [View(
+              {
+                style: {
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justfyContent: 'center',
+                  alignItems: 'center'
                 }
-              }
-            }),
-
+              },
+              [
+                TextInput({
+                  label: vindex,
+                  placeholder: vindex,
+                  bold: false,
+                  value: value,
+                  labelStyle: { fontWeight: 'bold' },
+                  subStyle: {
+                    textAlign: 'center',
+                    fontSize: '14px',
+                    color: COLOR_BLACK,
+                    background: COLOR_WHITE
+                  },
+                  maxLength: 200,
+                  onChange: (val) => {
+                    if (val.length <= 200) {
+                      this.editGlobalVariable(vindex, val)
+                    } else {
+                      console.log("global_variable title can't be too long!")
+                    }
+                  }
+                })
+              ]),
+            View(
+              {
+                style: {
+                  fontSize: '12px',
+                  lineHeight: '35px',
+                  borderRadius: '30px',
+                  background: '#dedede',
+                  color: 'black',
+                  textAlign: 'left',
+                  padding: '0 15px',
+                  margin: '6px 0',
+                  width: '22%'
+                }
+              },
+              [TextInput({
+                label: gettext('edit_variable'),
+                subStyle: { display: 'none' },
+                value: vindex,
+                onChange: (value) => {
+                  this.editGlobalVariableKey(vindex, value)
+                }
+              }),
+              ]
+            ),
             Button({
               label: gettext('delete_variable'),
               style: {
@@ -469,32 +512,7 @@ AppSettingsPage({
                 this.deleteGlobalVariable(vindex)
               }
             }),
-
-            View(
-              {
-                style: {
-                  fontSize: '12px',
-                  lineHeight: '35px',
-                  borderRadius: '30px',
-                  background: '#dedede',
-                  color: 'black',
-                  textAlign: 'left',
-                  padding: '0 15px',
-                  margin: '6px 0',
-                  width: '30%'
-                }
-              },
-              [TextInput({
-                label: gettext('edit_variable'),
-                subStyle: { display: 'none' },
-                value: vindex,
-                onChange: (value) => {
-                  this.editGlobalVariableKey(vindex, value)
-                }
-              }),
-              ]
-            )
-            ])
+          ]),
         )
 
       });//variables
@@ -871,25 +889,31 @@ AppSettingsPage({
                             }
                           }
                         }),
-                        TextInput({
-                          //label: gettext('method'),
-                          //labelStyle: { fontSize: '10px' },
-                          bold: false,
-                          value: button.request.method || gettext('**METHOD**'),
-                          placeholder: gettext('insert_method'),
-                          subStyle: {
-                            color: button.request.method ? COLOR_BLACK : COLOR_BLACK,//'#756f6f',
-                            fontSize: '14px'
-                          },
-                          maxLength: 200,
+                        Select({
+                          title: gettext('insert_method') + (button.request.method || '--'),
+                          value: button.request.method,
+                          options: [{ name: 'GET', value: 'GET' }, { name: 'POST', value: 'POST' }, { name: 'PUT', value: 'PUT' }, { name: 'HEAD', value: 'HEAD' }, { name: 'DELETE', value: 'DELETE' }],
                           onChange: (value) => {
-                            if (value.length > 0 && value.length <= 200 || value != gettext('**METHOD**')) {
-                              this.editButton('method', value, pindex, rindex, bindex)
-                            } else {
-                              console.log("button method can't be empty or too long!")
-                            }
+                            this.editButton('method', value, pindex, rindex, bindex)
                           }
                         }),
+                        // TextInput({
+                        //   bold: false,
+                        //   value: button.request.method || gettext('**METHOD**'),
+                        //   placeholder: gettext('insert_method'),
+                        //   subStyle: {
+                        //     color: button.request.method ? COLOR_BLACK : COLOR_BLACK,//'#756f6f',
+                        //     fontSize: '14px'
+                        //   },
+                        //   maxLength: 200,
+                        //   onChange: (value) => {
+                        //     if (value.length > 0 && value.length <= 200 || value != gettext('**METHOD**')) {
+                        //       this.editButton('method', value, pindex, rindex, bindex)
+                        //     } else {
+                        //       console.log("button method can't be empty or too long!")
+                        //     }
+                        //   }
+                        // }),
                         TextInput({
                           //label: gettext('headers'),
                           //labelStyle: { fontSize: '10px' },
@@ -949,7 +973,7 @@ AppSettingsPage({
                         Select({
                           title: gettext('response_style'),
                           value: button.request.responsestyle,
-                          options: [{ name: gettext('system_toast'), value: SYSTEM_TOAST }, { name: gettext('custom_toast'), value: CUSTOM_TOAST }, { name: gettext('system_modal'), value: SYSTEM_MODAL }],
+                          options: [{ name: gettext('system_toast'), value: SYSTEM_TOAST }, { name: gettext('custom_toast'), value: CUSTOM_TOAST }, { name: gettext('no_notification'), value: NO_NOTIFICATION }],//{ name: gettext('system_modal'), value: SYSTEM_MODAL }, 
                           onChange: (value) => {
                             this.editButton('responsestyle', value, pindex, rindex, bindex)
                           }
@@ -992,21 +1016,21 @@ AppSettingsPage({
       return View(
         {
           style: {
-            padding: '12px 20px'
+            padding: '12px 5px'
           }
         },
         [
           welcomeText,
           View({
             style: {
-              flex:1,
+              flex: 1,
               display: 'flex',
               justifyContent: 'space-evenly',
               flexDirection: 'row',
               alignItems: 'center',
             }
           }
-            , [addPageBTN,addVariableBTN]),
+            , [addPageBTN, addVariableBTN]),
           contentVariables.length > 0 &&
           View(
             {

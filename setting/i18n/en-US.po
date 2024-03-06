@@ -73,6 +73,9 @@ msgstr "**NO TEXT**"
 msgid "is_spacer"
 msgstr "Spacer"
 
+msgid "insert_method"
+msgstr "Method: "
+
 msgid "response_style"
 msgstr "Response Style"
 
@@ -84,6 +87,12 @@ msgstr "Custom Toast"
 
 msgid "system_modal"
 msgstr "Modal"
+
+msgid "no_notification"
+msgstr "Nothing"
+
+msgid "variables"
+msgstr "Variables:"
 
 msgid "add_variable"
 msgstr "Add Variable"
