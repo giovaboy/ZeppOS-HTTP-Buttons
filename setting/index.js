@@ -225,8 +225,11 @@ AppSettingsPage({
       case 'body':
         this.state.data[0].pages[pindex].rows[rindex].buttons[bindex].request.body = val;
         break;
-      case 'responsestyle':
-        this.state.data[0].pages[pindex].rows[rindex].buttons[bindex].request.responsestyle = val;
+      case 'parse_result':
+        this.state.data[0].pages[pindex].rows[rindex].buttons[bindex].request.parse_result = val;
+        break;
+      case 'response_style':
+        this.state.data[0].pages[pindex].rows[rindex].buttons[bindex].request.response_style = val;
         break;
     }
     this.setItem()
@@ -952,30 +955,30 @@ AppSettingsPage({
                             }
                           }
                         }),
-                        // TextInput({
-                        //   //label: gettext('params'),
-                        //   //labelStyle: { fontSize: '10px' },
-                        //   bold: false,
-                        //   value: button.request.params || gettext('**PARAMS**'),
-                        //   subStyle: {
-                        //     color: button.request.params ? COLOR_BLACK : COLOR_BLACK,//'#756f6f',
-                        //     fontSize: '14px'
-                        //   },
-                        //   maxLength: 200,
-                        //   onChange: (value) => {
-                        //     if (value.length > 0 && value.length <= 200 || value != gettext('**PARAMS**')) {
-                        //       this.editButton('params', value, pindex, rindex, bindex)
-                        //     } else {
-                        //       console.log("button params can't be empty or too long!")
-                        //     }
-                        //   }
-                        // }),
+                        TextInput({
+                          //label: gettext('parse_result'),
+                          //labelStyle: { fontSize: '10px' },
+                          bold: false,
+                          value: button.request.parse_result || gettext('**parse_result**'),
+                          subStyle: {
+                            color: button.request.parse_result ? COLOR_BLACK : COLOR_BLACK,//'#756f6f',
+                            fontSize: '14px'
+                          },
+                          maxLength: 200,
+                          onChange: (value) => {
+                            if (value.length > 0 && value.length <= 200 || value != gettext('**parse_result**')) {
+                              this.editButton('parse_result', value, pindex, rindex, bindex)
+                            } else {
+                              console.log("button parse_result can't be empty or too long!")
+                            }
+                          }
+                        }),
                         Select({
                           title: gettext('response_style'),
-                          value: button.request.responsestyle,
+                          value: button.request.response_style,
                           options: [{ name: gettext('system_toast'), value: SYSTEM_TOAST }, { name: gettext('custom_toast'), value: CUSTOM_TOAST }, { name: gettext('no_notification'), value: NO_NOTIFICATION }],//{ name: gettext('system_modal'), value: SYSTEM_MODAL }, 
                           onChange: (value) => {
-                            this.editButton('responsestyle', value, pindex, rindex, bindex)
+                            this.editButton('response_style', value, pindex, rindex, bindex)
                           }
                         }),
                       ]),

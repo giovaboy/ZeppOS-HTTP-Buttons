@@ -1,4 +1,4 @@
-import { px, log } from "@zos/utils"
+import { px, log } from '@zos/utils'
 import { createWidget, widget, align, prop, text_style, event, getTextLayout } from '@zos/ui'
 import { setScrollMode, SCROLL_MODE_SWIPER } from '@zos/page'
 import { getDeviceInfo } from '@zos/device'
@@ -141,6 +141,7 @@ export const layout = {
             let btn = createWidget(widget.BUTTON, {
               text: button.text || 'btn_' + pi + ri + bi,
               text_size: button.text_size || TEXT_SIZE,
+              color: button.text_color || COLOR_WHITE,
               x: px(startXforThisBtn),
               y: px(startYforThisBtn),
               w: px(widthOfTheButton),
