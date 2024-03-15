@@ -1,5 +1,5 @@
 export const DEFAULT_SPACER = { text: "SPACER", spacer: true, w: "30", request: {} };
-export const DEFAULT_BUTTON = { text: "Click me!", spacer: false, w: "40", request: {} };
+export const DEFAULT_BUTTON = { text: "Click me!", spacer: false, w: "40", request: {method: "GET", url: "https://httpbin.org/base64/Q3VzdG9taXplIG1lLCBhZGQgbW9yZSBidXR0b25zIGFuZCBwYWdlcywgaW4gdGhlIFpFUFAgYXBwbGljYXRpb25zIHNldHRpbmdzLg%3D%3D", response_style: 0} };
 export const DEFAULT_ROW = { h: 100, buttons: [DEFAULT_SPACER, DEFAULT_BUTTON] };
 export const DEFAULT_PAGE = { rows: [DEFAULT_ROW] };
 export const DEFAULT_DATA = { variables: {"var1":"1", "var2":"2"}, pages: [DEFAULT_PAGE] };

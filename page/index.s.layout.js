@@ -1,5 +1,6 @@
 import { px, log } from '@zos/utils'
 import { createWidget, widget, align, prop, text_style, event, getTextLayout } from '@zos/ui'
+import { setPageBrightTime } from '@zos/display'
 import { setScrollMode, SCROLL_MODE_SWIPER } from '@zos/page'
 import { getDeviceInfo } from '@zos/device'
 import { showToast } from '@zos/interaction'
@@ -30,6 +31,8 @@ export const layout = {
     /* BUILD UI */
     logger.info(vm.state.data)
     let data = JSON.parse(vm.state.data)
+
+    setPageBrightTime({ brightTime: 60000 })
 
     setScrollMode({
       mode: SCROLL_MODE_SWIPER,

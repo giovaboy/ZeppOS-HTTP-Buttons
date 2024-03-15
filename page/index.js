@@ -1,6 +1,5 @@
 import { BasePage } from '@zeppos/zml/base-page'
 import { log as Logger } from '@zos/utils'
-import { setPageBrightTime } from '@zos/display'
 import { layout } from 'zosLoader:./index.[pf].layout.js'
 
 const logger = Logger.getLogger("http-buttons");
@@ -27,27 +26,30 @@ Page(
     },
     onInit() {
       logger.info('page onInit invoked')
-      setPageBrightTime({ brightTime: 60000 });
-      this.getDataFromPhone()
-      //layout.render(this)
     },
     build() {
       logger.info('page build invoked')
+      this.getDataFromPhone()
     },
     getDataFromPhone() {
       this.request({
         method: 'GET_DATA'
       })
-        .then(({ result }) => {
-          logger.info('getDataFromPhone success', result)
-          this.state.data = result.substring(1, result.length - 1)
-          layout.render(this)
-        })
-        .catch((res) => {
-          logger.error('getDataFromPhone error', res)
-          this.state.isError = true
-          layout.render(this)
-        })
+        .then(
+          ({ result }) => {
+            //logger.info('getDataFromPhone success', result)
+            this.state.data = result.substring(1, result.length - 1)
+            this.state.isError = false
+            layout.render(this)
+          }
+        )
+        .catch(
+          (error) => {
+            logger.error('getDataFromPhone error', error)
+            this.state.isError = true
+            layout.render(this)
+          }
+        )
     },
     // onCall(req) {
     //   logger.log('onCall req', JSON.stringify(req))

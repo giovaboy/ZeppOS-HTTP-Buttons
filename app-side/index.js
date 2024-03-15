@@ -3,7 +3,7 @@ import { DEFAULT_DATA } from '../utils/constants.js'
 
 function getData() {
   console.log('getData')
-  return settingsLib.getItem('data') ? settingsLib.getItem('data') : [DEFAULT_DATA]
+  return settingsLib.getItem('data') ? settingsLib.getItem('data') : JSON.stringify([DEFAULT_DATA])
 }
 
 AppSideService(
@@ -18,7 +18,7 @@ AppSideService(
       }
     },
     onSettingsChange({ key, newValue, oldValue }) {//can we push to the watch from here?
-      console.log('settings changed:',key)
+      //console.log('settings changed:',key)
       //this.notifyDevice()
     },
     // notifyDevice() {
