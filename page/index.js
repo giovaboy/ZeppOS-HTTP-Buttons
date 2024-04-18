@@ -65,27 +65,38 @@ Page(
 
     executeButtonRequest(request, pageid) {
       let url = request.url;
+      let headers = request.headers;
+      let body = request.body;
       let dt = JSON.parse(this.state.data)
+
       if (dt.variables) {
         Object.entries(dt.variables).forEach(([key, value]) => {
           let search = "".concat("{", key, "}")
           logger.log('gloabal_var_replace', search, value)
-          url = url.replaceAll(search, value)
+          if (url) {
+            url = url.replaceAll(search, value)
+          }
+          if (headers) {
+            headers = headers.replaceAll(search, value)
+          }
+          if (body) {
+            body = body.replaceAll(search, value)
+          }
         })
       }
 
       // logger.log("method", request.method)
       // logger.log("url", url)
-      // logger.log("headers", request.headers)
-      // logger.log("body", request.body)
+      // logger.log("headers", headers)
+      // logger.log("body", body)
       // logger.log("pageid", pageid)
       // logger.log("response_style", request.response_style)
 
       const task = this.httpRequest({
         url: url,
         method: request.method,
-        headers: request.headers || undefined,
-        body: request.body || undefined,
+        headers: headers || undefined,
+        body: body || undefined,
         timeout: 5000
       })
         .then((result) => {
