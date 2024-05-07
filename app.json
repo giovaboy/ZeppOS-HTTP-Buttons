@@ -6,13 +6,13 @@
     "appType": "app",
     "version": {
       "code": 1,
-      "name": "1.0.0"
+      "name": "1.2.0"
     },
     "icon": "icon.png",
     "vender": "giova",
     "description": "Some buttons firing HTTP requests"
   },
-  "permissions": ["data:os.device.info", "device:os.local_storage"],
+  "permissions": ["data:os.device.info"],
   "runtime": {
     "apiVersion": {
       "compatible": "3.0.0",

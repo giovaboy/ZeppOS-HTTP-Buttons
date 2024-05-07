@@ -108,11 +108,11 @@ AppSettingsPage({
   },
   addGlobalVariable(key, val) {
     this.state.data[0].variables[key] = val;
-    this.setItem()
+    this.setItem();
   },
   editGlobalVariable(key, val) {
-    this.state.data[0].variables[key] = val
-    this.setItem()
+    this.state.data[0].variables[key] = val;
+    this.setItem();
   },
   editGlobalVariableKey(oldkey, newkey) {
     var temp = this.state.data[0].variables[oldkey];
@@ -330,7 +330,7 @@ AppSettingsPage({
           width: '40%',
         },
         onClick: () => {
-          this.addGlobalVariable('var' + (this.state.data[0].variables.length + 1), '')
+          this.addGlobalVariable('var' + contentVariables.length, '')
         }
       });
 

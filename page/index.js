@@ -4,6 +4,15 @@ import { layout } from 'zosLoader:./index.[pf].layout.js'
 
 const logger = Logger.getLogger("http-buttons");
 
+function isJsonString(str) {
+  try {
+      JSON.parse(str);
+  } catch (e) {
+      return false;
+  }
+  return true;
+}
+
 function searchJSON(obj, key) {
   let results = [];
   for (let k in obj) {
@@ -65,6 +74,7 @@ Page(
 
     executeButtonRequest(request, pageid) {
       let url = request.url;
+      let method = request.method;
       let headers = request.headers;
       let body = request.body;
       let dt = JSON.parse(this.state.data)
@@ -85,18 +95,18 @@ Page(
         })
       }
 
-      // logger.log("method", request.method)
+      // logger.log("method", method)
       // logger.log("url", url)
       // logger.log("headers", headers)
-      // logger.log("body", body)
+      //logger.log("body", body)
       // logger.log("pageid", pageid)
       // logger.log("response_style", request.response_style)
 
       const task = this.httpRequest({
         url: url,
-        method: request.method,
-        headers: headers || undefined,
-        body: body || undefined,
+        method: method,
+        headers: (headers && isJsonString(headers)) ? JSON.parse(headers) : undefined,
+        body: (body && isJsonString(body)) ? JSON.parse(body) : undefined,
         timeout: 5000
       })
         .then((result) => {
