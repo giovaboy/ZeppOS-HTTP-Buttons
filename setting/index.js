@@ -895,7 +895,7 @@ AppSettingsPage({
                         Select({
                           title: gettext('insert_method') + (button.request.method || '--'),
                           value: button.request.method,
-                          options: [{ name: 'GET', value: 'GET' }, { name: 'POST', value: 'POST' }, { name: 'PUT', value: 'PUT' }, { name: 'HEAD', value: 'HEAD' }, { name: 'DELETE', value: 'DELETE' }],
+                          options: [{ name: 'GET', value: 'GET' }, { name: 'POST', value: 'POST' }, { name: 'PUT', value: 'PUT' }, { name: 'HEAD', value: 'HEAD' }, { name: 'DELETE', value: 'DELETE' },  { name: 'PATCH', value: 'PATCH' }],
                           onChange: (value) => {
                             this.editButton('method', value, pindex, rindex, bindex)
                           }
