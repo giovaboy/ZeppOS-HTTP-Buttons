@@ -1,14 +1,14 @@
-import { BaseApp } from "@zeppos/zml/base-app";
+import { BaseApp } from "@zeppos/zml/base-app"
 
 App(
   BaseApp({
     globalData: {},
     onCreate(options) {
-      console.log("app on create invoke");
+      //console.log("app on create invoke");
     },
 
     onDestroy(options) {
-      console.log("app on destroy invoke");
+      //console.log("app on destroy invoke");
     },
   })
 );
