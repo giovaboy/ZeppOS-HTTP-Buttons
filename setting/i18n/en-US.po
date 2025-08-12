@@ -1,0 +1,131 @@
+msgid "title_text"
+msgstr "HTTP-Buttons"
+
+msgid "welcome_text"
+msgstr "Hi! From here you can set up HTTP-Buttons, you can add and reorder pages, rows and buttons. You can edit a lot of properties but you can also modify the JSON string clicking the config button at the bottom of the page."
+
+msgid "conf"
+msgstr "Configuration"
+
+msgid "fix_conf"
+msgstr "Fix Configuration"
+
+msgid "config_error_text"
+msgstr "⚠️\nCannot load the current configuration, you can try to fix it or reset it to default."
+
+msgid "delete_storage"
+msgstr "Re-Init configuration"
+
+msgid "add_page"
+msgstr "Add Page"
+
+msgid "page_title"
+msgstr "Page Title"
+
+msgid "delete_page"
+msgstr "Delete Page"
+
+msgid "add_row"
+msgstr "Add Row"
+
+msgid "delete_row"
+msgstr "Delete Row"
+
+msgid "row_number"
+msgstr "Row Number"
+
+msgid "page"
+msgstr "Page:"
+
+msgid "row"
+msgstr "Row:"
+
+msgid "w"
+msgstr "Width %"
+
+msgid "h"
+msgstr "Height %"
+
+msgid "radius"
+msgstr "Radius: "
+
+msgid "back_color"
+msgstr "Background Color"
+
+msgid "text_color"
+msgstr "Text Color"
+
+msgid "text_size"
+msgstr "Text Size: "
+
+msgid "add_button"
+msgstr "Add Button"
+
+msgid "button_text"
+msgstr "Button Text"
+
+msgid "delete_button"
+msgstr "Delete Button"
+
+msgid "move_to"
+msgstr "Move to -> "
+
+msgid "**NO TEXT**"
+msgstr "**NO TEXT**"
+
+msgid "is_spacer"
+msgstr "Spacer"
+
+msgid "insert_method"
+msgstr "Method: "
+
+msgid "response_style"
+msgstr "Response Style"
+
+msgid "system_toast"
+msgstr "Toast"
+
+msgid "custom_toast"
+msgstr "Custom Toast"
+
+msgid "system_modal"
+msgstr "Modal"
+
+msgid "no_notification"
+msgstr "Nothing"
+
+msgid "variables"
+msgstr "Variables:"
+
+msgid "add_variable"
+msgstr "Add Variable"
+
+msgid "edit_variable"
+msgstr "Rename"
+
+msgid "delete_variable"
+msgstr "Delete"
+
+msgid "rename_variable"
+msgstr "rename"
+
+msgid "auth"
+msgstr "Auth: "
+
+msgid "user"
+msgstr "auth user"
+
+msgid "pass"
+msgstr "auth pass"
+
+msgid "yes"
+msgstr "Yes"
+
+msgid "no"
+msgstr "No"
+
+msgid "confirm_delete"
+msgstr "Delete "
+
+msgid "is_input"
+msgstr "Input"

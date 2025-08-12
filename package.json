@@ -1,0 +1,18 @@
+{
+  "name": "http-buttons",
+  "version": "1.4.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@zeppos/device-types": "^3.0.0"
+  },
+  "dependencies": {
+    "@zeppos/zeus-cli": "^1.7.2",
+    "@zeppos/zml": "^0.0.23"
+  }
+}

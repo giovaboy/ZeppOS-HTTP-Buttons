@@ -1,0 +1,5 @@
+msgid "loading"
+msgstr "Loading..."
+
+msgid "comunication_error"
+msgstr "Device communication error. Please check the app settings on your phone and try again."

@@ -1,0 +1,60 @@
+{
+  "configVersion": "v3",
+  "app": {
+    "appId": 1045755,
+    "appName": "HTTP-Buttons",
+    "appType": "app",
+    "version": {
+      "code": 2,
+      "name": "1.4.0"
+    },
+    "icon": "icon.png",
+    "vender": "giova",
+    "description": "Some buttons firing HTTP requests"
+  },
+  "permissions": ["data:os.device.info"],
+  "runtime": {
+    "apiVersion": {
+      "compatible": "3.0.0",
+      "target": "4.0.0",
+      "minVersion": "3.0"
+    }
+  },
+  "targets": {
+    "default": {
+      "module": {
+        "page": {
+          "pages": [
+            "page/index"
+          ]
+        },
+        "app-side": {
+          "path": "app-side/index"
+        },
+        "setting": {
+          "path": "setting/index"
+        }
+      },
+      "platforms": [
+        {
+          "st": "r",
+          "dw": 480
+        },
+        {
+          "st": "s",
+          "dw": 390
+        },
+        {
+          "st": "b",
+          "dw": 194
+        }
+      ]
+    }
+  },
+  "i18n": {
+    "en-US": {
+      "appName": "HTTP-Buttons"
+    }
+  },
+  "defaultLanguage": "en-US"
+}
