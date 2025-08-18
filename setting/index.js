@@ -448,20 +448,34 @@ AppSettingsPage({
             key = `var_${i}`
             i++
           } while (key in vars)
-
           this.addGlobalVariable(key, '')
         }
       });
 
-    const clearBTN = Button({
-        style: {
-          fontSize: '12px', lineHeight: '35px', borderRadius: '30px', background: '#db2c2c', color: 'white', textAlign: 'center', padding: '0 15px', width: '50%'
-        },
+    const clearBTN = View({
+      style: {
+        fontSize: '12px',
+        fontWeight: '500',
+        lineHeight: '35px',
+        borderRadius: '30px',
+        background: '#db2c2c',
+        color: 'white',
+        textAlign: 'left',
+        padding: '0 15px',
+        //margin: '0 5px 0 0',
+      }
+    },
+      [TextInput({
         label: gettext('delete_storage'),
-        onClick: () => {
+        labelStyle: { textAlign: 'center' },
+        subStyle: { display: 'none' },
+        disabled: true,
+        placeholder: gettext('delete_storage') + '?',
+        value: undefined,
+        onChange: () => {
           this.deleteState()
         }
-      });
+      })]);
 
     const confBTN = View(
       {
@@ -474,12 +488,11 @@ AppSettingsPage({
           textAlign: 'left',
           padding: '0 15px',
           margin: '6px 0',
-          width: '50%'
         }
       },
       [TextInput({
         label: gettext('conf'),
-        labelStyle:{textAlign: 'center'},
+        labelStyle: { textAlign: 'center' },
         subStyle: { display: 'none' },
         value: JSON.stringify(this.state.data),
         onChange: (value) => {
@@ -594,7 +607,7 @@ AppSettingsPage({
                   maxLength: 200,
                   onChange: (val) => {
                     if (val == null) return
-                    if (val === vindex) return 
+                    if (val === vindex) return
                     if (val.length <= 200) {
                       this.editGlobalVariable(vindex, val)
                     } else {
