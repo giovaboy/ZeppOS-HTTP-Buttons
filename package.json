@@ -12,7 +12,8 @@
     "@zeppos/device-types": "^3.0.0"
   },
   "dependencies": {
-    "@zeppos/zeus-cli": "^1.7.2",
-    "@zeppos/zml": "^0.0.23"
+    "@zeppos/zeus-cli": "^1.6.7",
+    "@zeppos/zml": "^0.0.23",
+    "https": "^1.0.0"
   }
 }

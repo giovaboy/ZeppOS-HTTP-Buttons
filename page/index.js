@@ -144,16 +144,16 @@ Page(
         }
       }
 
-       logger.debug("method", method)
-       logger.debug("url", url)
-       logger.debug("headers", headers)
-       logger.debug("body", body)
-       logger.debug("auth", auth)
-       logger.debug("user", user)
-       logger.debug("pass", pass)
-       logger.debug("token", token)
-      // logger.log("pageid", pageid)
-      // logger.log("response_style", request.response_style)
+       logger.debug('method', method)
+       logger.debug('url', url)
+       logger.debug('headers', headers)
+       logger.debug('body', body)
+       logger.debug('auth', auth)
+       logger.debug('user', user)
+       logger.debug('pass', pass)
+       logger.debug('token', token)
+      // logger.log('pageid', pageid)
+      // logger.log('response_style', request.response_style)
 
       if (auth === 'Digest') {
         task = digestRequest(this, {

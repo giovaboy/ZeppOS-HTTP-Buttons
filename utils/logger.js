@@ -15,30 +15,56 @@ const currentLevel = levels[LOG_LEVEL] || levels.debug;
 export const getLogger = (name) => {
   const zosLogger = log.getLogger(name);
 
-  return {
-    log: (message) => {
-      if (currentLevel <= levels.log) {
+  const logMessage = (level, args) => {
+    const message = args.map(arg =>
+      typeof arg === 'object' && arg !== null ? JSON.stringify(arg) : String(arg)
+    ).join(' ');
+
+    switch (level) {
+      case levels.log:
         zosLogger.log(message);
-      }
-    },
-    debug: (message) => {
-      if (currentLevel <= levels.debug) {
+        break;
+      case levels.debug:
         zosLogger.debug(message);
-      }
-    },
-    info: (message) => {
-      if (currentLevel <= levels.info) {
+        break;
+      case levels.info:
         zosLogger.info(message);
-      }
-    },
-    warn: (message) => {
-      if (currentLevel <= levels.warn) {
+        break;
+      case levels.warn:
         zosLogger.warn(message);
+        break;
+      case levels.error:
+        zosLogger.error(message);
+        break;
+      default:
+        zosLogger.info(`Unknown log level: ${level}. Message: ${message}`);
+    }
+  };
+
+  return {
+    log: (...args) => {
+      if (currentLevel <= levels.log) {
+        logMessage(levels.log, args);
       }
     },
-    error: (message) => {
+    debug: (...args) => {
+      if (currentLevel <= levels.debug) {
+        logMessage(levels.debug, args);
+      }
+    },
+    info: (...args) => {
+      if (currentLevel <= levels.info) {
+        logMessage(levels.info, args);
+      }
+    },
+    warn: (...args) => {
+      if (currentLevel <= levels.warn) {
+        logMessage(levels.warn, args);
+      }
+    },
+    error: (...args) => {
       if (currentLevel <= levels.error) {
-        zosLogger.error(message);
+        logMessage(levels.error, args);
       }
     }
   }

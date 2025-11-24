@@ -4,7 +4,8 @@ const { width: DEVICE_WIDTH, height: DEVICE_HEIGHT } = getDeviceInfo();
 
 const KEY_SIZE = 64;
 const KEYS_PER_ROW = 7;
-const START_Y = 100;
+const START_Y = 90;
+const X_KEY_CENTER = (DEVICE_WIDTH/2)-(50)
 
 export const KEY_SHIFT = 200;
 export const KEY_NUM = 201;
@@ -34,10 +35,11 @@ function generateLayout(keysArray, yStart = START_Y, extraKeys = []) {
       const key = row[i];
       layout.push({
         id: id++,
-        x: i * KEY_SIZE,
+        x: (i * KEY_SIZE) - 4,
         y: yStart + rowIndex * KEY_SIZE,
         text: key.text,
-        value: key.value
+        value: key.value,
+        //image: 'assets/keys/' + key.value + '.png'
       });
     }
   }
@@ -122,27 +124,27 @@ export const numbersKeys = [
 ];
 
 const extraKeysLower = [
-  { text: 'A', value: KEY_ABC, x: 80, y: START_Y + KEY_SIZE * 4 },
-  { text: 'OK',  value: KEY_SEND, x: (DEVICE_WIDTH/2)-(KEY_SIZE), y: START_Y + KEY_SIZE * 4 },
-  { text: 'X', value: KEY_CANCEL, x: 260, y: START_Y + KEY_SIZE * 4 }
+  { text: 'A', value: KEY_ABC, x: X_KEY_CENTER - 100, y: DEVICE_HEIGHT - 120 },
+  { text: 'OK',  value: KEY_SEND, x: X_KEY_CENTER, y: DEVICE_HEIGHT - 120 },
+  { text: 'X', value: KEY_CANCEL, x: X_KEY_CENTER + 100, y: DEVICE_HEIGHT - 120 }
 ];
 
 const extraKeysUpper = [
-  { text: '123', value: KEY_NUM, x: 80, y: START_Y + KEY_SIZE * 4 },
-  { text: 'OK',  value: KEY_SEND, x: 180, y: START_Y + KEY_SIZE * 4 },
-  { text: 'X', value: KEY_CANCEL, x: 260, y: START_Y + KEY_SIZE * 4 }
+  { text: '123', value: KEY_NUM, x: X_KEY_CENTER - 100, y: DEVICE_HEIGHT - 120 },
+  { text: 'OK',  value: KEY_SEND, x: X_KEY_CENTER, y: DEVICE_HEIGHT - 120 },
+  { text: 'X', value: KEY_CANCEL, x: X_KEY_CENTER + 100, y: DEVICE_HEIGHT - 120 }
 ];
 
 const extraKeysNumbers = [
-  { text: '?', value: KEY_SYMB, x: 80, y: START_Y + KEY_SIZE * 4 },
-  { text: 'OK',  value: KEY_SEND, x: 180, y: START_Y + KEY_SIZE * 4 },
-  { text: 'X', value: KEY_CANCEL, x: 260, y: START_Y + KEY_SIZE * 4 }
+  { text: '?', value: KEY_SYMB, x: X_KEY_CENTER - 100, y: DEVICE_HEIGHT - 120 },
+  { text: 'OK',  value: KEY_SEND, x: X_KEY_CENTER, y: DEVICE_HEIGHT - 120 },
+  { text: 'X', value: KEY_CANCEL, x: X_KEY_CENTER + 100, y: DEVICE_HEIGHT - 120 }
 ];
 
 const extraKeysSymbols = [
-  { text: 'a', value: KEY_abc, x: 80, y: START_Y + KEY_SIZE * 4 },
-  { text: 'OK', value: KEY_SEND, x: 180, y: START_Y + KEY_SIZE * 4 },
-  { text: 'X', value: KEY_CANCEL, x: 260, y: START_Y + KEY_SIZE * 4 }
+  { text: 'a', value: KEY_abc, x: X_KEY_CENTER - 100, y: DEVICE_HEIGHT - 120 },
+  { text: 'OK', value: KEY_SEND, x: X_KEY_CENTER, y: DEVICE_HEIGHT - 120 },
+  { text: 'X', value: KEY_CANCEL, x: X_KEY_CENTER + 100, y: DEVICE_HEIGHT - 120 }
 ];
 
 export const kb_lowercase = generateLayout(lettersLower, START_Y, extraKeysLower);
