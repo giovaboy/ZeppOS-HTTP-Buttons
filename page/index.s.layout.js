@@ -7,7 +7,7 @@ import { showToast, createModal } from '@zos/interaction'
 import { getText } from '@zos/i18n'
 import { getLogger } from '../utils/logger.js'
 import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE } from 'zosLoader:./keyboard.[pf].layout.js'
-import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_GRAY, COLOR_RED, COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION } from '../utils/constants.js';
+import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_GRAY, COLOR_RED, COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, KB_TYPE_LOWERCASE, KB_TYPE_UPPERCASE, KB_TYPE_NUMERIC, KB_TYPE_SYMBOLS } from '../utils/constants.js';
 
 const { width: DEVICE_WIDTH, height: DEVICE_HEIGHT } = getDeviceInfo();
 const TEXT_SIZE = DEVICE_WIDTH / 16;
@@ -44,6 +44,25 @@ export const LOADING_IMG_ANIM_WIDGET = {//155*155
     anim_status: anim_status.START,
     x: (DEVICE_WIDTH/2)-(155/2), y: DEVICE_HEIGHT/2
   };
+
+/**
+ * Returns the appropriate keyboard layout based on keyboard_type
+ * @param {number} keyboardType - The keyboard type constant
+ * @returns {Array} The keyboard layout array
+ */
+function getInitialKeyboard(keyboardType) {
+  switch (keyboardType) {
+    case KB_TYPE_UPPERCASE:
+      return kb_uppercase;
+    case KB_TYPE_NUMERIC:
+      return kb_numbers;
+    case KB_TYPE_SYMBOLS:
+      return kb_symbols;
+    case KB_TYPE_LOWERCASE:
+    default:
+      return kb_lowercase;
+  }
+}
 
 export const layout = {
   refs: {},
@@ -222,7 +241,7 @@ export const layout = {
                         closeKeyboard();
                         break;
                       default:
-                        // Carattere normale
+                        // Normal character
                         inputText += String.fromCharCode(value);
                         kb.setProperty(prop.TEXT, inputText);
                     }
@@ -230,7 +249,7 @@ export const layout = {
 
                   function sendText(text) {
                     inputText = ''
-                    logger.debug('Testo inviato:', text);
+                    logger.debug('Text sent:', text);
                     vm.executeButtonRequest(button.request, pi, text)
                     closeKeyboard()
                   }
@@ -258,7 +277,7 @@ export const layout = {
 
                     if (!currentKeyboard) {
                       inputText = '';
-                      // Sfondo coprente
+                      // Covering background
                       kbBackground = createWidget(widget.FILL_RECT, {
                         x: 0, y: px(offsetYpage),
                         w: DEVICE_WIDTH, h: DEVICE_HEIGHT,
@@ -273,7 +292,7 @@ export const layout = {
                       currentKeyboard.setProperty(prop.Y, px(offsetYpage))
 
                       currentKeyboard.setProperty(prop.TEXT_STYLE, {
-                        x: 0, y:  px(offsetYpage + 100),  //posizione testo sopra la tastiera
+                        x: 0, y:  px(offsetYpage + 100),  // text position above keyboard
                         w: DEVICE_WIDTH,
                         align_h: align.CENTER,
                         color: 0xffffff,
@@ -295,14 +314,14 @@ export const layout = {
 
                     const newIds = new Set(newLayout.map(k => k.id));
 
-                    // aggiorna o aggiunge
+                    // update or add keys
                     newLayout.forEach(key => {
                       if (currentLayoutIds.has(key.id)) {
                         currentKeyboard.setProperty(prop.KEY_PARA, {
                           id: key.id,
                           x: key.x, y: key.y,
-                          text: key.text,  // solo char singolo
-                          image: key.image, // opzionale per pulsanti speciali
+                          text: key.text,  // single char only
+                          image: key.image, // optional for special buttons
                           value: key.value
                         });
                       } else {
@@ -310,7 +329,7 @@ export const layout = {
                       }
                     });
 
-                    // rimuove i tasti non più presenti
+                    // remove keys no longer present
                     currentLayoutIds.forEach(oldId => {
                       if (!newIds.has(oldId)) {
                         currentKeyboard.setProperty(prop.DEL_KEY, { id: oldId });
@@ -320,7 +339,9 @@ export const layout = {
                     currentLayoutIds = newIds;
                   }
 
-                  renderKeyboard(kb_lowercase);
+                  // Get initial keyboard based on button's keyboard_type setting
+                  const initialKeyboard = getInitialKeyboard(button.keyboard_type);
+                  renderKeyboard(initialKeyboard);
                 } else {
                   vm.executeButtonRequest(button.request, pi)
                 }

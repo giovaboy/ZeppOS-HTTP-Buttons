@@ -10,7 +10,8 @@ import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
   COLOR_PURPLE, COLOR_MAGENTA, COLOR_LAVENDER,
   COLOR_BROWN, COLOR_TAN, COLOR_BEIGE,
   COLOR_LIGHT_GRAY, COLOR_DARK_GRAY, COLOR_SILVER,
-  SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION } from '../utils/constants.js'
+  SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION,
+  KB_TYPE_LOWERCASE, KB_TYPE_UPPERCASE, KB_TYPE_NUMERIC, KB_TYPE_SYMBOLS } from '../utils/constants.js'
 
 // === UTILITY FUNCTIONS ===
 function tryParseJSON(json) {
@@ -137,6 +138,15 @@ const colors = () => {
   ];
 }
 
+const keyboardTypes = () => {
+  return [
+    { name: gettext('kb_lowercase'), value: KB_TYPE_LOWERCASE },
+    { name: gettext('kb_uppercase'), value: KB_TYPE_UPPERCASE },
+    { name: gettext('kb_numeric'), value: KB_TYPE_NUMERIC },
+    { name: gettext('kb_symbols'), value: KB_TYPE_SYMBOLS }
+  ];
+}
+
 // === LAYOUT BUILDER FUNCTIONS ===
 
 const buildButtonView = (button, pindex, rindex, bindex, context) => {
@@ -165,9 +175,9 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
           }
         },
         [
-          // Colonna sinistra - Info base pulsante
+          // Left column - Basic button info
           buildButtonBasicInfo(button, pindex, rindex, bindex, context),
-          // Colonna destra - Configurazione HTTP
+          // Right column - HTTP configuration
           buildButtonHTTPConfig(button, pindex, rindex, bindex, context)
         ]
       ),
@@ -253,7 +263,7 @@ const buildButtonHTTPConfig = (button, pindex, rindex, bindex, context) => {
       }
     },
     [
-      // Stile pulsante
+      // Button style options
       Select({
         title: gettext('radius') + button.radius,
         value: button.radius,
@@ -278,7 +288,7 @@ const buildButtonHTTPConfig = (button, pindex, rindex, bindex, context) => {
         onChange: (value) => context.editButton('text_size', value, pindex, rindex, bindex)
       }),
 
-      // Configurazione HTTP Request
+      // HTTP Request configuration
       TextInput({
         bold: false,
         value: button.request.url || gettext('**URL**'),
@@ -314,11 +324,24 @@ const buildButtonHTTPConfig = (button, pindex, rindex, bindex, context) => {
         subStyle: { color: '#333', fontSize: '10px' },
         onChange: (value) => context.editButton('input', value, pindex, rindex, bindex)
       }),
+      // Keyboard type selector (only visible when input is enabled)
+      View({
+        style: {
+          display: button.input ? 'block' : 'none'
+        }
+      }, [
+        Select({
+          title: gettext('keyboard_type'),
+          value: button.keyboard_type || KB_TYPE_LOWERCASE,
+          options: keyboardTypes(),
+          onChange: (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex)
+        })
+      ]),
 
-      // Autenticazione
+      // Authentication
       ...buildAuthFields(button, pindex, rindex, bindex, context),
 
-      // Headers e Body
+      // Headers and Body
       TextInput({
         bold: false,
         value: button.request.headers || gettext('**HEADERS**'),
@@ -624,7 +647,6 @@ AppSettingsPage({
     props: {}
   },
 
-  // ... (tutti i metodi esistenti: addGlobalVariable, editGlobalVariable, ecc.)
   addGlobalVariable(key, val) {
     this.state.data.variables[key] = val;
     this.setItem();
@@ -738,6 +760,7 @@ AppSettingsPage({
       case 'pass': btn.request.pass = val; break;
       case 'token': btn.request.token = val; break;
       case 'input': btn.input = val; break;
+      case 'keyboard_type': btn.keyboard_type = val; break;
     }
     this.setItem()
   },
@@ -808,7 +831,7 @@ AppSettingsPage({
     const contentItems = []
     const contentVariables = []
 
-    // Welcome text (invariato)
+    // Welcome text
     const welcomeText = View({}, [
       Text({ bold: true, align: 'center', paragraph: true, style: { fontSize: '36px' }},
         [gettext('title_text')]),
@@ -816,7 +839,7 @@ AppSettingsPage({
         [gettext('welcome_text')])
     ])
 
-    // Pulsanti principali (invariati)
+    // Main buttons
     const addPageBTN = View({ style: { fontSize: '12px', lineHeight: '35px', borderRadius: '30px', background: '#409EFF', color: 'white', textAlign: 'center', padding: '0 40px', width: '40%' }}, [
       TextInput({
         label: gettext('add_page'),
@@ -877,12 +900,12 @@ AppSettingsPage({
       ])
     ]);
 
-    // === COSTRUZIONE DINAMICA DEL LAYOUT ===
+    // === DYNAMIC LAYOUT BUILDING ===
 
     if (this.state.data) {
       const variables = this.state.data.variables || {};
 
-      // Sezione Variabili Globali
+      // Global Variables section
       contentVariables.push(
         Text({ bold: true, align: 'left', paragraph: true, style: { fontSize: '16px', padding: '4px 4px' }},
           [gettext('variables')])
@@ -939,18 +962,18 @@ AppSettingsPage({
           )
         });
 
-      // === COSTRUZIONE PAGES/ROWS/BUTTONS CON FUNZIONI HELPER ===
+      // === BUILD PAGES/ROWS/BUTTONS WITH HELPER FUNCTIONS ===
       const pages = this.state.data.pages || [];
 
       for (let [pindex, page] of pages.entries()) {
-        // Aggiungi la view della pagina
+        // Add page view
         contentItems.push(buildPageView(page, pindex, this));
 
-        // Aggiungi le righe della pagina
+        // Add page rows
         for (let [rindex, row] of page.rows.entries()) {
           contentItems.push(buildRowView(row, page, pindex, rindex, this));
 
-          // Aggiungi i pulsanti della riga
+          // Add row buttons
           for (let [bindex, button] of row.buttons.entries()) {
             contentItems.push(buildButtonView(button, pindex, rindex, bindex, this));
           }
@@ -958,7 +981,7 @@ AppSettingsPage({
       }
     }
 
-    // === RENDERING FINALE ===
+    // === FINAL RENDERING ===
 
     if (this.state.is_conf_error === true) {
       return View({ style: { padding: '12px 20px' }}, [conf_error])

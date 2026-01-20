@@ -129,3 +129,18 @@ msgstr "Delete "
 
 msgid "is_input"
 msgstr "Input"
+
+msgid "keyboard_type"
+msgstr "Keyboard Type"
+
+msgid "kb_lowercase"
+msgstr "Lowercase (abc)"
+
+msgid "kb_uppercase"
+msgstr "Uppercase (ABC)"
+
+msgid "kb_numeric"
+msgstr "Numeric (123)"
+
+msgid "kb_symbols"
+msgstr "Symbols ({[<)"
