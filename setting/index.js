@@ -797,24 +797,6 @@ AppSettingsPage({
     const newString = JSON.stringify(this.state.data)
     this.state.props.settingsStorage.setItem('data', newString)
   },
-  importConfig(value) {
-    let parsed;
-    try {
-      parsed = JSON.parse(value);
-    } catch (e) {
-      return Toast({ message: gettext('invalid_json') + ' ' + e.message });
-    }
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return Toast({ message: gettext('invalid_json') });
-    }
-    if (!Array.isArray(parsed.pages)) {
-      return Toast({ message: gettext('invalid_config_shape') });
-    }
-    this.state.is_conf_error = false;
-    this.state.data = parsed;
-    this.setItem();
-    return Toast({ message: gettext('config_imported') });
-  },
   setState(props) {
     this.state.props = props
     const rawData = props.settingsStorage.getItem('data');
@@ -898,31 +880,26 @@ AppSettingsPage({
       })
     ]);
 
-    const confBTN = View({ style: { margin: '12px 0' }}, [
-      Text({ bold: false, paragraph: true, style: { fontSize: '14px', padding: '4px 6px', color: '#666' }},
-        [gettext('conf_help')]),
-      View({ style: { borderRadius: '8px', background: '#dedede', color: 'black', padding: '8px 12px' }}, [
-        TextInput({
-          label: gettext('conf'),
-          labelStyle: { textAlign: 'center', fontWeight: '500' },
-          subStyle: { fontSize: '13px', color: COLOR_BLACK, background: COLOR_WHITE, textAlign: 'left' },
-          value: JSON.stringify(this.state.data, null, 2),
-          onChange: (value) => this.importConfig(value)
-        })
-      ])
+    const confBTN = View({ style: { fontSize: '12px', lineHeight: '35px', borderRadius: '30px', background: '#dedede', color: 'black', textAlign: 'left', padding: '0 15px', margin: '6px 0' }}, [
+      TextInput({
+        label: gettext('conf'),
+        labelStyle: { textAlign: 'center' },
+        subStyle: { display: 'none' },
+        value: JSON.stringify(this.state.data),
+        onChange: (value) => this.state.props.settingsStorage.setItem('data', value)
+      })
     ]);
 
     const conf_error = View({ style: { padding: '12px 20px' }}, [
       Text({ bold: false, paragraph: true, style: { fontSize: '20px', padding: '12px 0', whiteSpace: 'pre-line' }},
         [gettext('config_error_text')]),
-      View({ style: { display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}, [
-        View({ style: { borderRadius: '8px', background: '#dedede', color: 'black', padding: '8px 12px', margin: '6px 0' }}, [
+      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' }}, [
+        View({ style: { fontSize: '12px', lineHeight: '35px', borderRadius: '30px', background: '#dedede', color: 'black', textAlign: 'left', padding: '0 15px', margin: '6px 0', width: '50%' }}, [
           TextInput({
             label: gettext('fix_conf'),
-            labelStyle: { textAlign: 'center', fontWeight: '500' },
-            subStyle: { fontSize: '13px', color: COLOR_BLACK, background: COLOR_WHITE, textAlign: 'left' },
+            subStyle: { display: 'none' },
             value: props.settingsStorage.getItem('data'),
-            onChange: (value) => this.importConfig(value)
+            onChange: (value) => this.state.props.settingsStorage.setItem('data', value)
           })
         ]),
         clearBTN
