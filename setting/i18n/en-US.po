@@ -5,7 +5,19 @@ msgid "welcome_text"
 msgstr "Hi! From here you can set up HTTP-Buttons, you can add and reorder pages, rows and buttons. You can edit a lot of properties but you can also modify the JSON string clicking the config button at the bottom of the page."
 
 msgid "conf"
-msgstr "Configuration"
+msgstr "Configuration (JSON)"
+
+msgid "conf_help"
+msgstr "Advanced: view, copy or paste the whole configuration as JSON. Changes are validated before being applied."
+
+msgid "invalid_json"
+msgstr "Invalid JSON:"
+
+msgid "invalid_config_shape"
+msgstr "Invalid configuration: a \"pages\" array is required."
+
+msgid "config_imported"
+msgstr "Configuration applied."
 
 msgid "fix_conf"
 msgstr "Fix Configuration"
