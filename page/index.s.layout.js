@@ -7,6 +7,7 @@ import { showToast, createModal } from '@zos/interaction'
 import { getText } from '@zos/i18n'
 import { getLogger } from '../utils/logger.js'
 import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE } from 'zosLoader:./keyboard.[pf].layout.js'
+import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard.js'
 import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_GRAY, COLOR_RED, COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, KB_TYPE_LOWERCASE, KB_TYPE_UPPERCASE, KB_TYPE_NUMERIC, KB_TYPE_SYMBOLS } from '../utils/constants.js';
 
 const { width: DEVICE_WIDTH, height: DEVICE_HEIGHT } = getDeviceInfo();
@@ -210,6 +211,12 @@ export const layout = {
               press_color: btnPressColor(button.back_color || COLOR_GRAY, 1.3),
               click_func: () => {
                 if (button.input) {
+                  // Prefer the native system keyboard (API_LEVEL 4.0+);
+                  // fall back to the hand-drawn keyboard on older devices.
+                  if (isSystemKeyboardAvailable()) {
+                    openSystemKeyboard(vm, button, pi)
+                    return
+                  }
 
                   function onKeyPress(kb, id, value) {
                     logger.debug(`id:${id} char:${value}`)
