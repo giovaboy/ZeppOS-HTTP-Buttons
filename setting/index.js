@@ -14,6 +14,12 @@ import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
   KB_TYPE_LOWERCASE, KB_TYPE_UPPERCASE, KB_TYPE_NUMERIC, KB_TYPE_SYMBOLS } from '../utils/constants.js'
 
 // === UTILITY FUNCTIONS ===
+// Deep-clones a default template. The DEFAULT_* objects in constants.js are
+// shared singletons, so they must never be inserted into state by reference.
+function clone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 function tryParseJSON(json) {
   try {
     let o = JSON.parse(json);
@@ -666,7 +672,7 @@ AppSettingsPage({
     this.setItem()
   },
   addPage(title) {
-    let newPage = DEFAULT_PAGE;
+    let newPage = clone(DEFAULT_PAGE);
     newPage.title = title;
     this.state.data.pages.push(newPage);
     this.setItem()
@@ -699,7 +705,7 @@ AppSettingsPage({
     this.setItem();
   },
   addRow(pageindex) {
-    let row = DEFAULT_ROW;
+    let row = clone(DEFAULT_ROW);
     this.state.data.pages[pageindex].rows.push(row);
     this.setItem()
   },
@@ -735,7 +741,7 @@ AppSettingsPage({
     this.setItem();
   },
   addButton(pageindex, rowindex) {
-    let button = DEFAULT_BUTTON;
+    let button = clone(DEFAULT_BUTTON);
     this.state.data.pages[pageindex].rows[rowindex].buttons.push(button);
     this.setItem()
   },
@@ -802,26 +808,26 @@ AppSettingsPage({
       this.state.is_conf_error = false;
       if (Array.isArray(dt)) {
         console.log('isArray');
-        this.state.data = dt[0] || DEFAULT_DATA;
+        this.state.data = dt[0] || clone(DEFAULT_DATA);
       } else if (typeof dt === 'object') {
         this.state.data = dt;
       } else {
         console.log('data format invalid');
         this.state.is_conf_error = true;
-        this.state.data = DEFAULT_DATA;
+        this.state.data = clone(DEFAULT_DATA);
       }
     } else if (rawData) {
       console.log('data error');
       this.state.is_conf_error = true;
-      this.state.data = DEFAULT_DATA;
+      this.state.data = clone(DEFAULT_DATA);
     } else {
       console.log('data empty');
       this.state.is_conf_error = false;
-      this.state.data = DEFAULT_DATA;
+      this.state.data = clone(DEFAULT_DATA);
     }
   },
   deleteState() {
-    this.state.data = DEFAULT_DATA
+    this.state.data = clone(DEFAULT_DATA)
     this.setItem()
   },
 
