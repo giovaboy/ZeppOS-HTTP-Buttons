@@ -11,7 +11,7 @@ import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
   COLOR_BROWN, COLOR_TAN, COLOR_BEIGE,
   COLOR_LIGHT_GRAY, COLOR_DARK_GRAY, COLOR_SILVER,
   SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION,
-  KB_TYPE_LOWERCASE, KB_TYPE_UPPERCASE, KB_TYPE_NUMERIC, KB_TYPE_SYMBOLS } from '../utils/constants.js'
+  KB_TYPE_CHAR, KB_TYPE_NUMERIC } from '../utils/constants.js'
 
 // === UTILITY FUNCTIONS ===
 // Deep-clones a default template. The DEFAULT_* objects in constants.js are
@@ -146,10 +146,8 @@ const colors = () => {
 
 const keyboardTypes = () => {
   return [
-    { name: gettext('kb_lowercase'), value: KB_TYPE_LOWERCASE },
-    { name: gettext('kb_uppercase'), value: KB_TYPE_UPPERCASE },
-    { name: gettext('kb_numeric'), value: KB_TYPE_NUMERIC },
-    { name: gettext('kb_symbols'), value: KB_TYPE_SYMBOLS }
+    { name: gettext('kb_char'), value: KB_TYPE_CHAR },
+    { name: gettext('kb_numeric'), value: KB_TYPE_NUMERIC }
   ];
 }
 
@@ -338,7 +336,7 @@ const buildButtonHTTPConfig = (button, pindex, rindex, bindex, context) => {
       }, [
         Select({
           title: gettext('keyboard_type'),
-          value: button.keyboard_type || KB_TYPE_LOWERCASE,
+          value: button.keyboard_type || KB_TYPE_CHAR,
           options: keyboardTypes(),
           onChange: (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex)
         })

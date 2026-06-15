@@ -6,10 +6,8 @@ export const DEFAULT_PAGE = { rows: [DEFAULT_ROW] };
 export const DEFAULT_DATA = { variables: {"var1":"1", "var2":"2"}, pages: [DEFAULT_PAGE] };
 
 // Keyboard types for input buttons
-export const KB_TYPE_LOWERCASE = 0;  // abc
-export const KB_TYPE_UPPERCASE = 1;  // ABC
-export const KB_TYPE_NUMERIC = 2;    // 123
-export const KB_TYPE_SYMBOLS = 3;    // {[]}
+export const KB_TYPE_CHAR = 0;     // text (abc/ABC/symbols, switchable at runtime)
+export const KB_TYPE_NUMERIC = 1;  // 123
 
 export const BTN_WIDTH = 100;
 export const BTN_HEIGHT = 40;

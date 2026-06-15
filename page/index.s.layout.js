@@ -8,7 +8,7 @@ import { getText } from '@zos/i18n'
 import { getLogger } from '../utils/logger.js'
 import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE } from 'zosLoader:./keyboard.[pf].layout.js'
 import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard.js'
-import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_GRAY, COLOR_RED, COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, KB_TYPE_LOWERCASE, KB_TYPE_UPPERCASE, KB_TYPE_NUMERIC, KB_TYPE_SYMBOLS } from '../utils/constants.js';
+import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_GRAY, COLOR_RED, COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, KB_TYPE_CHAR, KB_TYPE_NUMERIC } from '../utils/constants.js';
 
 const { width: DEVICE_WIDTH, height: DEVICE_HEIGHT } = getDeviceInfo();
 const TEXT_SIZE = DEVICE_WIDTH / 16;
@@ -53,13 +53,9 @@ export const LOADING_IMG_ANIM_WIDGET = {//155*155
  */
 function getInitialKeyboard(keyboardType) {
   switch (keyboardType) {
-    case KB_TYPE_UPPERCASE:
-      return kb_uppercase;
     case KB_TYPE_NUMERIC:
       return kb_numbers;
-    case KB_TYPE_SYMBOLS:
-      return kb_symbols;
-    case KB_TYPE_LOWERCASE:
+    case KB_TYPE_CHAR:
     default:
       return kb_lowercase;
   }
