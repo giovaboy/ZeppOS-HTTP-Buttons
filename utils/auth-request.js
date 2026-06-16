@@ -157,7 +157,12 @@ function md5(input) {
 
 function parseChallenge(header) {
   const obj = {};
-  header.replace(/(\w+)=\"([^\"]+)\"/g, (_, k, v) => { obj[k] = v; });
+  // Values may be quoted ("...") or unquoted: e.g. httpbin.org quotes nonce/qop,
+  // while go-httpbin (httpbin.io) sends `qop=auth, nonce=..., algorithm=MD5` bare.
+  header.replace(/(\w+)=(?:\"([^\"]*)\"|([^,\s]+))/g, (_, k, quoted, unquoted) => {
+    obj[k] = quoted !== undefined ? quoted : unquoted;
+    return '';
+  });
   return obj;
 }
 
@@ -166,7 +171,7 @@ function generateCnonce() {
 }
 
 function buildDigestAuth({ username, password, method, uri, challenge, body = "" }) {
-  const { realm, nonce, qop } = challenge;
+  const { realm, nonce, qop, opaque, algorithm } = challenge;
   const nc = '00000001';
   const cnonce = generateCnonce();
 
@@ -182,7 +187,10 @@ function buildDigestAuth({ username, password, method, uri, challenge, body = ""
 
   const response = md5(`${HA1}:${nonce}:${nc}:${cnonce}:${qop}:${HA2}`);
 
-  return `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", qop="${qop}", nc=${nc}, cnonce="${cnonce}", response="${response}"`;
+  let auth = `Digest username="${username}", realm="${realm}", nonce="${nonce}", uri="${uri}", qop="${qop}", nc=${nc}, cnonce="${cnonce}", response="${response}"`;
+  if (algorithm) auth += `, algorithm=${algorithm}`;
+  if (opaque) auth += `, opaque="${opaque}"`;
+  return auth;
 }
 
 // Simple URL decoding function (since we can't use built-in APIs)
