@@ -5,8 +5,8 @@
     "appName": "HTTP-Buttons",
     "appType": "app",
     "version": {
-      "code": 3,
-      "name": "1.5.0"
+      "code": 4,
+      "name": "1.5.1"
     },
     "icon": "icon.png",
     "vender": "giova",
