@@ -43,6 +43,9 @@ function buildImageAuthHeaders({ auth, user, pass, token }) {
 function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }, res) {
   const reqHeaders = { ...(headers || {}), ...buildImageAuthHeaders({ auth, user, pass, token }) }
 
+  // Let the downloader pick the destination and tell us where it landed, rather
+  // than forcing a custom path (convert was reporting the forced path as "not
+  // found", so the file wasn't actually being written there).
   const task = ctx.download(url, {
     timeout: 15000,
     headers: reqHeaders,
@@ -50,26 +53,42 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }
   })
 
   task.onFail = (e) => {
-    console.log('image download failed', JSON.stringify(e))
+    console.log('[img] download FAILED', JSON.stringify(e), 'code=', e && e.code, 'message=', e && e.message)
     res(null, { ok: false, error: `Download failed: ${e && e.message ? e.message : 'unknown'}` })
   }
 
   task.onSuccess = (event) => {
+    // DIAGNOSTIC: dump everything the download reports.
+    console.log('[img] download onSuccess', JSON.stringify(event),
+      'statusCode=', event && event.statusCode,
+      'filePath=', event && event.filePath,
+      'tempFilePath=', event && event.tempFilePath)
+
     if (event && event.statusCode && (event.statusCode < 200 || event.statusCode >= 300)) {
       res(null, { ok: false, error: `HTTP ${event.statusCode}` })
       return
     }
 
-    // PNG-only gate: convert rejects non-PNG input.
-    ctx.convert({ filePath: IMAGE_DOWNLOAD_PATH })
+    // Convert the file at the path the download ACTUALLY reported (filePath, or
+    // tempFilePath if no custom path was honored). PNG-only: convert rejects
+    // non-PNG input.
+    const srcPath = (event && (event.filePath || event.tempFilePath)) || IMAGE_DOWNLOAD_PATH
+    console.log('[img] converting', srcPath)
+    ctx.convert({ filePath: srcPath })
       .then((result) => {
+        console.log('[img] convert OK', JSON.stringify(result))
         // The image itself reaches the device over the transfer channel
         // (the page's onReceivedFile hook); here we just push it and ack.
         ctx.sendFile(result.targetFilePath, { type: 'image', name: 'snapshot' })
         res(null, { ok: true })
       })
       .catch((err) => {
-        console.log('convert failed (likely not a PNG)', JSON.stringify(err))
+        // Errors rarely survive JSON.stringify; log the useful fields directly.
+        console.log('[img] convert FAILED',
+          'message=', err && err.message,
+          'code=', err && err.code,
+          'str=', String(err),
+          'json=', JSON.stringify(err))
         res(null, { ok: false, error: 'Unsupported image format (PNG only)' })
       })
   }
