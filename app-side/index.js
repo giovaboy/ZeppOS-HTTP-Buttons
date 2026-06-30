@@ -38,8 +38,9 @@ function buildImageAuthHeaders({ auth, user, pass, token }) {
 
 // Download the image to the phone, convert it to a device-drawable format, then
 // push it to the watch — all via the zml side-service helpers (this.download /
-// this.convert / this.sendFile, registered by zml 0.0.41). PNG check is
-// implicit: convert only accepts PNG, so anything else fails the .catch.
+// this.convert / this.sendFile, registered by zml 0.0.41). convert accepts
+// common raster formats (PNG, JPEG, …); a genuinely unsupported/corrupt file
+// fails the .catch.
 function startImageDownload(ctx, url, reqHeaders, res) {
   // Let the downloader pick the destination and tell us where it landed, rather
   // than forcing a custom path (convert was reporting the forced path as "not
@@ -71,7 +72,7 @@ function startImageDownload(ctx, url, reqHeaders, res) {
       })
       .catch((err) => {
         console.log('[img] convert failed', err && err.message, String(err))
-        res(null, { ok: false, error: 'Unsupported image format (PNG only)' })
+        res(null, { ok: false, error: 'Image conversion failed' })
       })
   }
 }

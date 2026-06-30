@@ -65,7 +65,7 @@ export const CUSTOM_TOAST = 0
 export const SYSTEM_TOAST = 1
 export const SYSTEM_MODAL = 2
 export const NO_NOTIFICATION = 3
-export const SHOW_IMAGE = 4 // GET a PNG, convert it on the phone side, push it to the watch and show it fullscreen
+export const SHOW_IMAGE = 4 // GET an image (PNG/JPEG/…), convert it on the phone side, push it to the watch and show it fullscreen
 
 /** HELPERS */
 

@@ -95,7 +95,7 @@ msgid "no_notification"
 msgstr "Nothing"
 
 msgid "show_image"
-msgstr "Image (PNG)"
+msgstr "Image"
 
 msgid "variables"
 msgstr "Variables:"
