@@ -76,6 +76,16 @@ function startImageDownload(ctx, url, reqHeaders, res) {
   }
 }
 
+// Read a header whether res.headers is a plain object (zml/httpRequest style)
+// or an MDN-style Headers object (raw side fetch). Header names are
+// case-insensitive.
+function readHeader(headers, name) {
+  if (!headers) return undefined
+  if (typeof headers.get === 'function') return headers.get(name)
+  return headers[name] || headers[name.toLowerCase()] ||
+    headers[name.replace(/\b\w/g, (c) => c.toUpperCase())]
+}
+
 function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }, res) {
   const baseHeaders = { ...(headers || {}) }
 
@@ -83,19 +93,19 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }
     // The downloader can't do the 401 challenge round-trip itself, so we do it:
     // probe with fetch to read WWW-Authenticate, compute the Digest header
     // (reusing the device's digest helpers), then hand it to the downloader.
-    fetch({ url, method: 'GET', timeout: 10000 })
+    fetch({ url, method: 'GET' })
       .then((probe) => {
-        const wa = probe && probe.headers &&
-          (probe.headers['www-authenticate'] || probe.headers['WWW-Authenticate'])
-        if (probe && probe.status === 401 && wa && /Digest/i.test(wa)) {
+        const wa = readHeader(probe && probe.headers, 'www-authenticate')
+        if (wa && /Digest/i.test(wa)) {
           const challenge = parseChallenge(wa)
           const uri = parseUrlSimple(url).pathname
           const authHeader = buildDigestAuth({ username: user, password: pass, method: 'GET', uri, challenge })
           startImageDownload(ctx, url, { ...baseHeaders, Authorization: authHeader }, res)
-        } else if (probe && probe.status >= 200 && probe.status < 300) {
-          startImageDownload(ctx, url, baseHeaders, res) // no auth needed after all
         } else {
-          res(null, { ok: false, error: `Digest probe: HTTP ${probe && probe.status}` })
+          // No challenge surfaced (already open, or headers not exposed) — just
+          // download; the downloader's statusCode reports the truth (e.g. 401).
+          console.log('[img] digest: no challenge header from probe, status=', probe && probe.status)
+          startImageDownload(ctx, url, baseHeaders, res)
         }
       })
       .catch((e) => {
