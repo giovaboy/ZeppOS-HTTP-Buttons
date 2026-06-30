@@ -411,15 +411,34 @@ export const layout = {
       x: 0, y: px(offsetY), w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
       color: COLOR_BLACK, alpha: 255,
     });
-    // Explicit w/h + auto_scale: a runtime file has no build-time dimensions, so
-    // without a box the IMG draws at 0×0 (invisible). Fill the screen and scale.
-    this.refs.imageViewImg = createWidget(widget.IMG, {
-      x: 0, y: px(offsetY),
-      w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
-      auto_scale: true,
-      auto_scale_obj_fit: false, // keep aspect ratio, fit within the screen box
-      src: filePath,
-    });
+    // Create at native size first so we can read the image's real dimensions,
+    // then scale-to-fit (keeping aspect) and center it on both axes.
+    const img = createWidget(widget.IMG, { x: 0, y: px(offsetY), src: filePath });
+    const iw = img.getProperty(prop.W);
+    const ih = img.getProperty(prop.H);
+    logger.debug('image native size', iw, ih);
+    if (iw && ih && iw > 0 && ih > 0) {
+      const scale = Math.min(DEVICE_WIDTH / iw, DEVICE_HEIGHT / ih);
+      const w = Math.round(iw * scale);
+      const h = Math.round(ih * scale);
+      img.setProperty(prop.MORE, {
+        x: px(Math.round((DEVICE_WIDTH - w) / 2)),
+        y: px(Math.round(offsetY + (DEVICE_HEIGHT - h) / 2)),
+        w: px(w), h: px(h),
+        auto_scale: true,
+        auto_scale_obj_fit: true, // box already matches aspect, so fill = no distortion
+      });
+    } else {
+      // Dimensions unknown: fall back to fit-to-screen keeping aspect (may
+      // top-align for non-square images).
+      img.setProperty(prop.MORE, {
+        x: 0, y: px(offsetY),
+        w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
+        auto_scale: true,
+        auto_scale_obj_fit: false,
+      });
+    }
+    this.refs.imageViewImg = img;
     this.refs.imageViewBg.addEventListener(event.CLICK_DOWN, () => this.hideImage());
     this.refs.imageViewImg.addEventListener(event.CLICK_DOWN, () => this.hideImage());
   },
