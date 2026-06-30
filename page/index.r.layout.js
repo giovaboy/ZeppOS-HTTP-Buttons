@@ -399,11 +399,10 @@ export const layout = {
       x: 0, y: 0, w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
       color: COLOR_BLACK, alpha: 255,
     })
-    this.refs.imageViewImg = this.refs.imageView.createWidget(widget.IMG, {
-      // Top-left anchored: the snapshot should be sized by the camera/URL to fit
-      // the watch. src is set at runtime to the received file path.
-      x: 0, y: 0,
-    })
+    // The IMG is NOT created here: setting prop.SRC on an existing IMG doesn't
+    // reliably refresh for runtime (non-bundled) files, so it's (re)created with
+    // its src in showImage().
+    this.refs.imageViewImg = null;
     this.refs.imageView.addEventListener(event.CLICK_DOWN, () => {
       this.refs.imageView.setProperty(prop.VISIBLE, false);
     })
@@ -418,7 +417,16 @@ export const layout = {
     this.refs.imageView.setProperty(prop.MORE, {
       x: 0, y: px(offsetY), w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
     });
-    this.refs.imageViewImg.setProperty(prop.SRC, filePath);
+    // Recreate the IMG each time with the src set at creation — the only
+    // reliable way to show a runtime file path.
+    if (this.refs.imageViewImg) {
+      deleteWidget(this.refs.imageViewImg);
+    }
+    logger.debug('showImage src', filePath);
+    this.refs.imageViewImg = this.refs.imageView.createWidget(widget.IMG, {
+      x: 0, y: 0,
+      src: filePath,
+    });
     this.refs.imageView.setProperty(prop.VISIBLE, true);
   },
   notifyResult(txt, pageid, isError, type) {
