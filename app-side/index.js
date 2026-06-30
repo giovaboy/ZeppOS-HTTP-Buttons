@@ -1,5 +1,6 @@
 import { BaseSideService, settingsLib } from '@zeppos/zml/base-side'
 import { DEFAULT_DATA } from '../utils/constants.js'
+import { parseChallenge, buildDigestAuth, parseUrlSimple } from '../utils/digest.js'
 
 // Where the downloaded snapshot is stored on the phone side before conversion.
 // One fixed name is enough: requests are one-shot and never run in parallel.
@@ -23,8 +24,8 @@ function encodeBase64(str) {
   return output
 }
 
-// Build the auth header for the image GET. Digest needs a challenge round-trip
-// that downloadFile can't do, so it isn't supported for images (v1).
+// Build the auth header for the image GET. Basic/Bearer are one-shot headers;
+// Digest is handled separately (it needs a challenge round-trip, see below).
 function buildImageAuthHeaders({ auth, user, pass, token }) {
   const headers = {}
   if (auth === 'Basic' && user) {
@@ -35,14 +36,11 @@ function buildImageAuthHeaders({ auth, user, pass, token }) {
   return headers
 }
 
-// Download the remote image to the phone, convert it to a device-drawable
-// format, then push it to the watch — all via the zml side-service helpers
-// (this.download / this.convert / this.sendFile, registered by zml 0.0.41).
-// The PNG check is implicit: convert only accepts PNG, so a JPEG (or anything
-// else) makes it fail and we report a clear error instead.
-function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }, res) {
-  const reqHeaders = { ...(headers || {}), ...buildImageAuthHeaders({ auth, user, pass, token }) }
-
+// Download the image to the phone, convert it to a device-drawable format, then
+// push it to the watch — all via the zml side-service helpers (this.download /
+// this.convert / this.sendFile, registered by zml 0.0.41). PNG check is
+// implicit: convert only accepts PNG, so anything else fails the .catch.
+function startImageDownload(ctx, url, reqHeaders, res) {
   // Let the downloader pick the destination and tell us where it landed, rather
   // than forcing a custom path (convert was reporting the forced path as "not
   // found", so the file wasn't actually being written there).
@@ -63,9 +61,6 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }
       return
     }
 
-    // Convert the file at the path the download ACTUALLY reported (filePath, or
-    // tempFilePath if no custom path was honored). PNG-only: convert rejects
-    // non-PNG input.
     const srcPath = (event && (event.filePath || event.tempFilePath)) || IMAGE_DOWNLOAD_PATH
     ctx.convert({ filePath: srcPath })
       .then((result) => {
@@ -79,6 +74,38 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }
         res(null, { ok: false, error: 'Unsupported image format (PNG only)' })
       })
   }
+}
+
+function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }, res) {
+  const baseHeaders = { ...(headers || {}) }
+
+  if (auth === 'Digest') {
+    // The downloader can't do the 401 challenge round-trip itself, so we do it:
+    // probe with fetch to read WWW-Authenticate, compute the Digest header
+    // (reusing the device's digest helpers), then hand it to the downloader.
+    fetch({ url, method: 'GET', timeout: 10000 })
+      .then((probe) => {
+        const wa = probe && probe.headers &&
+          (probe.headers['www-authenticate'] || probe.headers['WWW-Authenticate'])
+        if (probe && probe.status === 401 && wa && /Digest/i.test(wa)) {
+          const challenge = parseChallenge(wa)
+          const uri = parseUrlSimple(url).pathname
+          const authHeader = buildDigestAuth({ username: user, password: pass, method: 'GET', uri, challenge })
+          startImageDownload(ctx, url, { ...baseHeaders, Authorization: authHeader }, res)
+        } else if (probe && probe.status >= 200 && probe.status < 300) {
+          startImageDownload(ctx, url, baseHeaders, res) // no auth needed after all
+        } else {
+          res(null, { ok: false, error: `Digest probe: HTTP ${probe && probe.status}` })
+        }
+      })
+      .catch((e) => {
+        console.log('[img] digest probe failed', String(e))
+        res(null, { ok: false, error: 'Digest auth probe failed' })
+      })
+    return
+  }
+
+  startImageDownload(ctx, url, { ...baseHeaders, ...buildImageAuthHeaders({ auth, user, pass, token }) }, res)
 }
 
 function migrateDataIfNeeded() {
