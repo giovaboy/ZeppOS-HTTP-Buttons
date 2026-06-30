@@ -389,45 +389,34 @@ export const layout = {
 
     this.refs.customToast.setProperty(prop.VISIBLE, false);
 
-    /* Fullscreen image overlay (response_style = SHOW_IMAGE).
-       Hidden until a converted snapshot arrives from the side service;
-       tap anywhere to dismiss. */
-    this.refs.imageView = createWidget(widget.GROUP, {
-      x: 0, y: 0, w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
-    })
-    this.refs.imageViewBg = this.refs.imageView.createWidget(widget.FILL_RECT, {
-      x: 0, y: 0, w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
-      color: COLOR_BLACK, alpha: 255,
-    })
-    // The IMG is NOT created here: setting prop.SRC on an existing IMG doesn't
-    // reliably refresh for runtime (non-bundled) files, so it's (re)created with
-    // its src in showImage().
+    /* Fullscreen image overlay (response_style = SHOW_IMAGE) is built lazily in
+       showImage() with TOP-LEVEL widgets — IMG does not render as a GROUP child,
+       which left a black background with no image on top. */
+    this.refs.imageViewBg = null;
     this.refs.imageViewImg = null;
-    this.refs.imageView.addEventListener(event.CLICK_DOWN, () => {
-      this.refs.imageView.setProperty(prop.VISIBLE, false);
-    })
-    this.refs.imageView.setProperty(prop.VISIBLE, false);
 
   },
+  hideImage() {
+    if (this.refs.imageViewImg) { deleteWidget(this.refs.imageViewImg); this.refs.imageViewImg = null; }
+    if (this.refs.imageViewBg) { deleteWidget(this.refs.imageViewBg); this.refs.imageViewBg = null; }
+  },
   showImage(vm, filePath, pageid) {
-    if (!this.refs.imageView) return;
     const offsetY = (pageid || 0) * DEVICE_HEIGHT;
-    // Move the overlay onto the page that triggered the request (swiper offsets
-    // each page by one screen height).
-    this.refs.imageView.setProperty(prop.MORE, {
-      x: 0, y: px(offsetY), w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
-    });
-    // Recreate the IMG each time with the src set at creation — the only
-    // reliable way to show a runtime file path.
-    if (this.refs.imageViewImg) {
-      deleteWidget(this.refs.imageViewImg);
-    }
+    this.hideImage();
     logger.debug('showImage src', filePath);
-    this.refs.imageViewImg = this.refs.imageView.createWidget(widget.IMG, {
-      x: 0, y: 0,
+    // Top-level widgets, placed on the page that triggered the request (the
+    // swiper offsets each page by one screen height). Black backdrop first,
+    // image (created with its src) on top; tap either to dismiss.
+    this.refs.imageViewBg = createWidget(widget.FILL_RECT, {
+      x: 0, y: px(offsetY), w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
+      color: COLOR_BLACK, alpha: 255,
+    });
+    this.refs.imageViewImg = createWidget(widget.IMG, {
+      x: 0, y: px(offsetY),
       src: filePath,
     });
-    this.refs.imageView.setProperty(prop.VISIBLE, true);
+    this.refs.imageViewBg.addEventListener(event.CLICK_DOWN, () => this.hideImage());
+    this.refs.imageViewImg.addEventListener(event.CLICK_DOWN, () => this.hideImage());
   },
   notifyResult(txt, pageid, isError, type) {
     if (type == SYSTEM_TOAST) {

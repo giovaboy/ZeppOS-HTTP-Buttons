@@ -321,7 +321,7 @@ Page(
       deleteWidget(layout.refs.customToast)
       deleteWidget(layout.refs.customToastFillRect)
       deleteWidget(layout.refs.customToastText)
-      if (layout.refs.imageView) deleteWidget(layout.refs.imageView)
+      layout.hideImage()
     },
   })
 )
