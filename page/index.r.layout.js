@@ -411,8 +411,13 @@ export const layout = {
       x: 0, y: px(offsetY), w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
       color: COLOR_BLACK, alpha: 255,
     });
+    // Explicit w/h + auto_scale: a runtime file has no build-time dimensions, so
+    // without a box the IMG draws at 0×0 (invisible). Fill the screen and scale.
     this.refs.imageViewImg = createWidget(widget.IMG, {
       x: 0, y: px(offsetY),
+      w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
+      auto_scale: true,
+      auto_scale_obj_fit: false, // keep aspect ratio, fit within the screen box
       src: filePath,
     });
     this.refs.imageViewBg.addEventListener(event.CLICK_DOWN, () => this.hideImage());
