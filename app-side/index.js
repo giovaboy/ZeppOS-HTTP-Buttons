@@ -53,17 +53,11 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }
   })
 
   task.onFail = (e) => {
-    console.log('[img] download FAILED', JSON.stringify(e), 'code=', e && e.code, 'message=', e && e.message)
+    console.log('[img] download failed', e && e.code, e && e.message)
     res(null, { ok: false, error: `Download failed: ${e && e.message ? e.message : 'unknown'}` })
   }
 
   task.onSuccess = (event) => {
-    // DIAGNOSTIC: dump everything the download reports.
-    console.log('[img] download onSuccess', JSON.stringify(event),
-      'statusCode=', event && event.statusCode,
-      'filePath=', event && event.filePath,
-      'tempFilePath=', event && event.tempFilePath)
-
     if (event && event.statusCode && (event.statusCode < 200 || event.statusCode >= 300)) {
       res(null, { ok: false, error: `HTTP ${event.statusCode}` })
       return
@@ -73,22 +67,15 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }
     // tempFilePath if no custom path was honored). PNG-only: convert rejects
     // non-PNG input.
     const srcPath = (event && (event.filePath || event.tempFilePath)) || IMAGE_DOWNLOAD_PATH
-    console.log('[img] converting', srcPath)
     ctx.convert({ filePath: srcPath })
       .then((result) => {
-        console.log('[img] convert OK', JSON.stringify(result))
         // The image itself reaches the device over the transfer channel
         // (the page's onReceivedFile hook); here we just push it and ack.
         ctx.sendFile(result.targetFilePath, { type: 'image', name: 'snapshot' })
         res(null, { ok: true })
       })
       .catch((err) => {
-        // Errors rarely survive JSON.stringify; log the useful fields directly.
-        console.log('[img] convert FAILED',
-          'message=', err && err.message,
-          'code=', err && err.code,
-          'str=', String(err),
-          'json=', JSON.stringify(err))
+        console.log('[img] convert failed', err && err.message, String(err))
         res(null, { ok: false, error: 'Unsupported image format (PNG only)' })
       })
   }
