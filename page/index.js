@@ -49,13 +49,26 @@ Page(
       this.getDataFromPhone()
     },
     onReceivedFile(file) {
-      // zml calls this automatically when the side service pushes a file.
-      // Shows the converted snapshot fullscreen on the page that asked for it
-      // (pendingImagePage, since the transfer is decoupled from the request).
-      logger.debug('image received', file && file.filePath)
+      // zml calls this when the side service STARTS pushing a file — the bytes
+      // aren't written yet. We must wait for the 'change'→'transferred' event
+      // before reading filePath, otherwise we'd show an empty (black) file.
       if (!file) return
-      this.hideLoading()
-      layout.showImage(this, file.filePath || file.fileName, this.pendingImagePage || 0)
+      logger.debug('image incoming', file.fileName)
+      file.on('change', (event) => {
+        const state = event.data.readyState
+        logger.debug('image file state', state)
+        if (state === 'transferred') {
+          this.hideLoading()
+          const userData = file.params || {}
+          if (userData.type === 'image') {
+            logger.debug('showing image', file.filePath)
+            layout.showImage(this, file.filePath, this.pendingImagePage || 0)
+          }
+        } else if (state === 'error') {
+          this.hideLoading()
+          layout.notifyResult('Image transfer failed', this.pendingImagePage || 0, true, CUSTOM_TOAST)
+        }
+      })
     },
     getDataFromPhone() {
       this.request({
