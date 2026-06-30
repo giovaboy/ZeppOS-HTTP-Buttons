@@ -389,6 +389,37 @@ export const layout = {
 
     this.refs.customToast.setProperty(prop.VISIBLE, false);
 
+    /* Fullscreen image overlay (response_style = SHOW_IMAGE).
+       Hidden until a converted snapshot arrives from the side service;
+       tap anywhere to dismiss. */
+    this.refs.imageView = createWidget(widget.GROUP, {
+      x: 0, y: 0, w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
+    })
+    this.refs.imageViewBg = this.refs.imageView.createWidget(widget.FILL_RECT, {
+      x: 0, y: 0, w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
+      color: COLOR_BLACK, alpha: 255,
+    })
+    this.refs.imageViewImg = this.refs.imageView.createWidget(widget.IMG, {
+      // Top-left anchored: the snapshot should be sized by the camera/URL to fit
+      // the watch. src is set at runtime to the received file path.
+      x: 0, y: 0,
+    })
+    this.refs.imageView.addEventListener(event.CLICK_DOWN, () => {
+      this.refs.imageView.setProperty(prop.VISIBLE, false);
+    })
+    this.refs.imageView.setProperty(prop.VISIBLE, false);
+
+  },
+  showImage(vm, filePath, pageid) {
+    if (!this.refs.imageView) return;
+    const offsetY = (pageid || 0) * DEVICE_HEIGHT;
+    // Move the overlay onto the page that triggered the request (swiper offsets
+    // each page by one screen height).
+    this.refs.imageView.setProperty(prop.MORE, {
+      x: 0, y: px(offsetY), w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
+    });
+    this.refs.imageViewImg.setProperty(prop.SRC, filePath);
+    this.refs.imageView.setProperty(prop.VISIBLE, true);
   },
   notifyResult(txt, pageid, isError, type) {
     if (type == SYSTEM_TOAST) {

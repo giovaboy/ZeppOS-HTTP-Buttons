@@ -10,7 +10,7 @@ import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
   COLOR_PURPLE, COLOR_MAGENTA, COLOR_LAVENDER,
   COLOR_BROWN, COLOR_TAN, COLOR_BEIGE,
   COLOR_LIGHT_GRAY, COLOR_DARK_GRAY, COLOR_SILVER,
-  SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION,
+  SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE,
   KB_TYPE_CHAR, KB_TYPE_NUMERIC } from '../utils/constants.js'
 
 // === UTILITY FUNCTIONS ===
@@ -388,7 +388,8 @@ const buildButtonHTTPConfig = (button, pindex, rindex, bindex, context) => {
           { name: gettext('system_toast'), value: SYSTEM_TOAST },
           { name: gettext('custom_toast'), value: CUSTOM_TOAST },
           { name: gettext('no_notification'), value: NO_NOTIFICATION },
-          { name: gettext('system_modal'), value: SYSTEM_MODAL }
+          { name: gettext('system_modal'), value: SYSTEM_MODAL },
+          { name: gettext('show_image'), value: SHOW_IMAGE }
         ],
         onChange: (value) => context.editButton('response_style', value, pindex, rindex, bindex)
       })

@@ -94,6 +94,9 @@ msgstr "Modal"
 msgid "no_notification"
 msgstr "Nothing"
 
+msgid "show_image"
+msgstr "Image (PNG)"
+
 msgid "variables"
 msgstr "Variables:"
 

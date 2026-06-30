@@ -3,6 +3,7 @@ import { getLogger } from '../utils/logger.js'
 import { createWidget, deleteWidget, widget, prop, anim_status } from '@zos/ui'
 import { layout, LOADING_TEXT_WIDGET, LOADING_IMG_ANIM_WIDGET } from 'zosLoader:./index.[pf].layout.js'
 import { digestRequest, basicRequest, bearerRequest } from '../utils/auth-request.js'
+import { CUSTOM_TOAST, SHOW_IMAGE } from '../utils/constants.js'
 
 const logger = getLogger('http-buttons')
 
@@ -47,6 +48,15 @@ Page(
       this.showLoading()
       this.getDataFromPhone()
     },
+    onReceivedFile(file) {
+      // zml calls this automatically when the side service pushes a file.
+      // Shows the converted snapshot fullscreen on the page that asked for it
+      // (pendingImagePage, since the transfer is decoupled from the request).
+      logger.debug('image received', file && file.filePath)
+      if (!file) return
+      this.hideLoading()
+      layout.showImage(this, file.filePath || file.fileName, this.pendingImagePage || 0)
+    },
     getDataFromPhone() {
       this.request({
         method: 'GET_DATA'
@@ -76,11 +86,20 @@ Page(
     },
     hideLoading() {
       logger.debug('page hideLoading invoked')
-      this.state.loadingText.setProperty(prop.VISIBLE, false);
-      this.state.loadingImgAnim.setProperty(prop.VISIBLE, false);
-      this.state.loadingImgAnim.setProperty(prop.ANIM_STATUS, anim_status.STOP);
-      deleteWidget(this.state.loadingText)
-      deleteWidget(this.state.loadingImgAnim)
+      // Guarded + idempotent: reused both for the initial load and while waiting
+      // for an image snapshot, and the inbox callback may fire more than once.
+      if (!this.state.loadingText && !this.state.loadingImgAnim) return;
+      if (this.state.loadingText) {
+        this.state.loadingText.setProperty(prop.VISIBLE, false);
+        deleteWidget(this.state.loadingText)
+        this.state.loadingText = null
+      }
+      if (this.state.loadingImgAnim) {
+        this.state.loadingImgAnim.setProperty(prop.VISIBLE, false);
+        this.state.loadingImgAnim.setProperty(prop.ANIM_STATUS, anim_status.STOP);
+        deleteWidget(this.state.loadingImgAnim)
+        this.state.loadingImgAnim = null
+      }
     },
     executeButtonRequest(request, pageid, input = null) {
       let url = request.url;
@@ -155,7 +174,32 @@ Page(
       // logger.log('pageid', pageid)
       // logger.log('response_style', request.response_style)
 
-      if (auth === 'Digest') {
+      if (request.response_style === SHOW_IMAGE) {
+        // Delegate the whole download → convert → push pipeline to the phone
+        // side; the image itself comes back over the file-transfer channel
+        // (see onReceivedFile). Errors are surfaced as a custom toast since the
+        // image overlay can't render a failure.
+        this.pendingImagePage = pageid
+        this.showLoading()
+        task = this.request({
+          method: 'FETCH_IMAGE',
+          params: {
+            url,
+            headers: (headers && isJsonString(headers)) ? JSON.parse(headers) : undefined,
+            auth, user, pass, token
+          }
+        }).then((resp) => {
+          if (!resp || !resp.ok) {
+            this.hideLoading()
+            layout.notifyResult((resp && resp.error) || 'Image error', pageid, true, CUSTOM_TOAST)
+          }
+        }).catch((error) => {
+          logger.error('FETCH_IMAGE error=>', JSON.stringify(error))
+          this.hideLoading()
+          layout.notifyResult(JSON.stringify(error), pageid, true, CUSTOM_TOAST)
+        })
+        return task
+      } else if (auth === 'Digest') {
         task = digestRequest(this, {
           url: url,
           method: method,
@@ -277,6 +321,7 @@ Page(
       deleteWidget(layout.refs.customToast)
       deleteWidget(layout.refs.customToastFillRect)
       deleteWidget(layout.refs.customToastText)
+      if (layout.refs.imageView) deleteWidget(layout.refs.imageView)
     },
   })
 )
