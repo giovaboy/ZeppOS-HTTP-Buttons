@@ -63,7 +63,7 @@ Enable the "Input" option on a button to show an on-watch keyboard. The typed te
 
 ### Image Display
 
-Set a button's **response style** to **Image** to fetch a remote image (PNG or JPEG — e.g. an IP-camera snapshot) and show it fullscreen on the watch (tap to dismiss). The image is downloaded and converted on the phone, then pushed to the watch. Basic, Bearer, and Digest auth are supported. The watch doesn't resize, so serve an image sized roughly to the screen.
+Set a button's **response style** to **Image** to fetch a remote image (PNG or JPEG — e.g. an IP-camera snapshot) and show it fullscreen on the watch (tap to dismiss). The image is downloaded and converted on the phone, then pushed to the watch and scaled to fit the screen. Basic, Bearer, and Digest auth are supported.
 
 ```json
 {
