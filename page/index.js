@@ -32,6 +32,92 @@ function searchJSON(obj, key) {
   return results;
 }
 
+// Deterministic nested lookup for the two-step auth flow (e.g. "session.sid",
+// "data.token"). Unlike searchJSON — which does a loose deep search by key name
+// anywhere in the tree — this walks the exact path, in order. Numeric segments
+// index arrays too. Returns undefined if any hop is missing.
+function getByPath(obj, path) {
+  if (!obj || !path) return undefined;
+  const parts = String(path).split('.');
+  let cur = obj;
+  for (const p of parts) {
+    if (cur == null) return undefined;
+    cur = cur[p];
+  }
+  return cur;
+}
+
+// The string fields of a request that can carry placeholders and get sent on the
+// wire. Shared by the main request and the optional login/logout sub-requests.
+const DESCRIPTOR_FIELDS = ['url', 'method', 'headers', 'body', 'auth', 'user', 'pass', 'token'];
+
+// Copy just the request fields we care about out of a raw config block.
+function pickDescriptor(src) {
+  const d = {};
+  if (!src) return d;
+  for (const f of DESCRIPTOR_FIELDS) {
+    if (src[f] !== undefined) d[f] = src[f];
+  }
+  return d;
+}
+
+// Return a copy of the descriptor with every [search, value] pair applied to its
+// string fields. Used both for {var}/{input} (config-time) and {{token}}
+// (after login), so the same substitution engine serves every phase.
+function applyReplacements(d, pairs) {
+  const out = { ...d };
+  for (const [search, value] of pairs) {
+    const rep = String(value);
+    for (const f of DESCRIPTOR_FIELDS) {
+      if (typeof out[f] === 'string' && out[f].indexOf(search) !== -1) {
+        out[f] = out[f].replaceAll(search, rep);
+      }
+    }
+  }
+  return out;
+}
+
+// Single entry point for firing one HTTP request, dispatching by auth type.
+// Login, main and logout all go through here — a login/logout is "just another
+// request", only its purpose differs. Returns the same promise the underlying
+// helpers do (this.httpRequest already returns a promise).
+function performRequest(ctx, d) {
+  const method = d.method;
+  const url = d.url;
+  const headers = (d.headers && isJsonString(d.headers)) ? JSON.parse(d.headers) : undefined;
+  const body = (d.body && isJsonString(d.body)) ? JSON.parse(d.body) : undefined;
+  const timeout = 5000;
+
+  if (d.auth === 'Digest') {
+    return digestRequest(ctx, { url, method, headers, body, timeout, username: d.user, password: d.pass });
+  } else if (d.auth === 'Basic') {
+    return basicRequest(ctx, { url, method, headers, body, timeout, username: d.user, password: d.pass });
+  } else if (d.auth === 'Bearer') {
+    return bearerRequest(ctx, { url, method, headers, body, timeout, token: d.token });
+  }
+  return ctx.httpRequest({ url, method, headers, body, timeout });
+}
+
+// Short, watch-sized message for a failed phase (display space is tiny).
+function shortError(e) {
+  if (e == null) return 'error';
+  if (typeof e === 'string') return e;
+  if (e.status) return 'HTTP ' + e.status;
+  if (e.message) return e.message;
+  return JSON.stringify(e);
+}
+
+// In-memory token cache for the two-step flow, keyed by login url (+ user).
+// Lives for the app's lifetime so rapid button presses reuse a valid session;
+// entries carry enough context (session config + the replacements used) to fire
+// an expiry-mode logout later. A plain object, not a Map, to stay on well-worn
+// runtime ground.
+let sessionCache = {};
+
+function sessionKey(loginDescriptor) {
+  return loginDescriptor.url + '|' + (loginDescriptor.user || '');
+}
+
 Page(
   BasePage({
     state: {
@@ -122,93 +208,145 @@ Page(
         this.state.loadingImgAnim = null
       }
     },
-    executeButtonRequest(request, pageid, input = null) {
-      let url = request.url;
-      let method = request.method;
-      let headers = request.headers;
-      let body = request.body;
-      let auth = request.auth;
-      let user = request.user;
-      let pass = request.pass;
-      let token = request.token;
-      let dt = JSON.parse(this.state.data)
-
+    // Render a successful response: extract with parse_result (loose deep key
+    // search) if asked, else dump the body. Unchanged from the pre-refactor
+    // behavior, just factored out so every branch shares it.
+    reportResult(result, request, pageid) {
       let txtToReturn;
-      let task;
+      if (request.parse_result) {
+        txtToReturn = searchJSON(result.body, request.parse_result)
+        if (txtToReturn.length < 1) {
+          txtToReturn = JSON.stringify(result.body);
+        } else {
+          txtToReturn = JSON.stringify(txtToReturn)
+          txtToReturn = txtToReturn.substring(1, txtToReturn.length - 1);
+        }
+      } else {
+        txtToReturn = JSON.stringify(result.body);
+      }
+      layout.notifyResult(txtToReturn, pageid, false, request.response_style)
+    },
+    // Show an error. Without a phase prefix this matches the old single-request
+    // behavior (raw JSON). With a prefix (Auth/Req/…) it's a short, watch-sized
+    // message so the wearer can tell which step of a two-step flow failed.
+    reportError(error, request, pageid, prefix) {
+      logger.error((prefix || '') + ' error=>', JSON.stringify(error))
+      const msg = prefix ? (prefix + ': ' + shortError(error)) : JSON.stringify(error)
+      layout.notifyResult(msg, pageid, true, request.response_style)
+    },
+    // Fire the optional logout sub-request for a session, substituting the token.
+    // Fire-and-forget: failures are logged, never surfaced, and never touch the
+    // result already shown to the user.
+    runLogout(session, token, replacements) {
+      if (!session || !session.logout || !session.logout.url) return Promise.resolve()
+      const asName = (session.extract && session.extract.as) || 'token'
+      let d = applyReplacements(pickDescriptor(session.logout), replacements)
+      d = applyReplacements(d, [['{{' + asName + '}}', token]])
+      return performRequest(this, d).catch((e) => {
+        logger.error('logout error=>', JSON.stringify(e))
+      })
+    },
+    // Resolve the session token: from the in-memory cache when still valid,
+    // otherwise by running the login sub-request and extracting the value at
+    // extract.path. Concurrent presses during an in-flight login share the same
+    // promise (dedup). 'each' mode never caches (login every press); 'expiry'
+    // mode caches and lazily logs out a stale token before re-login.
+    resolveSessionToken(session, replacements, mode) {
+      const extract = session.extract || {}
+      const login = applyReplacements(pickDescriptor(session.login), replacements)
 
+      const doLogin = () => performRequest(this, login).then((res) => {
+        const token = extract.path ? getByPath(res.body, extract.path) : undefined
+        if (token === undefined || token === null || token === '') {
+          const e = new Error('no token'); e.__auth = true; throw e
+        }
+        return { token, res }
+      })
+
+      if (mode === 'each') {
+        return doLogin().then(({ token }) => token)
+      }
+
+      const key = sessionKey(login)
+      const now = Date.now()
+      const cached = sessionCache[key]
+      if (cached && cached.token && cached.expiresAt > now) {
+        return Promise.resolve(cached.token)
+      }
+      if (cached && cached.promise) {
+        return cached.promise
+      }
+
+      // Expiry mode: clean up the stale session before opening a new one.
+      let pre = Promise.resolve()
+      if (cached && cached.token && mode === 'expiry') {
+        pre = this.runLogout(session, cached.token, replacements).catch(() => {})
+      }
+
+      const promise = pre.then(doLogin).then(({ token, res }) => {
+        let ttlMs = extract.ttl ? extract.ttl * 1000 : 0
+        if (extract.ttl_path) {
+          const v = getByPath(res.body, extract.ttl_path)
+          if (typeof v === 'number' && v > 0) ttlMs = v * 1000
+        }
+        sessionCache[key] = {
+          token,
+          // ttlMs 0 → expiresAt 0 → treated as expired next press (no reuse).
+          expiresAt: ttlMs > 0 ? Date.now() + ttlMs : 0,
+          promise: null,
+          session,
+          replacements,
+          mode
+        }
+        return token
+      }).catch((err) => {
+        delete sessionCache[key]
+        throw err
+      })
+
+      // Publish the in-flight promise so concurrent presses reuse it.
+      sessionCache[key] = { token: cached && cached.token, expiresAt: 0, promise, session, replacements, mode }
+      return promise
+    },
+    executeButtonRequest(request, pageid, input = null) {
+      const dt = JSON.parse(this.state.data)
+
+      // Build the config-time replacement list: global variables {key} + {input}.
+      const replacements = []
       if (dt.variables) {
         Object.entries(dt.variables).forEach(([key, value]) => {
-          let search = "".concat("{", key, "}")
-          logger.debug('gloabal_var_replace', search, value)
-          if (url) {
-            url = url.replaceAll(search, value)
-          }
-          if (headers) {
-            headers = headers.replaceAll(search, value);
-          }
-          if (body) {
-            body = body.replaceAll(search, value);
-          }
-          if (user) {
-            user = user.replaceAll(search, value)
-          }
-          if (pass) {
-            pass = pass.replaceAll(search, value)
-          }
-          if (token) {
-            token = token.replaceAll(search, value)
-          }
+          replacements.push(['{' + key + '}', value])
         })
       }
-
       if (input) {
-        let search = "{input}"
-        logger.debug('input_replace', search, input)
-        if (url) {
-          url = url.replaceAll(search, input)
-        }
-        if (headers) {
-          headers = headers.replaceAll(search, input);
-        }
-        if (body) {
-          body = body.replaceAll(search, input);
-        }
-        if (user) {
-          user = user.replaceAll(search, input)
-        }
-        if (pass) {
-          pass = pass.replaceAll(search, input)
-        }
-        if (token) {
-          token = token.replaceAll(search, input)
-        }
+        replacements.push(['{input}', input])
       }
 
-       logger.debug('method', method)
-       logger.debug('url', url)
-       logger.debug('headers', headers)
-       logger.debug('body', body)
-       logger.debug('auth', auth)
-       logger.debug('user', user)
-       logger.debug('pass', pass)
-       logger.debug('token', token)
-      // logger.log('pageid', pageid)
-      // logger.log('response_style', request.response_style)
+      // The main request, with variables/input resolved.
+      const main = applyReplacements(pickDescriptor(request), replacements)
+
+      logger.debug('method', main.method)
+      logger.debug('url', main.url)
+      logger.debug('auth', main.auth)
 
       if (request.response_style === SHOW_IMAGE) {
         // Delegate the whole download → convert → push pipeline to the phone
         // side; the image itself comes back over the file-transfer channel
         // (see onReceivedFile). Errors are surfaced as a custom toast since the
-        // image overlay can't render a failure.
+        // image overlay can't render a failure. The two-step session flow does
+        // not apply here (the image pipeline lives on the phone side).
         this.pendingImagePage = pageid
+        if (request.session) {
+          logger.debug('session ignored for image request')
+        }
         // Loading feedback is the on-button spinner (started by the layout's
         // click handler); we just clear it on failure here.
-        task = this.request({
+        return this.request({
           method: 'FETCH_IMAGE',
           params: {
-            url,
-            headers: (headers && isJsonString(headers)) ? JSON.parse(headers) : undefined,
-            auth, user, pass, token
+            url: main.url,
+            headers: (main.headers && isJsonString(main.headers)) ? JSON.parse(main.headers) : undefined,
+            auth: main.auth, user: main.user, pass: main.pass, token: main.token
           }
         }).then((resp) => {
           if (!resp || !resp.ok) {
@@ -220,126 +358,47 @@ Page(
           this.clearImageSpinner()
           layout.notifyResult(JSON.stringify(error), pageid, true, CUSTOM_TOAST)
         })
-        return task
-      } else if (auth === 'Digest') {
-        task = digestRequest(this, {
-          url: url,
-          method: method,
-          headers: (headers && isJsonString(headers)) ? JSON.parse(headers) : undefined,
-          body: (body && isJsonString(body)) ? JSON.parse(body) : undefined,
-          timeout: 5000,
-          username: user,
-          password: pass
-        }).then(result => {
-          if (request.parse_result) {
-              txtToReturn = searchJSON(result.body, request.parse_result)
-              if (txtToReturn.length < 1) {
-                txtToReturn = JSON.stringify(result.body);
-              } else {
-                txtToReturn = JSON.stringify(txtToReturn)
-                txtToReturn = txtToReturn.substring(1, txtToReturn.length - 1);
-              }
-            } else {
-              txtToReturn = JSON.stringify(result.body);
-            }
-
-            layout.notifyResult(txtToReturn, pageid, false, request.response_style)
-        }).catch(error => {
-          logger.error('error=>', JSON.stringify(error))
-          layout.notifyResult(JSON.stringify(error), pageid, true, request.response_style)
-        });
-      } else if (auth === 'Basic'){
-        task = basicRequest(this, {
-          url: url,
-          method: method,
-          headers: (headers && isJsonString(headers)) ? JSON.parse(headers) : undefined,
-          body: (body && isJsonString(body)) ? JSON.parse(body) : undefined,
-          timeout: 5000,
-          username: user,
-          password: pass
-        }).then(result => {
-          if (request.parse_result) {
-              txtToReturn = searchJSON(result.body, request.parse_result)
-              if (txtToReturn.length < 1) {
-                txtToReturn = JSON.stringify(result.body);
-              } else {
-                txtToReturn = JSON.stringify(txtToReturn)
-                txtToReturn = txtToReturn.substring(1, txtToReturn.length - 1);
-              }
-            } else {
-              txtToReturn = JSON.stringify(result.body);
-            }
-
-            layout.notifyResult(txtToReturn, pageid, false, request.response_style)
-        }).catch(error => {
-          logger.error('error=>', JSON.stringify(error))
-          layout.notifyResult(JSON.stringify(error), pageid, true, request.response_style)
-        });
-      } else if (auth === 'Bearer'){
-        task = bearerRequest(this, {
-          url: url,
-          method: method,
-          headers: (headers && isJsonString(headers)) ? JSON.parse(headers) : undefined,
-          body: (body && isJsonString(body)) ? JSON.parse(body) : undefined,
-          timeout: 5000,
-          token: token
-        }).then(result => {
-          if (request.parse_result) {
-              txtToReturn = searchJSON(result.body, request.parse_result)
-              if (txtToReturn.length < 1) {
-                txtToReturn = JSON.stringify(result.body);
-              } else {
-                txtToReturn = JSON.stringify(txtToReturn)
-                txtToReturn = txtToReturn.substring(1, txtToReturn.length - 1);
-              }
-            } else {
-              txtToReturn = JSON.stringify(result.body);
-            }
-
-            layout.notifyResult(txtToReturn, pageid, false, request.response_style)
-        }).catch(error => {
-          logger.error('error=>', JSON.stringify(error))
-          layout.notifyResult(JSON.stringify(error), pageid, true, request.response_style)
-        });
-      } else {
-        task = this.httpRequest({
-          url: url,
-          method: method,
-          headers: (headers && isJsonString(headers)) ? JSON.parse(headers) : undefined,
-          body: (body && isJsonString(body)) ? JSON.parse(body) : undefined,
-          timeout: 5000
-        })
-          .then((result) => {
-            // logger.debug('result.status', result.status)
-            // logger.debug('result.statusText', result.statusText)
-            // logger.debug('result.headers', result.headers)
-            // logger.debug('result.body', JSON.stringify(result.body))
-
-            if (request.parse_result) {
-              txtToReturn = searchJSON(result.body, request.parse_result)
-              if (txtToReturn.length < 1) {
-                txtToReturn = JSON.stringify(result.body);
-              } else {
-                txtToReturn = JSON.stringify(txtToReturn)
-                txtToReturn = txtToReturn.substring(1, txtToReturn.length - 1);
-              }
-            } else {
-              txtToReturn = JSON.stringify(result.body);
-            }
-
-            layout.notifyResult(txtToReturn, pageid, false, request.response_style)
-
-          })
-          .catch((error) => {
-            logger.error('error=>', JSON.stringify(error))
-            layout.notifyResult(JSON.stringify(error), pageid, true, request.response_style)
-          });
       }
 
-      return task;
+      // Single-request path (no session block) — unchanged behavior.
+      if (!request.session) {
+        return performRequest(this, main)
+          .then((result) => this.reportResult(result, request, pageid))
+          .catch((error) => this.reportError(error, request, pageid))
+      }
+
+      // Two-step (session) path: login → extract token → main → optional logout.
+      const session = request.session
+      const asName = (session.extract && session.extract.as) || 'token'
+      const mode = session.logout ? (session.logout.mode || 'expiry') : 'none'
+
+      return this.resolveSessionToken(session, replacements, mode)
+        .then((token) => {
+          const mainWithToken = applyReplacements(main, [['{{' + asName + '}}', token]])
+          // Main-phase errors are caught here so they read as "Req", not "Auth".
+          return performRequest(this, mainWithToken)
+            .then((result) => this.reportResult(result, request, pageid))
+            .catch((error) => this.reportError(error, request, pageid, 'Req'))
+            .then(() => {
+              // 'each' mode: close the session right after the main request.
+              // Fire-and-forget (not returned) so the spinner stops on the result.
+              if (mode === 'each') this.runLogout(session, token, replacements)
+            })
+        })
+        .catch((error) => this.reportError(error, request, pageid, 'Auth'))
     },
     onDestroy() {
       logger.debug('page onDestroy invoked')
+      // Best-effort cleanup of any cached expiry-mode session (no background
+      // timer on the watch, so logout happens lazily — here or before re-login).
+      // Fire-and-forget: a hard app kill may skip this, which is acceptable.
+      Object.keys(sessionCache).forEach((key) => {
+        const entry = sessionCache[key]
+        if (entry && entry.token && entry.mode === 'expiry' && entry.session && entry.session.logout) {
+          this.runLogout(entry.session, entry.token, entry.replacements)
+        }
+      })
+      sessionCache = {}
       deleteWidget(layout.refs.customToast)
       deleteWidget(layout.refs.customToastFillRect)
       deleteWidget(layout.refs.customToastText)

@@ -12,8 +12,10 @@ export const EXAMPLE_DATA_B = {"variables":{"token":"demo123"},"pages":[{"title"
 // (see setting/index.js). Exercises methods, auth (incl. Digest with query
 // string + SHA-256), response styles, images (PNG/JPEG, landscape/portrait for
 // centering, a non-image for graceful failure), and edge cases (5xx, timeout,
-// redirect, {input} in body). Mostly against httpbin.io; the camera button uses
-// the {cam}/{user}/{pass} variables below.
+// redirect, {input} in body), and the two-step session flow (login → token
+// extract → {{token}} injection → main, flat + nested path, plus logout).
+// Mostly against httpbin.io; the camera button uses the {cam}/{user}/{pass}
+// variables below.
 export const TEST_DATA = {
   variables: { cam: "192.168.1.1:8443", user: "admin", pass: "password" },
   pages: [
@@ -81,6 +83,44 @@ export const TEST_DATA = {
       ] },
       { h: 34, buttons: [
         { text: "Var: {cam}", w: 100, radius: 14, back_color: 4915330, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/anything/{cam}", parse_result: "url", response_style: 0 } }
+      ] }
+    ] },
+    // Two-step session flow: a preliminary login request yields a token that is
+    // extracted from its response and injected into the main request via the
+    // {{token}} placeholder. httpbin.io stands in for a real login endpoint —
+    // /uuid returns a fresh value; echoing it back through /anything proves it
+    // was carried across the two requests.
+    { title: "⑥ Session", back_color: 856343, text_color: 16777215, rows: [
+      // Flat path: extract "uuid" from the login response, reuse it (ttl 60s).
+      { h: 33, buttons: [
+        { text: "Flat token", w: 100, radius: 14, back_color: 558288, text_color: 16777215, request: {
+          method: "GET", url: "https://httpbin.io/anything/{{token}}", parse_result: "url", response_style: 2,
+          session: {
+            login: { method: "GET", url: "https://httpbin.io/uuid" },
+            extract: { path: "uuid", as: "token", ttl: 60 }
+          }
+        } }
+      ] },
+      // Nested path: POST a known object, extract json.session.sid from the echo.
+      { h: 33, buttons: [
+        { text: "Nested path", w: 100, radius: 14, back_color: 8388736, text_color: 16777215, request: {
+          method: "GET", url: "https://httpbin.io/anything/{{sid}}", parse_result: "url", response_style: 2,
+          session: {
+            login: { method: "POST", url: "https://httpbin.io/anything", body: '{"session":{"sid":"nested-abc123"}}' },
+            extract: { path: "json.session.sid", as: "sid", ttl: 60 }
+          }
+        } }
+      ] },
+      // logout mode "each": login → main → logout every press (no reuse).
+      { h: 34, buttons: [
+        { text: "With logout", w: 100, radius: 14, back_color: 4915330, text_color: 16777215, request: {
+          method: "GET", url: "https://httpbin.io/anything/{{token}}", parse_result: "url", response_style: 2,
+          session: {
+            login: { method: "GET", url: "https://httpbin.io/uuid" },
+            extract: { path: "uuid", as: "token" },
+            logout: { method: "POST", url: "https://httpbin.io/anything", headers: '{"X-Logout":"{{token}}"}', mode: "each" }
+          }
+        } }
       ] }
     ] }
   ]

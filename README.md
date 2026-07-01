@@ -19,7 +19,7 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 - **Multiple Pages** — Swipe between different button layouts
 - **Customizable Buttons** — Set colors, sizes, radius, and text for each button
 - **HTTP Methods** — Support for GET, POST, PUT, DELETE, PATCH, and more
-- **Authentication** — Basic, Bearer, and Digest authentication support
+- **Authentication** — Basic, Bearer, and Digest authentication support, plus an optional two-step (session) flow: login → token → reuse → logout
 - **Global Variables** — Define reusable variables like IP addresses or tokens
 - **Input Keyboard** — On-watch keyboard for dynamic request parameters
 - **Response Handling** — Choose between toast, modal, or silent notifications
@@ -78,6 +78,37 @@ Set a button's **response style** to **Image** to fetch a remote image (PNG or J
   }
 }
 ```
+
+### Two-step (session) authentication
+
+Some services don't accept static credentials on the action request: they require a **separate login** that returns a temporary token/session id, which you then reuse on the real request (e.g. session-based dashboards and hypervisor/NAS admin APIs). Add an optional `session` block to a button's `request` to support this. Buttons **without** a `session` block behave exactly as before.
+
+The flow is: **login → extract token → inject into the main request → (optional) logout.** The login and logout are ordinary requests (they accept the same `url`, `method`, `headers`, `body`, and even their own `auth`). The extracted value is substituted wherever you write the `{{token}}` placeholder (URL, headers, body, …).
+
+```json
+{
+  "text": "Reload",
+  "request": {
+    "method": "POST",
+    "url": "https://host/api/reload",
+    "headers": "{\"X-Session\": \"{{token}}\"}",
+    "response_style": 1,
+    "session": {
+      "login":   { "method": "POST", "url": "https://host/api/login", "body": "{\"pass\":\"secret\"}" },
+      "extract": { "path": "session.sid", "as": "token", "ttl": 1800, "ttl_path": "session.validity" },
+      "logout":  { "method": "POST", "url": "https://host/api/logout", "headers": "{\"X-Session\": \"{{token}}\"}", "mode": "expiry" }
+    }
+  }
+}
+```
+
+- **`login`** — the preliminary request that returns the token.
+- **`extract.path`** — dotted path to the value in the login response body (`session.sid`, `data.token`, nested keys supported). **`as`** names the placeholder (`{{token}}` here).
+- **`extract.ttl`** — seconds to keep the token cached, so rapid presses reuse the same session instead of logging in every time. **`ttl_path`** (optional) reads the lifetime from the login response instead. With no ttl the token is not reused.
+- **`logout`** (optional) — `mode: "each"` runs login → main → logout on every press; `mode: "expiry"` (default) keeps the cached session and logs out only when it expires or when the app closes.
+- **Errors are labelled by phase** on the watch: `Auth: …` (login failed, main not run) vs `Req: …` (main failed); logout failures are silent.
+
+The token cache is in-memory only. This flow applies to normal requests; image buttons ignore a `session` block.
 
 ## Configuration Example
 
