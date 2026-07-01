@@ -8,6 +8,84 @@ export const DEFAULT_DATA_OLD = { variables: {"var1":"1", "var2":"2"}, pages: [D
 export const DEFAULT_DATA = {"variables":{"city":"London"},"pages":[{"title":"👋 Welcome","back_color":856343,"text_color":16777215,"rows":[{"h":50,"buttons":[{"text":"🐱 Cat fact","w":50,"radius":18,"back_color":32896,"text_color":16777215,"request":{"method":"GET","url":"https://catfact.ninja/fact","parse_result":"fact","response_style":0}},{"text":"😂 Dad joke","w":50,"radius":18,"back_color":16766720,"text_color":856343,"request":{"method":"GET","url":"https://icanhazdadjoke.com/","headers":"{\"Accept\": \"application/json\"}","parse_result":"joke","response_style":0}}]},{"h":50,"buttons":[{"text":"⌨ Echo your text","w":100,"radius":18,"back_color":558288,"text_color":16777215,"input":true,"keyboard_type":0,"request":{"method":"GET","url":"https://httpbin.io/anything/{input}","parse_result":"url","response_style":0}}]}]},{"title":"⚙ Features","back_color":856343,"text_color":16777215,"rows":[{"h":33,"buttons":[{"text":"GET","w":33,"radius":18,"back_color":3978097,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/get","parse_result":"url","response_style":1}},{"text":"POST","w":33,"radius":18,"back_color":16542032,"text_color":16777215,"request":{"method":"POST","url":"https://httpbin.io/post","body":"{\"hello\": \"world\"}","parse_result":"json","response_style":1}},{"text":"UUID","w":34,"radius":18,"back_color":8388736,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/uuid","parse_result":"uuid","response_style":2}}]},{"h":33,"buttons":[{"spacer":true,"w":25,"request":{}},{"text":"City = {city}","w":75,"radius":18,"back_color":4915330,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/anything/{city}","parse_result":"url","response_style":0}}]},{"h":34,"buttons":[{"text":"My headers","w":100,"radius":18,"back_color":14423100,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/headers","headers":"{\"X-Demo\": \"HTTP-Buttons\"}","parse_result":"headers","response_style":0}}]}]},{"title":"🔐 Auth","back_color":856343,"text_color":16777215,"rows":[{"h":50,"buttons":[{"text":"Digest","w":50,"radius":18,"back_color":15631086,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/digest-auth/auth/user/pass","auth":"Digest","user":"user","pass":"pass","response_style":2}},{"text":"Basic","w":50,"radius":18,"back_color":16776960,"text_color":8421504,"request":{"method":"GET","url":"https://httpbin.io/basic-auth/user/pass","auth":"Basic","user":"user","pass":"pass","response_style":2}}]},{"h":50,"buttons":[{"text":"Bearer","w":100,"radius":18,"back_color":558288,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/bearer","auth":"Bearer","token":"demo123","response_style":2}}]}]},{"title":"🖼️ Image","back_color":856343,"text_color":16777215,"rows":[{"h":100,"buttons":[{"text":"📷 Load PNG","w":100,"radius":18,"back_color":3978097,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/image/png","response_style":4}}]}]}]};
 export const EXAMPLE_DATA_B = {"variables":{"token":"demo123"},"pages":[{"title":"HTTP Buttons","back_color":856343,"text_color":16777215,"rows":[{"h":33,"buttons":[{"text":"GET","w":33,"radius":14,"back_color":3978097,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/get","parse_result":"url","response_style":0}},{"text":"POST","w":33,"radius":14,"back_color":558288,"text_color":16777215,"request":{"method":"POST","url":"https://httpbin.io/post","body":"{\"hello\": \"world\"}","parse_result":"json","response_style":0}},{"text":"Headers","w":34,"radius":14,"back_color":16542032,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/headers","headers":"{\"X-Demo\": \"HTTP-Buttons\"}","parse_result":"headers","response_style":0}}]},{"h":33,"buttons":[{"text":"Echo input","w":100,"radius":14,"back_color":32896,"text_color":16777215,"input":true,"keyboard_type":0,"request":{"method":"GET","url":"https://httpbin.io/anything/{input}","parse_result":"url","response_style":2}}]},{"h":34,"buttons":[{"text":"Variable: {token}","w":100,"radius":14,"back_color":8388736,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/anything/{token}","parse_result":"url","response_style":0}}]}]},{"title":"Response styles","back_color":856343,"text_color":16777215,"rows":[{"h":50,"buttons":[{"text":"Toast","w":50,"radius":14,"back_color":32896,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/uuid","parse_result":"uuid","response_style":1}},{"text":"Custom","w":50,"radius":14,"back_color":4915330,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/uuid","parse_result":"uuid","response_style":0}}]},{"h":50,"buttons":[{"text":"Modal","w":50,"radius":14,"back_color":14423100,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/uuid","parse_result":"uuid","response_style":2}},{"text":"Silent","w":50,"radius":14,"back_color":8421504,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/status/200","response_style":3}}]}]}]}
 
+// Hardcoded test suite loaded on the watch when the "Test mode" switch is ON
+// (see setting/index.js). Exercises methods, auth (incl. Digest with query
+// string + SHA-256), response styles, images (PNG/JPEG, landscape/portrait for
+// centering, a non-image for graceful failure), and edge cases (5xx, timeout,
+// redirect, {input} in body). Mostly against httpbin.io; the camera button uses
+// the {cam}/{user}/{pass} variables below.
+export const TEST_DATA = {
+  variables: { cam: "192.168.1.1:8443", user: "admin", pass: "password" },
+  pages: [
+    { title: "① Methods", back_color: 856343, text_color: 16777215, rows: [
+      { h: 33, buttons: [
+        { text: "GET", w: 33, radius: 14, back_color: 3978097, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/get", parse_result: "url", response_style: 0 } },
+        { text: "POST", w: 33, radius: 14, back_color: 558288, text_color: 16777215, request: { method: "POST", url: "https://httpbin.io/post", body: '{"hello": "world"}', parse_result: "json", response_style: 0 } },
+        { text: "PUT", w: 34, radius: 14, back_color: 8388736, text_color: 16777215, request: { method: "PUT", url: "https://httpbin.io/put", body: '{"a": 1}', parse_result: "json", response_style: 0 } }
+      ] },
+      { h: 33, buttons: [
+        { text: "DELETE", w: 50, radius: 14, back_color: 16542032, text_color: 16777215, request: { method: "DELETE", url: "https://httpbin.io/delete", parse_result: "url", response_style: 0 } },
+        { text: "PATCH", w: 50, radius: 14, back_color: 4915330, text_color: 16777215, request: { method: "PATCH", url: "https://httpbin.io/patch", body: '{"b": 2}', parse_result: "json", response_style: 0 } }
+      ] },
+      { h: 34, buttons: [
+        { text: "Headers", w: 100, radius: 14, back_color: 32896, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/headers", headers: '{"X-Test": "HTTP-Buttons"}', parse_result: "headers", response_style: 0 } }
+      ] }
+    ] },
+    { title: "② Auth", back_color: 856343, text_color: 16777215, rows: [
+      { h: 33, buttons: [
+        { text: "Basic", w: 50, radius: 14, back_color: 16776960, text_color: 8421504, request: { method: "GET", url: "https://httpbin.io/basic-auth/user/pass", auth: "Basic", user: "user", pass: "pass", parse_result: "authenticated", response_style: 2 } },
+        { text: "Bearer", w: 50, radius: 14, back_color: 558288, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/bearer", auth: "Bearer", token: "demo123", parse_result: "token", response_style: 2 } }
+      ] },
+      { h: 33, buttons: [
+        { text: "Digest", w: 50, radius: 14, back_color: 15631086, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/digest-auth/auth/user/pass", auth: "Digest", user: "user", pass: "pass", parse_result: "authenticated", response_style: 2 } },
+        { text: "Digest ?q", w: 50, radius: 14, back_color: 14423100, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/digest-auth/auth/user/pass?ch=1", auth: "Digest", user: "user", pass: "pass", parse_result: "authenticated", response_style: 2 } }
+      ] },
+      { h: 34, buttons: [
+        { text: "Digest 256", w: 50, radius: 14, back_color: 8388736, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/digest-auth/auth/user/pass/SHA-256", auth: "Digest", user: "user", pass: "pass", parse_result: "authenticated", response_style: 2 } },
+        { text: "Digest 256?q", w: 50, radius: 14, back_color: 8388736, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/digest-auth/auth/user/pass/SHA-256?ch=1", auth: "Digest", user: "user", pass: "pass", parse_result: "authenticated", response_style: 2 } }
+      ] }
+    ] },
+    { title: "③ Styles", back_color: 856343, text_color: 16777215, rows: [
+      { h: 50, buttons: [
+        { text: "Sys Toast", w: 50, radius: 14, back_color: 32896, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/uuid", parse_result: "uuid", response_style: 1 } },
+        { text: "Custom", w: 50, radius: 14, back_color: 4915330, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/uuid", parse_result: "uuid", response_style: 0 } }
+      ] },
+      { h: 50, buttons: [
+        { text: "Modal", w: 50, radius: 14, back_color: 14423100, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/uuid", parse_result: "uuid", response_style: 2 } },
+        { text: "Silent", w: 50, radius: 14, back_color: 8421504, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/status/200", response_style: 3 } }
+      ] }
+    ] },
+    { title: "④ Images", back_color: 856343, text_color: 16777215, rows: [
+      { h: 33, buttons: [
+        { text: "PNG", w: 50, radius: 14, back_color: 3978097, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/image/png", response_style: 4 } },
+        { text: "JPEG", w: 50, radius: 14, back_color: 16542032, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/image/jpeg", response_style: 4 } }
+      ] },
+      { h: 33, buttons: [
+        { text: "Landscape", w: 50, radius: 14, back_color: 558288, text_color: 16777215, request: { method: "GET", url: "https://dummyimage.com/600x200/1e3a5f/ffffff.png", response_style: 4 } },
+        { text: "Portrait", w: 50, radius: 14, back_color: 558288, text_color: 16777215, request: { method: "GET", url: "https://dummyimage.com/200x600/1e3a5f/ffffff.png", response_style: 4 } }
+      ] },
+      { h: 34, buttons: [
+        { text: "Not img", w: 50, radius: 14, back_color: 9109504, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/html", response_style: 4 } },
+        { text: "📷 Cam ch…", w: 50, radius: 14, back_color: 8388736, text_color: 16777215, input: true, keyboard_type: 1, request: { method: "GET", url: "https://{cam}/snapshot?channel={input}", auth: "Digest", user: "{user}", pass: "{pass}", response_style: 4 } }
+      ] }
+    ] },
+    { title: "⑤ Edge & Input", back_color: 856343, text_color: 16777215, rows: [
+      { h: 33, buttons: [
+        { text: "500", w: 33, radius: 14, back_color: 9109504, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/status/500", response_style: 0 } },
+        { text: "Timeout", w: 33, radius: 14, back_color: 9109504, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/delay/10", response_style: 0 } },
+        { text: "Redirect", w: 34, radius: 14, back_color: 4915330, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/redirect/1", parse_result: "url", response_style: 0 } }
+      ] },
+      { h: 33, buttons: [
+        { text: "⌨ Body in", w: 50, radius: 14, back_color: 558288, text_color: 16777215, input: true, keyboard_type: 0, request: { method: "POST", url: "https://httpbin.io/anything", body: '{"msg": "{input}"}', parse_result: "json", response_style: 0 } },
+        { text: "⌨ Echo", w: 50, radius: 14, back_color: 558288, text_color: 16777215, input: true, keyboard_type: 0, request: { method: "GET", url: "https://httpbin.io/anything/{input}", parse_result: "url", response_style: 0 } }
+      ] },
+      { h: 34, buttons: [
+        { text: "Var: {cam}", w: 100, radius: 14, back_color: 4915330, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/anything/{cam}", parse_result: "url", response_style: 0 } }
+      ] }
+    ] }
+  ]
+};
+
 // Keyboard types for input buttons
 export const KB_TYPE_CHAR = 0;     // text (abc/ABC/symbols, switchable at runtime)
 export const KB_TYPE_NUMERIC = 1;  // 123

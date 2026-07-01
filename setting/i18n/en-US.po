@@ -97,6 +97,12 @@ msgstr "Nothing"
 msgid "show_image"
 msgstr "Image"
 
+msgid "test_mode"
+msgstr "🧪 Test mode"
+
+msgid "test_mode_hint"
+msgstr "When ON, the watch loads a built-in test suite instead of your buttons. Your config is kept and restored when OFF. Reopen the app on the watch to apply."
+
 msgid "variables"
 msgstr "Variables:"
 

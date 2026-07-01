@@ -1,5 +1,5 @@
 import { BaseSideService, settingsLib } from '@zeppos/zml/base-side'
-import { DEFAULT_DATA } from '../utils/constants.js'
+import { DEFAULT_DATA, TEST_DATA } from '../utils/constants.js'
 import { parseChallenge, buildDigestAuth, requestUri } from '../utils/digest.js'
 
 // Where the downloaded snapshot is stored on the phone side before conversion.
@@ -152,6 +152,10 @@ function migrateDataIfNeeded() {
 function getData() {
   //console.debug('getData')
   //migrateDataIfNeeded()
+  // Test mode: load the hardcoded test suite instead of the user's config.
+  if (settingsLib.getItem('test_mode') === 'true') {
+    return JSON.stringify(TEST_DATA);
+  }
   const saved = settingsLib.getItem('data');
   return saved;// || JSON.stringify(DEFAULT_DATA);
 }

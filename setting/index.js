@@ -905,6 +905,21 @@ AppSettingsPage({
       ])
     ]);
 
+    // Test mode switch (bottom of the page): when ON, the watch loads the
+    // hardcoded TEST_DATA suite instead of the user's config. Non-destructive —
+    // the user's config is untouched and comes back when switched OFF.
+    const testMode = props.settingsStorage.getItem('test_mode') === 'true'
+    const testModeSwitch = View({ style: { marginTop: '12px', padding: '4px 12px', border: '1px solid #eaeaea', borderRadius: '6px', backgroundColor: testMode ? '#fff3cd' : 'white' }}, [
+      Toggle({
+        label: gettext('test_mode'),
+        value: testMode,
+        subStyle: { color: '#8a6d3b', fontSize: '12px' },
+        onChange: (value) => this.state.props.settingsStorage.setItem('test_mode', value ? 'true' : 'false')
+      }),
+      Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#8a6d3b', padding: '2px 0 4px' }},
+        [gettext('test_mode_hint')])
+    ])
+
     // === DYNAMIC LAYOUT BUILDING ===
 
     if (this.state.data) {
@@ -1000,7 +1015,8 @@ AppSettingsPage({
         contentItems.length > 0 && View({ style: { marginTop: '12px', padding: '4px', border: '1px solid #eaeaea', borderRadius: '6px', backgroundColor: 'white' }},
           [...contentItems]),
         confBTN,
-        clearBTN
+        clearBTN,
+        testModeSwitch
       ])
     }
   }
