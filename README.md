@@ -23,6 +23,7 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 - **Global Variables** — Define reusable variables like IP addresses or tokens
 - **Input Keyboard** — On-watch keyboard for dynamic request parameters
 - **Response Handling** — Choose between toast, modal, or silent notifications
+- **Image Display** — Fetch a remote image (PNG/JPEG) and show it fullscreen on the watch
 - **JSON Parsing** — Extract specific fields from API responses
 
 ## Installation
@@ -59,6 +60,24 @@ Then use in URLs: `http://{server_ip}/api/action`
 ### Input Buttons
 
 Enable the "Input" option on a button to show an on-watch keyboard. The typed text replaces `{input}` in your request URL or body.
+
+### Image Display
+
+Set a button's **response style** to **Image** to fetch a remote image (PNG or JPEG — e.g. an IP-camera snapshot) and show it fullscreen on the watch (tap to dismiss). The image is downloaded and converted on the phone, then pushed to the watch. Basic, Bearer, and Digest auth are supported. The watch doesn't resize, so serve an image sized roughly to the screen.
+
+```json
+{
+  "text": "📷 Camera",
+  "request": {
+    "url": "http://{cam}/snapshot?channel=0",
+    "method": "GET",
+    "auth": "Digest",
+    "user": "admin",
+    "pass": "password",
+    "response_style": 4
+  }
+}
+```
 
 ## Configuration Example
 
@@ -109,6 +128,7 @@ Enable the "Input" option on a button to show an on-watch keyboard. The typed te
 ## Use Cases
 
 - **Home Automation** — Control lights, thermostats, and smart devices
+- **Camera Snapshots** — View an IP-camera still on your wrist
 - **Media Control** — Play/pause, volume, channel switching
 - **IoT Devices** — Trigger actions on Raspberry Pi, ESP32, etc.
 - **API Testing** — Quick endpoint testing from your wrist
