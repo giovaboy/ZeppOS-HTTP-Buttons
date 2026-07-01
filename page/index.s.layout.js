@@ -391,6 +391,55 @@ export const layout = {
 
     this.refs.customToast.setProperty(prop.VISIBLE, false);
 
+    /* Fullscreen image overlay (response_style = SHOW_IMAGE) is built lazily in
+       showImage() with TOP-LEVEL widgets — IMG does not render as a GROUP child,
+       which left a black background with no image on top. */
+    this.refs.imageViewBg = null;
+    this.refs.imageViewImg = null;
+
+  },
+  hideImage() {
+    if (this.refs.imageViewImg) { deleteWidget(this.refs.imageViewImg); this.refs.imageViewImg = null; }
+    if (this.refs.imageViewBg) { deleteWidget(this.refs.imageViewBg); this.refs.imageViewBg = null; }
+  },
+  showImage(vm, filePath, pageid) {
+    const offsetY = (pageid || 0) * DEVICE_HEIGHT;
+    this.hideImage();
+    logger.debug('showImage src', filePath);
+    this.refs.imageViewBg = createWidget(widget.FILL_RECT, {
+      x: 0, y: px(offsetY), w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
+      color: COLOR_BLACK, alpha: 255,
+    });
+    // Create at native size first so we can read the image's real dimensions,
+    // then scale-to-fit (keeping aspect) and center it on both axes.
+    const img = createWidget(widget.IMG, { x: 0, y: px(offsetY), src: filePath });
+    const iw = img.getProperty(prop.W);
+    const ih = img.getProperty(prop.H);
+    logger.debug('image native size', iw, ih);
+    if (iw && ih && iw > 0 && ih > 0) {
+      const scale = Math.min(DEVICE_WIDTH / iw, DEVICE_HEIGHT / ih);
+      const w = Math.round(iw * scale);
+      const h = Math.round(ih * scale);
+      img.setProperty(prop.MORE, {
+        x: px(Math.round((DEVICE_WIDTH - w) / 2)),
+        y: px(Math.round(offsetY + (DEVICE_HEIGHT - h) / 2)),
+        w: px(w), h: px(h),
+        auto_scale: true,
+        auto_scale_obj_fit: true, // box already matches aspect, so fill = no distortion
+      });
+    } else {
+      // Dimensions unknown: fall back to fit-to-screen keeping aspect (may
+      // top-align for non-square images).
+      img.setProperty(prop.MORE, {
+        x: 0, y: px(offsetY),
+        w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
+        auto_scale: true,
+        auto_scale_obj_fit: false,
+      });
+    }
+    this.refs.imageViewImg = img;
+    this.refs.imageViewBg.addEventListener(event.CLICK_DOWN, () => this.hideImage());
+    this.refs.imageViewImg.addEventListener(event.CLICK_DOWN, () => this.hideImage());
   },
   notifyResult(txt, pageid, isError, type) {
     if (type == SYSTEM_TOAST) {

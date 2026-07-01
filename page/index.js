@@ -60,7 +60,7 @@ Page(
         if (state === 'transferred') {
           this.hideLoading()
           const userData = file.params || {}
-          if (userData.type === 'image') {
+          if (userData.type === 'image' && typeof layout.showImage === 'function') {
             logger.debug('showing image', file.filePath)
             layout.showImage(this, file.filePath, this.pendingImagePage || 0)
           }
@@ -334,7 +334,7 @@ Page(
       deleteWidget(layout.refs.customToast)
       deleteWidget(layout.refs.customToastFillRect)
       deleteWidget(layout.refs.customToastText)
-      layout.hideImage()
+      if (typeof layout.hideImage === 'function') layout.hideImage()
     },
   })
 )
