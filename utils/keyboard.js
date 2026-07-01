@@ -31,15 +31,22 @@ function getSystemInputType(keyboardType) {
  * @param {object} vm - the page view-model (exposes executeButtonRequest)
  * @param {object} button - the button definition (request, keyboard_type)
  * @param {number} pageId - the page index, used for the result notification
+ * @param {function} [onSubmit] - optional (text) => void; if given, it runs the
+ *   request instead of calling executeButtonRequest directly (lets the caller
+ *   wrap it with a button loading spinner)
  */
-export function openSystemKeyboard(vm, button, pageId) {
+export function openSystemKeyboard(vm, button, pageId, onSubmit) {
   createKeyboard({
     inputType: getSystemInputType(button.keyboard_type),
     onComplete: (_, result) => {
       const text = (result && result.data != null) ? result.data : ''
       logger.debug('system keyboard complete:', text)
       deleteKeyboard()
-      vm.executeButtonRequest(button.request, pageId, text)
+      if (typeof onSubmit === 'function') {
+        onSubmit(text)
+      } else {
+        vm.executeButtonRequest(button.request, pageId, text)
+      }
     },
     onCancel: () => {
       logger.debug('system keyboard cancelled')

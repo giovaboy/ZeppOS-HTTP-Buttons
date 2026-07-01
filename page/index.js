@@ -58,18 +58,25 @@ Page(
         const state = event.data.readyState
         logger.debug('image file state', state)
         if (state === 'transferred') {
+          this.clearImageSpinner()
           const userData = file.params || {}
           if (userData.type === 'image' && typeof layout.showImage === 'function') {
             logger.debug('showing image', file.filePath)
-            layout.showImage(this, file.filePath, this.pendingImagePage || 0) // replaces the spinner
-          } else if (typeof layout.hideImage === 'function') {
-            layout.hideImage()
+            layout.showImage(this, file.filePath, this.pendingImagePage || 0)
           }
         } else if (state === 'error') {
-          if (typeof layout.hideImage === 'function') layout.hideImage()
+          this.clearImageSpinner()
           layout.notifyResult('Image transfer failed', this.pendingImagePage || 0, true, CUSTOM_TOAST)
         }
       })
+    },
+    clearImageSpinner() {
+      // The button spinner for an image request is kept until the image is shown
+      // or fails; it lives on the vm so this flow can dismiss it.
+      if (this.pendingImageSpinner) {
+        deleteWidget(this.pendingImageSpinner)
+        this.pendingImageSpinner = null
+      }
     },
     getDataFromPhone() {
       this.request({
@@ -194,7 +201,8 @@ Page(
         // (see onReceivedFile). Errors are surfaced as a custom toast since the
         // image overlay can't render a failure.
         this.pendingImagePage = pageid
-        if (typeof layout.showImageLoading === 'function') layout.showImageLoading(this, pageid)
+        // Loading feedback is the on-button spinner (started by the layout's
+        // click handler); we just clear it on failure here.
         task = this.request({
           method: 'FETCH_IMAGE',
           params: {
@@ -204,12 +212,12 @@ Page(
           }
         }).then((resp) => {
           if (!resp || !resp.ok) {
-            if (typeof layout.hideImage === 'function') layout.hideImage()
+            this.clearImageSpinner()
             layout.notifyResult((resp && resp.error) || 'Image error', pageid, true, CUSTOM_TOAST)
           }
         }).catch((error) => {
           logger.error('FETCH_IMAGE error=>', JSON.stringify(error))
-          if (typeof layout.hideImage === 'function') layout.hideImage()
+          this.clearImageSpinner()
           layout.notifyResult(JSON.stringify(error), pageid, true, CUSTOM_TOAST)
         })
         return task

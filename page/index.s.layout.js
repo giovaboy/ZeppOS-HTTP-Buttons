@@ -8,7 +8,7 @@ import { getText } from '@zos/i18n'
 import { getLogger } from '../utils/logger.js'
 import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE } from 'zosLoader:./keyboard.[pf].layout.js'
 import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard.js'
-import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_GRAY, COLOR_RED, COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, KB_TYPE_CHAR, KB_TYPE_NUMERIC } from '../utils/constants.js';
+import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_GRAY, COLOR_RED, COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE, KB_TYPE_CHAR, KB_TYPE_NUMERIC } from '../utils/constants.js';
 
 const { width: DEVICE_WIDTH, height: DEVICE_HEIGHT } = getDeviceInfo();
 const TEXT_SIZE = DEVICE_WIDTH / 16;
@@ -59,6 +59,26 @@ function getInitialKeyboard(keyboardType) {
     default:
       return kb_lowercase;
   }
+}
+
+const SPINNER_SIZE = 28 // px; matches the assets/spinner frame size
+
+// Small self-animating loading spinner shown in a corner of the pressed button
+// while its request is in flight (assets/spinner/spin_*.png).
+function startButtonSpinner(x, y) {
+  return createWidget(widget.IMG_ANIM, {
+    anim_path: 'spinner',
+    anim_prefix: 'spin',
+    anim_ext: 'png',
+    anim_fps: 15,
+    anim_size: 12,
+    repeat_count: 0,
+    anim_status: anim_status.START,
+    x: px(x), y: px(y),
+  })
+}
+function stopButtonSpinner(w) {
+  if (w) { deleteWidget(w) }
 }
 
 export const layout = {
@@ -206,11 +226,27 @@ export const layout = {
               normal_color: button.back_color || COLOR_GRAY,
               press_color: btnPressColor(button.back_color || COLOR_GRAY, 1.3),
               click_func: () => {
+                const spinnerX = startXforThisBtn + widthOfTheButton - SPINNER_SIZE - 6
+                const spinnerY = startYforThisBtn + 6
+                const runRequest = (text) => {
+                  // Image requests keep their spinner until the picture is shown
+                  // (cleared in onReceivedFile); others stop it when the task settles.
+                  if (vm.pendingImageSpinner) { stopButtonSpinner(vm.pendingImageSpinner); vm.pendingImageSpinner = null }
+                  const sp = startButtonSpinner(spinnerX, spinnerY)
+                  if (button.request && button.request.response_style === SHOW_IMAGE) {
+                    vm.pendingImageSpinner = sp
+                    vm.executeButtonRequest(button.request, pi, text)
+                  } else {
+                    const p = vm.executeButtonRequest(button.request, pi, text)
+                    if (p && p.then) { p.then(() => stopButtonSpinner(sp), () => stopButtonSpinner(sp)) }
+                    else { stopButtonSpinner(sp) }
+                  }
+                }
                 if (button.input) {
                   // Prefer the native system keyboard (API_LEVEL 4.0+);
                   // fall back to the hand-drawn keyboard on older devices.
                   if (isSystemKeyboardAvailable()) {
-                    openSystemKeyboard(vm, button, pi)
+                    openSystemKeyboard(vm, button, pi, runRequest)
                     return
                   }
 
@@ -253,7 +289,7 @@ export const layout = {
                   function sendText(text) {
                     inputText = ''
                     logger.debug('Text sent:', text);
-                    vm.executeButtonRequest(button.request, pi, text)
+                    runRequest(text)
                     closeKeyboard()
                   }
 
@@ -346,7 +382,7 @@ export const layout = {
                   const initialKeyboard = getInitialKeyboard(button.keyboard_type);
                   renderKeyboard(initialKeyboard);
                 } else {
-                  vm.executeButtonRequest(button.request, pi)
+                  runRequest()
                 }
               }
             });
@@ -403,23 +439,6 @@ export const layout = {
     if (this.refs.imageViewSpinner) { deleteWidget(this.refs.imageViewSpinner); this.refs.imageViewSpinner = null; }
     if (this.refs.imageViewLoadingText) { deleteWidget(this.refs.imageViewLoadingText); this.refs.imageViewLoadingText = null; }
     if (this.refs.imageViewBg) { deleteWidget(this.refs.imageViewBg); this.refs.imageViewBg = null; }
-  },
-  // Shown as soon as an image button is pressed, on the page that triggered it,
-  // so the user sees a spinner while the phone fetches/converts/pushes the image.
-  showImageLoading(vm, pageid) {
-    this.hideImage();
-    const offsetY = (pageid || 0) * DEVICE_HEIGHT;
-    this.refs.imageViewBg = createWidget(widget.FILL_RECT, {
-      x: 0, y: px(offsetY), w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
-      color: COLOR_BLACK, alpha: 255,
-    });
-    this.refs.imageViewSpinner = createWidget(widget.IMG_ANIM, {
-      ...LOADING_IMG_ANIM_WIDGET, y: LOADING_IMG_ANIM_WIDGET.y + offsetY,
-    });
-    this.refs.imageViewLoadingText = createWidget(widget.TEXT, {
-      ...LOADING_TEXT_WIDGET, y: LOADING_TEXT_WIDGET.y + offsetY,
-    });
-    this.refs.imageViewBg.addEventListener(event.CLICK_DOWN, () => this.hideImage());
   },
   showImage(vm, filePath, pageid) {
     const offsetY = (pageid || 0) * DEVICE_HEIGHT;
