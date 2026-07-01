@@ -246,8 +246,9 @@ export function buildDigestAuth({ username, password, method, uri, challenge, bo
   // Pick the hash from the advertised algorithm (default MD5), and handle the
   // -sess variants. Supports MD5, MD5-sess, SHA-256, SHA-256-sess.
   const sess = /-sess$/i.test(algorithm || '');
-  const base = (algorithm || 'MD5').replace(/-sess$/i, '').toUpperCase();
-  const H = base === 'SHA-256' ? sha256 : md5;
+  // Tolerant match: SHA-256 / SHA256 / sha-256 all pick sha256; anything else
+  // (incl. MD5 and unspecified) uses md5.
+  const H = /256/.test(algorithm || '') ? sha256 : md5;
 
   let HA1 = H(`${username}:${realm}:${password}`);
   if (sess) {
@@ -277,6 +278,17 @@ function simpleUrlDecode(str) {
     .replace(/%([0-9A-Fa-f]{2})/g, (match, hex) => {
       return String.fromCharCode(parseInt(hex, 16));
     });
+}
+
+// The Digest "uri" (request-target) must be the full path INCLUDING the query
+// string, exactly as sent in the request line — parseUrlSimple drops the query,
+// which breaks Digest on URLs like /snapshot?channel=0 (e.g. TP-Link VIGI): the
+// server computes HA2 over "/snapshot?channel=0" but we'd sign only "/snapshot".
+export function requestUri(url) {
+  const i = url.indexOf('://')
+  const afterScheme = i >= 0 ? url.slice(i + 3) : url
+  const slash = afterScheme.indexOf('/')
+  return slash === -1 ? '/' : afterScheme.slice(slash)
 }
 
 export function parseUrlSimple(url) {

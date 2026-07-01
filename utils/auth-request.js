@@ -1,11 +1,11 @@
 import { log as Logger } from '@zos/utils'
-import { parseChallenge, buildDigestAuth, parseUrlSimple } from './digest.js'
+import { parseChallenge, buildDigestAuth, requestUri } from './digest.js'
 
 const logger = Logger.getLogger("http-buttons-auth-request");
 
 export async function digestRequest(pluginContext, opts) {
   const { method, url, username, password, body = undefined, headers = {}, timeout } = opts;
-  const uri = parseUrlSimple(url).pathname
+  const uri = requestUri(url)
 
   const defaultHeaders = {
     "Content-Type": "application/json",

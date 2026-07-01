@@ -1,6 +1,6 @@
 import { BaseSideService, settingsLib } from '@zeppos/zml/base-side'
 import { DEFAULT_DATA } from '../utils/constants.js'
-import { parseChallenge, buildDigestAuth, parseUrlSimple } from '../utils/digest.js'
+import { parseChallenge, buildDigestAuth, requestUri } from '../utils/digest.js'
 
 // Where the downloaded snapshot is stored on the phone side before conversion.
 // One fixed name is enough: requests are one-shot and never run in parallel.
@@ -99,7 +99,7 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }
         const wa = readHeader(probe && probe.headers, 'www-authenticate')
         if (wa && /Digest/i.test(wa)) {
           const challenge = parseChallenge(wa)
-          const uri = parseUrlSimple(url).pathname
+          const uri = requestUri(url)
           const authHeader = buildDigestAuth({ username: user, password: pass, method: 'GET', uri, challenge })
           startImageDownload(ctx, url, { ...baseHeaders, Authorization: authHeader }, res)
         } else {
