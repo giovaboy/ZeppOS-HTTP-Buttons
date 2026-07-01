@@ -282,8 +282,9 @@ function simpleUrlDecode(str) {
 
 // The Digest "uri" (request-target) must be the full path INCLUDING the query
 // string, exactly as sent in the request line — parseUrlSimple drops the query,
-// which breaks Digest on URLs like /snapshot?channel=0 (e.g. TP-Link VIGI): the
-// server computes HA2 over "/snapshot?channel=0" but we'd sign only "/snapshot".
+// which breaks Digest on URLs like /snapshot?channel=0 (common with camera
+// snapshot endpoints): the server computes HA2 over "/snapshot?channel=0" but
+// we'd otherwise sign only "/snapshot".
 export function requestUri(url) {
   const i = url.indexOf('://')
   const afterScheme = i >= 0 ? url.slice(i + 3) : url
