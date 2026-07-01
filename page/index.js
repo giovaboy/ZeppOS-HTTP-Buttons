@@ -58,14 +58,15 @@ Page(
         const state = event.data.readyState
         logger.debug('image file state', state)
         if (state === 'transferred') {
-          this.hideLoading()
           const userData = file.params || {}
           if (userData.type === 'image' && typeof layout.showImage === 'function') {
             logger.debug('showing image', file.filePath)
-            layout.showImage(this, file.filePath, this.pendingImagePage || 0)
+            layout.showImage(this, file.filePath, this.pendingImagePage || 0) // replaces the spinner
+          } else if (typeof layout.hideImage === 'function') {
+            layout.hideImage()
           }
         } else if (state === 'error') {
-          this.hideLoading()
+          if (typeof layout.hideImage === 'function') layout.hideImage()
           layout.notifyResult('Image transfer failed', this.pendingImagePage || 0, true, CUSTOM_TOAST)
         }
       })
@@ -193,7 +194,7 @@ Page(
         // (see onReceivedFile). Errors are surfaced as a custom toast since the
         // image overlay can't render a failure.
         this.pendingImagePage = pageid
-        this.showLoading()
+        if (typeof layout.showImageLoading === 'function') layout.showImageLoading(this, pageid)
         task = this.request({
           method: 'FETCH_IMAGE',
           params: {
@@ -203,12 +204,12 @@ Page(
           }
         }).then((resp) => {
           if (!resp || !resp.ok) {
-            this.hideLoading()
+            if (typeof layout.hideImage === 'function') layout.hideImage()
             layout.notifyResult((resp && resp.error) || 'Image error', pageid, true, CUSTOM_TOAST)
           }
         }).catch((error) => {
           logger.error('FETCH_IMAGE error=>', JSON.stringify(error))
-          this.hideLoading()
+          if (typeof layout.hideImage === 'function') layout.hideImage()
           layout.notifyResult(JSON.stringify(error), pageid, true, CUSTOM_TOAST)
         })
         return task

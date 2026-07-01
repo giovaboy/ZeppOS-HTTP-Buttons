@@ -400,7 +400,26 @@ export const layout = {
   },
   hideImage() {
     if (this.refs.imageViewImg) { deleteWidget(this.refs.imageViewImg); this.refs.imageViewImg = null; }
+    if (this.refs.imageViewSpinner) { deleteWidget(this.refs.imageViewSpinner); this.refs.imageViewSpinner = null; }
+    if (this.refs.imageViewLoadingText) { deleteWidget(this.refs.imageViewLoadingText); this.refs.imageViewLoadingText = null; }
     if (this.refs.imageViewBg) { deleteWidget(this.refs.imageViewBg); this.refs.imageViewBg = null; }
+  },
+  // Shown as soon as an image button is pressed, on the page that triggered it,
+  // so the user sees a spinner while the phone fetches/converts/pushes the image.
+  showImageLoading(vm, pageid) {
+    this.hideImage();
+    const offsetY = (pageid || 0) * DEVICE_HEIGHT;
+    this.refs.imageViewBg = createWidget(widget.FILL_RECT, {
+      x: 0, y: px(offsetY), w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
+      color: COLOR_BLACK, alpha: 255,
+    });
+    this.refs.imageViewSpinner = createWidget(widget.IMG_ANIM, {
+      ...LOADING_IMG_ANIM_WIDGET, y: LOADING_IMG_ANIM_WIDGET.y + offsetY,
+    });
+    this.refs.imageViewLoadingText = createWidget(widget.TEXT, {
+      ...LOADING_TEXT_WIDGET, y: LOADING_TEXT_WIDGET.y + offsetY,
+    });
+    this.refs.imageViewBg.addEventListener(event.CLICK_DOWN, () => this.hideImage());
   },
   showImage(vm, filePath, pageid) {
     const offsetY = (pageid || 0) * DEVICE_HEIGHT;
