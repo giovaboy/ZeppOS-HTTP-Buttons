@@ -192,7 +192,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
             flex: 1,
             display: 'flex',
             flexDirection: 'row',
-            justfyContent: 'center',
+            justifyContent: 'center',
             alignItems: 'normal'
           }
         },
@@ -214,7 +214,7 @@ const buildButtonBasicInfo = (button, pindex, rindex, bindex, context) => {
       style: {
         flex: 1,
         flexDirection: 'column',
-        justfyContent: 'center',
+        justifyContent: 'center',
         alignItems: 'stretch',
         display: 'flex'
       }
@@ -269,7 +269,7 @@ const buildButtonHTTPConfig = (button, pindex, rindex, bindex, context) => {
       style: {
         flex: 1,
         flexDirection: 'column',
-        justfyContent: 'center',
+        justifyContent: 'center',
         alignItems: 'flex-start',
         display: button.spacer ? 'none' : 'flex'
       }
@@ -297,7 +297,7 @@ const buildButtonHTTPConfig = (button, pindex, rindex, bindex, context) => {
         onChange: (value) => context.editButton('text_color', value, pindex, rindex, bindex)
       }),
       Select({
-        title: gettext('text_size') + button.text_size,
+        title: gettext('text_size') + (button.text_size != null ? button.text_size : 'default'),
         value: button.text_size,
         options: tSizeRange(),
         onChange: (value) => context.editButton('text_size', value, pindex, rindex, bindex)
@@ -495,7 +495,7 @@ const buildRowView = (row, page, pindex, rindex, context) => {
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            justfyContent: 'center',
+            justifyContent: 'center',
             alignItems: 'center'
           }
         },
@@ -558,7 +558,7 @@ const buildPageView = (page, pindex, context) => {
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            justfyContent: 'center',
+            justifyContent: 'center',
             alignItems: 'center'
           }
         },
@@ -586,7 +586,7 @@ const buildPageView = (page, pindex, context) => {
                 flex: 1,
                 display: 'flex',
                 flexDirection: 'column',
-                justfyContent: 'center',
+                justifyContent: 'center',
                 alignItems: 'center'
               }
             },
@@ -936,7 +936,7 @@ AppSettingsPage({
         .forEach(([vindex, value]) => {
           contentVariables.push(
             View({ style: { borderTop: '1px solid #eaeaea', padding: '6px 0 6px 10px', display: 'flex', flexDirection: 'row', alignItems: 'center' }}, [
-              View({ style: { flex: 1, display: 'flex', flexDirection: 'column', justfyContent: 'center', alignItems: 'start' }}, [
+              View({ style: { flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'start' }}, [
                 TextInput({
                   label: vindex,
                   placeholder: vindex,
@@ -998,7 +998,7 @@ AppSettingsPage({
       if (pages.length > 0) {
         // Page picker: jump between pages without scrolling through them all.
         contentItems.push(
-          View({ style: { margin: '8px 0' }}, [
+          View({ style: { margin: '10px 0', padding: '6px 12px', border: '1px solid #cfe0ff', borderRadius: '12px', background: '#eef4ff' }}, [
             Select({
               title: gettext('page'),
               value: String(selectedPage),
