@@ -153,6 +153,24 @@ const keyboardTypes = () => {
 
 // === LAYOUT BUILDER FUNCTIONS ===
 
+// A destructive-action control that looks like a button but is backed by a
+// disabled TextInput: tapping opens the framework's native dialog, and the
+// delete (onConfirm) only fires after the user confirms. A real Button would
+// delete on the first tap with no confirmation (see the note on clearBTN).
+const deleteConfirm = (label, background, onConfirm, extraStyle = {}) => {
+  return View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background, color: 'white', textAlign: 'center', padding: '0 15px', ...extraStyle } }, [
+    TextInput({
+      label,
+      labelStyle: { textAlign: 'center' },
+      subStyle: { display: 'none' },
+      disabled: true,
+      placeholder: label + '?',
+      value: undefined,
+      onChange: () => onConfirm()
+    })
+  ]);
+};
+
 const buildButtonView = (button, pindex, rindex, bindex, context) => {
   return View(
     {
@@ -185,17 +203,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
           buildButtonHTTPConfig(button, pindex, rindex, bindex, context)
         ]
       ),
-      Button({
-        label: gettext('delete_button'),
-        style: {
-          fontSize: '12px',
-          borderRadius: '30px',
-          background: '#d18420ff',
-          color: 'white',
-          maxWidth: '3px'
-        },
-        onClick: () => context.deleteButton(pindex, rindex, bindex)
-      })
+      deleteConfirm(gettext('delete_button'), '#d18420ff', () => context.deleteButton(pindex, rindex, bindex))
     ]
   );
 };
@@ -526,17 +534,7 @@ const buildRowView = (row, page, pindex, rindex, context) => {
         },
         onClick: () => context.addButton(pindex, rindex)
       }),
-      Button({
-        label: gettext('delete_row'),
-        style: {
-          fontSize: '12px',
-          borderRadius: '30px',
-          background: '#fdcb3e',
-          color: 'white',
-          maxWidth: '10%',
-        },
-        onClick: () => context.deleteRow(pindex, rindex)
-      })
+      deleteConfirm(gettext('delete_row'), '#fdcb3e', () => context.deleteRow(pindex, rindex), { margin: '0 5px 0 0' })
     ]
   );
 };
@@ -631,17 +629,7 @@ const buildPageView = (page, pindex, context) => {
         },
         onClick: () => context.addRow(pindex)
       }),
-      Button({
-        label: gettext('delete_page'),
-        style: {
-          fontSize: '12px',
-          borderRadius: '30px',
-          background: '#D85E33',
-          color: 'white',
-          maxWidth: '10%',
-        },
-        onClick: () => context.deletePage(pindex)
-      })
+      deleteConfirm(gettext('delete_page'), '#D85E33', () => context.deletePage(pindex), { margin: '0 5px 0 0' })
     ]
   );
 };
