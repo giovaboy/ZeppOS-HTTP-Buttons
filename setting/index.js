@@ -856,7 +856,7 @@ AppSettingsPage({
 
     const addVariableBTN = Button({
       label: gettext('add_variable'),
-      style: { fontSize: '12px', borderRadius: '30px', background: toColor(COLOR_GREEN), color: 'white', width: '40%' },
+      style: { fontSize: '12px', borderRadius: '30px', background: toColor(COLOR_GREEN), color: 'white', width: '60%' },
       onClick: () => {
         let i = 1, key
         const vars = this.state.data.variables
@@ -864,6 +864,8 @@ AppSettingsPage({
           key = `var_${i}`
           i++
         } while (key in vars)
+        // Auto-expand the variables list so the new (empty) variable is visible.
+        this.state.props.settingsStorage.setItem('ui_vars_open', 'true')
         this.addGlobalVariable(key, '')
       }
     });
@@ -941,6 +943,11 @@ AppSettingsPage({
           value: varsOpen,
           onChange: (v) => this.state.props.settingsStorage.setItem('ui_vars_open', v ? 'true' : 'false')
         })
+      );
+      // Add Variable lives inside the variables section (always available,
+      // even when the list is collapsed — adding auto-expands it).
+      contentVariables.push(
+        View({ style: { display: 'flex', justifyContent: 'center', margin: '6px 0' }}, [addVariableBTN])
       );
 
       if (varsOpen) {
@@ -1057,8 +1064,8 @@ AppSettingsPage({
     } else {
       return View({ style: { padding: '12px 5px' }}, [
         welcomeText,
-        View({ style: { flex: 1, display: 'flex', justifyContent: 'space-evenly', flexDirection: 'row', alignItems: 'center' }},
-          [addPageBTN, addVariableBTN]),
+        View({ style: { display: 'flex', justifyContent: 'center', flexDirection: 'row', alignItems: 'center' }},
+          [addPageBTN]),
         // Variables in a card Section; the "Variables (N)" toggle inside is the
         // header (collapsed by default), so the Section itself has no title.
         contentVariables.length > 0 && Section({ style: { marginTop: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }},
