@@ -1028,10 +1028,16 @@ AppSettingsPage({
         const pindex = selectedPage;
         const pageChildren = [buildPageView(page, pindex, this)];
         for (let [rindex, row] of page.rows.entries()) {
-          pageChildren.push(buildRowView(row, page, pindex, rindex, this));
+          // [redesign step 5] Wrap each row together with its buttons in one
+          // card so the visual hierarchy matches the data: page › row › buttons
+          // (previously rows and buttons were flat siblings inside the page).
+          const rowChildren = [buildRowView(row, page, pindex, rindex, this)];
           for (let [bindex, button] of row.buttons.entries()) {
-            pageChildren.push(buildButtonView(button, pindex, rindex, bindex, this));
+            rowChildren.push(buildButtonView(button, pindex, rindex, bindex, this));
           }
+          pageChildren.push(
+            View({ style: { border: '1px solid #c9c9c9', borderRadius: '10px', padding: '6px', marginBottom: '10px', background: '#f0f0f0' }}, rowChildren)
+          );
         }
         contentItems.push(
           Section({
