@@ -158,9 +158,12 @@ Page(
     },
     clearImageSpinner() {
       // The button spinner for an image request is kept until the image is shown
-      // or fails; it lives on the vm so this flow can dismiss it.
+      // or fails; it lives on the vm so this flow can dismiss it. The handle is
+      // compound ({ bg, anim }) — the disc backdrop plus the animation.
       if (this.pendingImageSpinner) {
-        deleteWidget(this.pendingImageSpinner)
+        const h = this.pendingImageSpinner
+        if (h.anim) deleteWidget(h.anim)
+        if (h.bg) deleteWidget(h.bg)
         this.pendingImageSpinner = null
       }
     },

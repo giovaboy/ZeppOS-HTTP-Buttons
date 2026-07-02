@@ -62,9 +62,17 @@ function getInitialKeyboard(keyboardType) {
 const SPINNER_SIZE = 28 // px; matches the assets/spinner frame size
 
 // Small self-animating loading spinner shown in a corner of the pressed button
-// while its request is in flight (assets/spinner/spin_*.png).
+// while its request is in flight (assets/spinner/spin_*.png). The spinner PNGs
+// are near-white, so a translucent dark disc is drawn behind them — otherwise
+// the spinner is invisible on light buttons (yellow, gold, white, …).
 function startButtonSpinner(x, y) {
-  return createWidget(widget.IMG_ANIM, {
+  const bg = createWidget(widget.FILL_RECT, {
+    x: px(x), y: px(y),
+    w: px(SPINNER_SIZE), h: px(SPINNER_SIZE),
+    radius: px(SPINNER_SIZE / 2),
+    color: COLOR_BLACK, alpha: 160,
+  })
+  const anim = createWidget(widget.IMG_ANIM, {
     anim_path: 'spinner',
     anim_prefix: 'spin',
     anim_ext: 'png',
@@ -74,9 +82,12 @@ function startButtonSpinner(x, y) {
     anim_status: anim_status.START,
     x: px(x), y: px(y),
   })
+  return { bg, anim }
 }
-function stopButtonSpinner(w) {
-  if (w) { deleteWidget(w) }
+function stopButtonSpinner(h) {
+  if (!h) return
+  if (h.anim) { deleteWidget(h.anim) }
+  if (h.bg) { deleteWidget(h.bg) }
 }
 
 export const layout = {
