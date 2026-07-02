@@ -1049,8 +1049,9 @@ AppSettingsPage({
           );
         }
         contentItems.push(
+          // No Section title: buildPageView already shows the page title in its
+          // own colors (a live preview), and the page picker above names it.
           Section({
-            title: gettext('page') + (pindex + 1) + (page.title ? ' · ' + page.title : ''),
             style: { marginBottom: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }
           }, pageChildren)
         );
