@@ -157,6 +157,11 @@ AppSideService(
         fetchConvertAndPush(this, req.params || {}, res)
       }
     },
+    // Kept intentionally: removing this hook in the 1.6 cleanup appears to break
+    // the side service init on device (page stuck on loading — GET_DATA never
+    // answered). Config is pulled on demand via GET_DATA, so the body is a no-op.
+    onSettingsChange({ key, newValue, oldValue }) {
+    },
     onRun() {},
     onDestroy() {}
   })
