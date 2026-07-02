@@ -268,10 +268,13 @@ const buildButtonHTTPConfig = (button, pindex, rindex, bindex, context) => {
     },
     [
       // Button style options
-      Select({
-        title: gettext('radius') + button.radius,
-        value: button.radius,
-        options: wRange({ step: 5 }),
+      // [redesign step 1] Slider instead of a long "0..100 step 5" dropdown.
+      Slider({
+        label: gettext('radius') + (button.radius != null ? button.radius : 0),
+        min: 0,
+        max: 100,
+        step: 1,
+        value: button.radius || 0,
         onChange: (value) => context.editButton('radius', value, pindex, rindex, bindex)
       }),
       Select({
@@ -867,17 +870,15 @@ AppSettingsPage({
       }
     });
 
-    const clearBTN = View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background: '#db2c2c', color: 'white', textAlign: 'left', padding: '0 15px'}}, [
-      TextInput({
-        label: gettext('delete_storage'),
-        labelStyle: { textAlign: 'center' },
-        subStyle: { display: 'none' },
-        disabled: true,
-        placeholder: gettext('delete_storage') + '?',
-        value: undefined,
-        onChange: () => this.deleteState()
-      })
-    ]);
+    // [redesign step 1] Real Button instead of the disabled-TextInput hack.
+    // NOTE: a tap deletes immediately (no built-in confirm) — a confirm pattern
+    // is a later step.
+    const clearBTN = Button({
+      label: gettext('delete_storage'),
+      color: 'secondary',
+      style: { background: '#db2c2c', color: 'white', borderRadius: '30px', width: '50%' },
+      onClick: () => this.deleteState()
+    });
 
     const confBTN = View({ style: { fontSize: '12px', lineHeight: '35px', borderRadius: '30px', background: '#dedede', color: 'black', textAlign: 'left', padding: '0 15px', margin: '6px 0' }}, [
       TextInput({
@@ -925,12 +926,8 @@ AppSettingsPage({
     if (this.state.data) {
       const variables = this.state.data.variables || {};
 
-      // Global Variables section
-      contentVariables.push(
-        Text({ bold: true, align: 'left', paragraph: true, style: { fontSize: '16px', padding: '4px 4px' }},
-          [gettext('variables')])
-      )
-
+      // [redesign step 1] The section header is now the Section title (added in
+      // the final render), so no standalone Text header here.
       Object.entries(variables)
         .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
         .forEach(([vindex, value]) => {
@@ -967,17 +964,13 @@ AppSettingsPage({
                   }
                 })
               ]),
-              View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background: '#D85E33', color: 'white', textAlign: 'left', padding: '0 15px', margin: '0 5px 0 0' }}, [
-                TextInput({
-                  label: gettext('delete_variable'),
-                  labelStyle: { textAlign: 'center' },
-                  subStyle: { display: 'none' },
-                  disabled: true,
-                  placeholder: gettext('delete_variable') + ' ' + vindex + '?',
-                  value: undefined,
-                  onChange: (newValue) => this.deleteGlobalVariable(vindex)
-                })
-              ])
+              // [redesign step 1] Real Button instead of the disabled-TextInput hack.
+              Button({
+                label: gettext('delete_variable'),
+                color: 'secondary',
+                style: { background: '#D85E33', color: 'white', borderRadius: '30px', margin: '0 5px 0 0' },
+                onClick: () => this.deleteGlobalVariable(vindex)
+              })
             ])
           )
         });
@@ -985,19 +978,25 @@ AppSettingsPage({
       // === BUILD PAGES/ROWS/BUTTONS WITH HELPER FUNCTIONS ===
       const pages = this.state.data.pages || [];
 
+      // [redesign step 1] Group each page (its header + rows + buttons) into a
+      // Section with a title, instead of pushing everything flat.
       for (let [pindex, page] of pages.entries()) {
-        // Add page view
-        contentItems.push(buildPageView(page, pindex, this));
+        const pageChildren = [buildPageView(page, pindex, this)];
 
-        // Add page rows
         for (let [rindex, row] of page.rows.entries()) {
-          contentItems.push(buildRowView(row, page, pindex, rindex, this));
+          pageChildren.push(buildRowView(row, page, pindex, rindex, this));
 
-          // Add row buttons
           for (let [bindex, button] of row.buttons.entries()) {
-            contentItems.push(buildButtonView(button, pindex, rindex, bindex, this));
+            pageChildren.push(buildButtonView(button, pindex, rindex, bindex, this));
           }
         }
+
+        contentItems.push(
+          Section({
+            title: gettext('page') + (pindex + 1) + (page.title ? ' · ' + page.title : ''),
+            style: { marginBottom: '10px' }
+          }, pageChildren)
+        );
       }
     }
 
@@ -1010,10 +1009,11 @@ AppSettingsPage({
         welcomeText,
         View({ style: { flex: 1, display: 'flex', justifyContent: 'space-evenly', flexDirection: 'row', alignItems: 'center' }},
           [addPageBTN, addVariableBTN]),
-        contentVariables.length > 0 && View({ style: { marginTop: '12px', padding: '4px', border: '1px solid #eaeaea', borderRadius: '6px', backgroundColor: 'white' }},
+        // [redesign step 1] Variables grouped in a titled Section; each page is
+        // already its own Section, so spread them in directly.
+        contentVariables.length > 0 && Section({ title: gettext('variables'), style: { marginTop: '12px' }},
           [...contentVariables]),
-        contentItems.length > 0 && View({ style: { marginTop: '12px', padding: '4px', border: '1px solid #eaeaea', borderRadius: '6px', backgroundColor: 'white' }},
-          [...contentItems]),
+        ...contentItems,
         confBTN,
         clearBTN,
         testModeSwitch
