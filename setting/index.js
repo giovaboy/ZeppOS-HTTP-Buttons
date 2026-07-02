@@ -929,9 +929,20 @@ AppSettingsPage({
     if (this.state.data) {
       const variables = this.state.data.variables || {};
 
-      // [redesign step 1] The section header is now the Section title (added in
-      // the final render), so no standalone Text header here.
-      Object.entries(variables)
+      // [redesign step 4] Collapse the variables list behind a toggle so it
+      // doesn't push the page picker far down; state in the UI-only key.
+      const varCount = Object.keys(variables).length;
+      const varsOpen = this.state.props.settingsStorage.getItem('ui_vars_open') === 'true';
+      contentVariables.push(
+        Toggle({
+          label: gettext('variables') + ' (' + varCount + ')',
+          value: varsOpen,
+          onChange: (v) => this.state.props.settingsStorage.setItem('ui_vars_open', v ? 'true' : 'false')
+        })
+      );
+
+      if (varsOpen) {
+        Object.entries(variables)
         .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
         .forEach(([vindex, value]) => {
           contentVariables.push(
@@ -984,6 +995,7 @@ AppSettingsPage({
             ])
           )
         });
+      }
 
       // === BUILD PAGES/ROWS/BUTTONS WITH HELPER FUNCTIONS ===
       const pages = this.state.data.pages || [];
@@ -1024,7 +1036,7 @@ AppSettingsPage({
         contentItems.push(
           Section({
             title: gettext('page') + (pindex + 1) + (page.title ? ' · ' + page.title : ''),
-            style: { marginBottom: '10px' }
+            style: { marginBottom: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }
           }, pageChildren)
         );
       }
@@ -1039,9 +1051,9 @@ AppSettingsPage({
         welcomeText,
         View({ style: { flex: 1, display: 'flex', justifyContent: 'space-evenly', flexDirection: 'row', alignItems: 'center' }},
           [addPageBTN, addVariableBTN]),
-        // [redesign step 1] Variables grouped in a titled Section; each page is
-        // already its own Section, so spread them in directly.
-        contentVariables.length > 0 && Section({ title: gettext('variables'), style: { marginTop: '12px' }},
+        // Variables in a card Section; the "Variables (N)" toggle inside is the
+        // header (collapsed by default), so the Section itself has no title.
+        contentVariables.length > 0 && Section({ style: { marginTop: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }},
           [...contentVariables]),
         ...contentItems,
         confBTN,
