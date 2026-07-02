@@ -119,45 +119,28 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }
   startImageDownload(ctx, url, { ...baseHeaders, ...buildImageAuthHeaders({ auth, user, pass, token }) }, res)
 }
 
+// One-time migration: earlier versions stored `data` as an array of configs;
+// collapse it to the single object the app now expects.
 function migrateDataIfNeeded() {
-  console.log('Error migrateDataIfNeeded')
-  let raw = settingsLib.getItem('data')
-
-  if (!raw) {
-    //settingsLib.setItem('data', JSON.stringify(DEFAULT_DATA))
-    console.log('no data found')
-    return
-  }
+  const raw = settingsLib.getItem('data')
+  if (!raw) return
 
   try {
-    let parsed = JSON.parse(raw)
-
+    const parsed = JSON.parse(raw)
     if (Array.isArray(parsed)) {
-      let migrated = parsed[0] || DEFAULT_DATA
-      settingsLib.setItem('data', JSON.stringify(migrated))
-      console.log('array → object completed')
-      return
+      settingsLib.setItem('data', JSON.stringify(parsed[0] || DEFAULT_DATA))
     }
-
-    if (typeof parsed === 'object') {
-      return
-    }
-
   } catch (e) {
-    console.log('Error parsing data:', e)
-    //settingsLib.setItem('data', JSON.stringify(DEFAULT_DATA))
+    console.log('migrateDataIfNeeded: bad data JSON', e)
   }
 }
 
 function getData() {
-  //console.debug('getData')
-  //migrateDataIfNeeded()
   // Test mode: load the hardcoded test suite instead of the user's config.
   if (settingsLib.getItem('test_mode') === 'true') {
     return JSON.stringify(TEST_DATA);
   }
-  const saved = settingsLib.getItem('data');
-  return saved;// || JSON.stringify(DEFAULT_DATA);
+  return settingsLib.getItem('data');
 }
 
 AppSideService(
@@ -174,18 +157,6 @@ AppSideService(
         fetchConvertAndPush(this, req.params || {}, res)
       }
     },
-    onSettingsChange({ key, newValue, oldValue }) {//can we push to the watch from here?
-      //console.log('settings changed:',key)
-      //this.notifyDevice()
-    },
-    // notifyDevice() {
-    //   this.call({
-    //     method: 'data',
-    //     params: {
-    //       data: getData(),
-    //     }
-    //   })
-    // },
     onRun() {},
     onDestroy() {}
   })
