@@ -157,12 +157,14 @@ const keyboardTypes = () => {
 // disabled TextInput: tapping opens the framework's native dialog, and the
 // delete (onConfirm) only fires after the user confirms. A real Button would
 // delete on the first tap with no confirmation (see the note on clearBTN).
-const deleteConfirm = (label, background, onConfirm, { name, style } = {}) => {
-  // Confirm dialog names the element being deleted, e.g. Delete Button "ON/OFF"?
+const deleteConfirm = (label, background, onConfirm, { name, style, icon } = {}) => {
+  // Confirm dialog always names the element, e.g. Delete Button "ON/OFF"?.
+  // `icon` (optional) replaces the button text with a glyph (e.g. a trash can),
+  // while the confirm text stays explicit.
   const placeholder = label + (name ? ' "' + name + '"' : '') + '?';
   return View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background, color: 'white', textAlign: 'center', padding: '0 15px', ...style } }, [
     TextInput({
-      label,
+      label: icon || label,
       labelStyle: { textAlign: 'center' },
       subStyle: { display: 'none' },
       disabled: true,
@@ -549,89 +551,75 @@ const buildPageView = (page, pindex, context) => {
         padding: '6px 0',
         marginBottom: '6px',
         display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'flex-start'
+        flexDirection: 'column',
+        alignItems: 'stretch'
       }
     },
     [
-      View(
-        {
-          style: {
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center'
-          }
+      // 1. Page title — full width, centered, previewing its own colors.
+      TextInput({
+        placeholder: gettext('page_title'),
+        bold: true,
+        value: page.title || gettext('**NO TEXT**'),
+        subStyle: {
+          textAlign: 'center',
+          fontSize: '18px',
+          color: toColor(page.text_color || COLOR_BLACK),
+          background: toColor(page.back_color || COLOR_WHITE)
         },
+        maxLength: 200,
+        onChange: (title) => {
+          if (title.length <= 200 || title != gettext('**NO TEXT**')) {
+            context.editPage('title', title, pindex);
+          }
+        }
+      }),
+      // 2. Colors side by side.
+      View(
+        { style: { display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center' } },
         [
-          TextInput({
-            placeholder: gettext('page_title'),
-            bold: true,
-            value: page.title || gettext('**NO TEXT**'),
-            subStyle: {
-              textAlign: 'center',
-              fontSize: '18px',
-              color: toColor(page.text_color || COLOR_BLACK),
-              background: toColor(page.back_color || COLOR_WHITE)
-            },
-            maxLength: 200,
-            onChange: (title) => {
-              if (title.length <= 200 || title != gettext('**NO TEXT**')) {
-                context.editPage('title', title, pindex);
-              }
-            }
-          }),
-          View(
-            {
-              style: {
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center'
-              }
-            },
-            [
-              Select({
-                title: gettext('page') + (pindex + 1),
-                value: undefined,
-                options: indexRange(pindex, context.state.data.pages.length - 1),
-                onChange: (value) => {
-                  if (value < 999) {
-                    context.movePage(pindex, value);
-                  }
-                }
-              }),
-              Select({
-                title: gettext('back_color'),
-                value: page.back_color,
-                options: colors(),
-                onChange: (value) => context.editPage('back_color', value, pindex)
-              }),
-              Select({
-                title: gettext('text_color'),
-                value: page.text_color,
-                options: colors(),
-                onChange: (value) => context.editPage('text_color', value, pindex)
-              })
-            ]
-          )
+          View({ style: { flex: 1 } }, [
+            Select({
+              title: gettext('back_color'),
+              value: page.back_color,
+              options: colors(),
+              onChange: (value) => context.editPage('back_color', value, pindex)
+            })
+          ]),
+          View({ style: { flex: 1 } }, [
+            Select({
+              title: gettext('text_color'),
+              value: page.text_color,
+              options: colors(),
+              onChange: (value) => context.editPage('text_color', value, pindex)
+            })
+          ])
         ]
       ),
-      Button({
-        label: gettext('add_row'),
-        style: {
-          fontSize: '12px',
-          borderRadius: '30px',
-          background: '#ababab',
-          color: 'white',
-          marginRight: '10px',
-          maxWidth: '10%',
-        },
-        onClick: () => context.addRow(pindex)
-      }),
-      deleteConfirm(gettext('delete_page'), '#D85E33', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), style: { margin: '0 5px 0 0' } })
+      // 3. Actions: reorder page · delete page · add row.
+      View(
+        { style: { display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: '6px' } },
+        [
+          View({ style: { flex: 1 } }, [
+            Select({
+              title: gettext('page') + (pindex + 1),
+              value: undefined,
+              options: indexRange(pindex, context.state.data.pages.length - 1),
+              onChange: (value) => {
+                if (value < 999) {
+                  context.movePage(pindex, value);
+                }
+              }
+            })
+          ]),
+          deleteConfirm(gettext('delete_page'), '#D85E33', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '🗑', style: { margin: '0 5px' } }),
+          Button({
+            label: gettext('add_row'),
+            style: { fontSize: '12px', borderRadius: '30px', background: '#ababab', color: 'white' },
+            onClick: () => context.addRow(pindex)
+          })
+        ]
+      )
     ]
   );
 };
