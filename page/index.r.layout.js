@@ -60,17 +60,21 @@ function getInitialKeyboard(keyboardType) {
 }
 
 const SPINNER_SIZE = 28 // px; matches the assets/spinner frame size
+const SPINNER_MARGIN = 4 // px of dark disc showing around the spinner on each side
 
 // Small self-animating loading spinner shown in a corner of the pressed button
 // while its request is in flight (assets/spinner/spin_*.png). The spinner PNGs
 // are near-white, so a translucent dark disc is drawn behind them — otherwise
 // the spinner is invisible on light buttons (yellow, gold, white, …).
 function startButtonSpinner(x, y) {
+  // A touch larger than the spinner (SPINNER_MARGIN per side) and centered on
+  // it, so it reads as a soft badge behind the spokes rather than a hard ring.
+  const bgSize = SPINNER_SIZE + SPINNER_MARGIN * 2
   const bg = createWidget(widget.FILL_RECT, {
-    x: px(x), y: px(y),
-    w: px(SPINNER_SIZE), h: px(SPINNER_SIZE),
-    radius: px(SPINNER_SIZE / 2),
-    color: COLOR_BLACK, alpha: 160,
+    x: px(x - SPINNER_MARGIN), y: px(y - SPINNER_MARGIN),
+    w: px(bgSize), h: px(bgSize),
+    radius: px(bgSize / 2),
+    color: COLOR_BLACK, alpha: 140,
   })
   const anim = createWidget(widget.IMG_ANIM, {
     anim_path: 'spinner',
