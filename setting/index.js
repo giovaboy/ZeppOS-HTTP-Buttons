@@ -870,15 +870,22 @@ AppSettingsPage({
       }
     });
 
-    // [redesign step 1] Real Button instead of the disabled-TextInput hack.
-    // NOTE: a tap deletes immediately (no built-in confirm) — a confirm pattern
-    // is a later step.
-    const clearBTN = Button({
-      label: gettext('delete_storage'),
-      color: 'secondary',
-      style: { background: '#db2c2c', color: 'white', borderRadius: '30px', width: '50%' },
-      onClick: () => this.deleteState()
-    });
+    // A disabled TextInput (NOT a Button) on purpose: tapping it opens the
+    // framework's native input dialog showing the placeholder as a confirm
+    // ("delete storage?"), and onChange only fires once the user confirms.
+    // A real Button would delete immediately with no confirmation — which we
+    // don't want for a destructive action. Keep as-is.
+    const clearBTN = View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background: '#db2c2c', color: 'white', textAlign: 'left', padding: '0 15px'}}, [
+      TextInput({
+        label: gettext('delete_storage'),
+        labelStyle: { textAlign: 'center' },
+        subStyle: { display: 'none' },
+        disabled: true,
+        placeholder: gettext('delete_storage') + '?',
+        value: undefined,
+        onChange: () => this.deleteState()
+      })
+    ]);
 
     const confBTN = View({ style: { fontSize: '12px', lineHeight: '35px', borderRadius: '30px', background: '#dedede', color: 'black', textAlign: 'left', padding: '0 15px', margin: '6px 0' }}, [
       TextInput({
@@ -964,13 +971,20 @@ AppSettingsPage({
                   }
                 })
               ]),
-              // [redesign step 1] Real Button instead of the disabled-TextInput hack.
-              Button({
-                label: gettext('delete_variable'),
-                color: 'secondary',
-                style: { background: '#D85E33', color: 'white', borderRadius: '30px', margin: '0 5px 0 0' },
-                onClick: () => this.deleteGlobalVariable(vindex)
-              })
+              // Disabled TextInput (NOT a Button) on purpose: it opens a native
+              // confirm dialog ("delete <var>?") before onChange fires. A Button
+              // would delete on the first tap with no confirmation.
+              View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background: '#D85E33', color: 'white', textAlign: 'left', padding: '0 15px', margin: '0 5px 0 0' }}, [
+                TextInput({
+                  label: gettext('delete_variable'),
+                  labelStyle: { textAlign: 'center' },
+                  subStyle: { display: 'none' },
+                  disabled: true,
+                  placeholder: gettext('delete_variable') + ' ' + vindex + '?',
+                  value: undefined,
+                  onChange: (newValue) => this.deleteGlobalVariable(vindex)
+                })
+              ])
             ])
           )
         });
