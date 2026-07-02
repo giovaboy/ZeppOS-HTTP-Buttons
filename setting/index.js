@@ -665,7 +665,15 @@ AppSettingsPage({
     let newPage = clone(DEFAULT_PAGE);
     newPage.title = title;
     this.state.data.pages.push(newPage);
+    // [redesign step 2] jump the view to the freshly added page
+    this.state.props.settingsStorage.setItem('ui_page', String(this.state.data.pages.length - 1));
     this.setItem()
+  },
+  // [redesign step 2] Progressive disclosure: which page is currently shown.
+  // Stored in a UI-only settingsStorage key so writing it triggers a re-render
+  // (the watch's getData only reads 'data'/'test_mode', so it ignores this key).
+  selectPage(i) {
+    this.state.props.settingsStorage.setItem('ui_page', String(i));
   },
   editPage(prop, val, pindex) {
     switch (prop) {
@@ -980,19 +988,39 @@ AppSettingsPage({
       // === BUILD PAGES/ROWS/BUTTONS WITH HELPER FUNCTIONS ===
       const pages = this.state.data.pages || [];
 
-      // [redesign step 1] Group each page (its header + rows + buttons) into a
-      // Section with a title, instead of pushing everything flat.
-      for (let [pindex, page] of pages.entries()) {
-        const pageChildren = [buildPageView(page, pindex, this)];
+      // [redesign step 2] Progressive disclosure: render ONLY the selected page
+      // instead of every page at once. Selection comes from the UI-only
+      // 'ui_page' key, clamped to the current page count.
+      let selectedPage = Number(this.state.props.settingsStorage.getItem('ui_page')) || 0;
+      if (selectedPage < 0) selectedPage = 0;
+      if (selectedPage > pages.length - 1) selectedPage = pages.length - 1;
 
+      if (pages.length > 0) {
+        // Page picker: jump between pages without scrolling through them all.
+        contentItems.push(
+          View({ style: { margin: '8px 0' }}, [
+            Select({
+              title: gettext('page'),
+              value: String(selectedPage),
+              options: pages.map((p, i) => ({
+                name: gettext('page') + (i + 1) + (p.title ? ' · ' + p.title : ''),
+                value: String(i)
+              })),
+              onChange: (v) => this.selectPage(Number(v))
+            })
+          ])
+        );
+
+        // Only the selected page: its header + rows + buttons, in one Section.
+        const page = pages[selectedPage];
+        const pindex = selectedPage;
+        const pageChildren = [buildPageView(page, pindex, this)];
         for (let [rindex, row] of page.rows.entries()) {
           pageChildren.push(buildRowView(row, page, pindex, rindex, this));
-
           for (let [bindex, button] of row.buttons.entries()) {
             pageChildren.push(buildButtonView(button, pindex, rindex, bindex, this));
           }
         }
-
         contentItems.push(
           Section({
             title: gettext('page') + (pindex + 1) + (page.title ? ' · ' + page.title : ''),
