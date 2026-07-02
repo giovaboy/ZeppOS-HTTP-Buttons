@@ -23,9 +23,14 @@ const logger = getLogger('http-buttons-layout')
 
 setStatusBarVisible(false)
 
+// Native pixel size of the loading anim PNGs (assets .../anim/loading*.png).
+// It's the real asset size, so it is NOT scaled by px() — the anim is drawn at
+// its intrinsic resolution; we only center it and place the caption beneath it.
+const LOADING_ANIM_SIZE = 155;
+
 export const LOADING_TEXT_WIDGET = {
   x: 0,
-  y: (DEVICE_HEIGHT/2)+155,
+  y: (DEVICE_HEIGHT/2)+LOADING_ANIM_SIZE,
   w: DEVICE_WIDTH, h: TEXT_SIZE*1.5,
   text_size: TEXT_SIZE,
   color: COLOR_WHITE,
@@ -35,7 +40,7 @@ export const LOADING_TEXT_WIDGET = {
   text: getText('loading')
 };
 
-export const LOADING_IMG_ANIM_WIDGET = {//155*155
+export const LOADING_IMG_ANIM_WIDGET = {
     anim_path: 'anim',
     anim_prefix: 'loading',
     anim_ext: 'png',
@@ -43,7 +48,7 @@ export const LOADING_IMG_ANIM_WIDGET = {//155*155
     anim_size: 54,
     repeat_count: 0,
     anim_status: anim_status.START,
-    x: (DEVICE_WIDTH/2)-(155/2), y: DEVICE_HEIGHT/2
+    x: (DEVICE_WIDTH/2)-(LOADING_ANIM_SIZE/2), y: DEVICE_HEIGHT/2
   };
 
 /**

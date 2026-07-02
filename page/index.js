@@ -126,8 +126,8 @@ Page(
     },
     onInit() {
       logger.debug('page onInit invoked')
-      this.loadingText = null;
-      this.loadingImgAnim = null;
+      // Loading widgets live on this.state (created in showLoading, cleared in
+      // hideLoading); nothing to set up here beyond the state defaults above.
     },
     build() {
       logger.debug('page build invoked')
@@ -402,9 +402,12 @@ Page(
         }
       })
       sessionCache = {}
-      deleteWidget(layout.refs.customToast)
-      deleteWidget(layout.refs.customToastFillRect)
-      deleteWidget(layout.refs.customToastText)
+      // Null-guarded: the custom toast is created lazily, so on a page that
+      // never showed one these refs are still empty — deleteWidget(undefined)
+      // would throw during teardown.
+      if (layout.refs.customToast) deleteWidget(layout.refs.customToast)
+      if (layout.refs.customToastFillRect) deleteWidget(layout.refs.customToastFillRect)
+      if (layout.refs.customToastText) deleteWidget(layout.refs.customToastText)
       if (typeof layout.hideImage === 'function') layout.hideImage()
     },
   })
