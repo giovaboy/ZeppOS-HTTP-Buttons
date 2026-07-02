@@ -157,14 +157,16 @@ const keyboardTypes = () => {
 // disabled TextInput: tapping opens the framework's native dialog, and the
 // delete (onConfirm) only fires after the user confirms. A real Button would
 // delete on the first tap with no confirmation (see the note on clearBTN).
-const deleteConfirm = (label, background, onConfirm, extraStyle = {}) => {
-  return View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background, color: 'white', textAlign: 'center', padding: '0 15px', ...extraStyle } }, [
+const deleteConfirm = (label, background, onConfirm, { name, style } = {}) => {
+  // Confirm dialog names the element being deleted, e.g. Delete Button "ON/OFF"?
+  const placeholder = label + (name ? ' "' + name + '"' : '') + '?';
+  return View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background, color: 'white', textAlign: 'center', padding: '0 15px', ...style } }, [
     TextInput({
       label,
       labelStyle: { textAlign: 'center' },
       subStyle: { display: 'none' },
       disabled: true,
-      placeholder: label + '?',
+      placeholder,
       value: undefined,
       onChange: () => onConfirm()
     })
@@ -203,7 +205,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
           buildButtonHTTPConfig(button, pindex, rindex, bindex, context)
         ]
       ),
-      deleteConfirm(gettext('delete_button'), '#d18420ff', () => context.deleteButton(pindex, rindex, bindex))
+      deleteConfirm(gettext('delete_button'), '#d18420ff', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || '') })
     ]
   );
 };
@@ -534,7 +536,7 @@ const buildRowView = (row, page, pindex, rindex, context) => {
         },
         onClick: () => context.addButton(pindex, rindex)
       }),
-      deleteConfirm(gettext('delete_row'), '#fdcb3e', () => context.deleteRow(pindex, rindex), { margin: '0 5px 0 0' })
+      deleteConfirm(gettext('delete_row'), '#fdcb3e', () => context.deleteRow(pindex, rindex), { name: String(rindex + 1), style: { margin: '0 5px 0 0' } })
     ]
   );
 };
@@ -629,7 +631,7 @@ const buildPageView = (page, pindex, context) => {
         },
         onClick: () => context.addRow(pindex)
       }),
-      deleteConfirm(gettext('delete_page'), '#D85E33', () => context.deletePage(pindex), { margin: '0 5px 0 0' })
+      deleteConfirm(gettext('delete_page'), '#D85E33', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), style: { margin: '0 5px 0 0' } })
     ]
   );
 };
