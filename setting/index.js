@@ -612,7 +612,7 @@ const buildPageView = (page, pindex, context) => {
               }
             })
           ]),
-          deleteConfirm(gettext('delete_page'), '#D85E33', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '🗑', style: { margin: '0 5px' } }),
+          deleteConfirm(gettext('delete_page'), '#ffffff', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '🗑', style: { margin: '0 5px', border: '2px solid #D85E33' } }),
           Button({
             label: gettext('add_row'),
             style: { fontSize: '12px', borderRadius: '30px', background: '#ababab', color: 'white' },
@@ -833,10 +833,11 @@ AppSettingsPage({
         [gettext('welcome_text')])
     ])
 
-    // Main buttons
-    const addPageBTN = View({ style: { fontSize: '12px', lineHeight: '35px', borderRadius: '30px', background: '#409EFF', color: 'white', textAlign: 'center', padding: '0 40px', width: '40%' }}, [
+    // Compact "+" button that opens a dialog to name and create a new page.
+    // Rendered to the right of the page picker below.
+    const addPageBTN = View({ style: { fontSize: '20px', lineHeight: '35px', borderRadius: '30px', background: '#409EFF', color: 'white', textAlign: 'center', padding: '0 14px', marginLeft: '8px' }}, [
       TextInput({
-        label: gettext('add_page'),
+        label: '➕',
         labelStyle: { fontWeight: '500', textAlign: 'center' },
         onChange: (title) => this.addPage(title)
       })
@@ -1004,10 +1005,11 @@ AppSettingsPage({
       if (selectedPage < 0) selectedPage = 0;
       if (selectedPage > pages.length - 1) selectedPage = pages.length - 1;
 
-      if (pages.length > 0) {
-        // Page picker: jump between pages without scrolling through them all.
-        contentItems.push(
-          View({ style: { margin: '10px 0', padding: '6px 12px', border: '1px solid #cfe0ff', borderRadius: '12px', background: '#eef4ff' }}, [
+      // Page picker row: the selector (when pages exist) + the "+" Add Page
+      // button on the right. Rendered even with 0 pages so Add Page stays reachable.
+      contentItems.push(
+        View({ style: { margin: '10px 0', padding: '6px 12px', border: '1px solid #cfe0ff', borderRadius: '12px', background: '#eef4ff', display: 'flex', flexDirection: 'row', alignItems: 'center' }}, [
+          View({ style: { flex: 1 }}, pages.length > 0 ? [
             Select({
               title: gettext('page'),
               value: String(selectedPage),
@@ -1017,9 +1019,12 @@ AppSettingsPage({
               })),
               onChange: (v) => this.selectPage(Number(v))
             })
-          ])
-        );
+          ] : []),
+          addPageBTN
+        ])
+      );
 
+      if (pages.length > 0) {
         // Only the selected page: its header + rows + buttons, in one Section.
         const page = pages[selectedPage];
         const pindex = selectedPage;
@@ -1053,8 +1058,6 @@ AppSettingsPage({
     } else {
       return View({ style: { padding: '12px 5px' }}, [
         welcomeText,
-        View({ style: { display: 'flex', justifyContent: 'center', flexDirection: 'row', alignItems: 'center' }},
-          [addPageBTN]),
         // Variables in a card Section; the "Variables (N)" toggle inside is the
         // header (collapsed by default), so the Section itself has no title.
         contentVariables.length > 0 && Section({ style: { marginTop: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }},
