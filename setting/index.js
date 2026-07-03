@@ -835,12 +835,13 @@ AppSettingsPage({
         [gettext('welcome_text')])
     ])
 
-    // Compact "+" button that opens a dialog to name and create a new page.
-    // Rendered to the right of the page picker below.
-    const addPageBTN = View({ style: { fontSize: '20px', lineHeight: '35px', borderRadius: '30px', background: '#409EFF', color: 'white', textAlign: 'center', padding: '0 14px', marginLeft: '8px' }}, [
+    // Round "+" (styled text, no emoji) that opens a dialog to name and create a
+    // new page. Blue; sits at the bottom of the page-picker card. Matches the
+    // other round "+" add buttons.
+    const addPageBTN = View({ style: { fontSize: '22px', fontWeight: '700', width: '36px', height: '36px', lineHeight: '36px', borderRadius: '50%', background: '#409EFF', color: 'white', textAlign: 'center', padding: '0' }}, [
       TextInput({
-        label: '➕',
-        labelStyle: { fontWeight: '500', textAlign: 'center' },
+        label: '+',
+        labelStyle: { fontWeight: '700', textAlign: 'center' },
         onChange: (title) => this.addPage(title)
       })
     ]);
@@ -1012,13 +1013,15 @@ AppSettingsPage({
       if (selectedPage < 0) selectedPage = 0;
       if (selectedPage > pages.length - 1) selectedPage = pages.length - 1;
 
-      // Page picker row: the selector (when pages exist) + the "+" Add Page
-      // button on the right. Rendered even with 0 pages so Add Page stays reachable.
+      // Page-picker card (below the variables): selected page title full width,
+      // then the page select (no title), then the "+" Add Page at the bottom.
+      // Rendered even with 0 pages so Add Page stays reachable.
+      const selPage = pages.length > 0 ? pages[selectedPage] : null;
       contentItems.push(
-        View({ style: { margin: '10px 0', padding: '6px 12px', border: '1px solid #cfe0ff', borderRadius: '12px', background: '#eef4ff', display: 'flex', flexDirection: 'row', alignItems: 'center' }}, [
-          View({ style: { flex: 1 }}, pages.length > 0 ? [
+        View({ style: { margin: '10px 0', padding: '8px 12px', border: '1px solid #cfe0ff', borderRadius: '12px', background: '#eef4ff', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}, [
+          ...(selPage ? [
+            Text({ bold: true, align: 'center', style: { fontSize: '18px', padding: '2px 0 6px' }}, [selPage.title || (gettext('page') + (selectedPage + 1))]),
             Select({
-              title: gettext('page'),
               value: String(selectedPage),
               options: pages.map((p, i) => ({
                 name: gettext('page') + (i + 1) + (p.title ? ' · ' + p.title : ''),
@@ -1027,7 +1030,7 @@ AppSettingsPage({
               onChange: (v) => this.selectPage(Number(v))
             })
           ] : []),
-          addPageBTN
+          View({ style: { display: 'flex', justifyContent: 'center', marginTop: '6px' }}, [addPageBTN])
         ])
       );
 
