@@ -844,9 +844,11 @@ AppSettingsPage({
       })
     ]);
 
+    // Compact round "+" (styled text, not an emoji). Sits inline with the
+    // Variables toggle. Auto-expands the list on add (see onClick).
     const addVariableBTN = Button({
-      label: gettext('add_variable'),
-      style: { fontSize: '12px', borderRadius: '30px', background: toColor(COLOR_GREEN), color: 'white', width: '60%' },
+      label: '+',
+      style: { fontSize: '22px', fontWeight: '700', minWidth: '36px', width: '36px', height: '36px', borderRadius: '50%', background: toColor(COLOR_GREEN), color: 'white', padding: '0', marginLeft: '10px' },
       onClick: () => {
         let i = 1, key
         const vars = this.state.data.variables
@@ -927,17 +929,17 @@ AppSettingsPage({
       // doesn't push the page picker far down; state in the UI-only key.
       const varCount = Object.keys(variables).length;
       const varsOpen = this.state.props.settingsStorage.getItem('ui_vars_open') === 'true';
+      // Header row, centered: the "Variables (N)" toggle with the "+" add
+      // button inline next to it.
       contentVariables.push(
-        Toggle({
-          label: gettext('variables') + ' (' + varCount + ')',
-          value: varsOpen,
-          onChange: (v) => this.state.props.settingsStorage.setItem('ui_vars_open', v ? 'true' : 'false')
-        })
-      );
-      // Add Variable lives inside the variables section (always available,
-      // even when the list is collapsed — adding auto-expands it).
-      contentVariables.push(
-        View({ style: { display: 'flex', justifyContent: 'center', margin: '6px 0' }}, [addVariableBTN])
+        View({ style: { display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', margin: '2px 0' }}, [
+          Toggle({
+            label: gettext('variables') + ' (' + varCount + ')',
+            value: varsOpen,
+            onChange: (v) => this.state.props.settingsStorage.setItem('ui_vars_open', v ? 'true' : 'false')
+          }),
+          addVariableBTN
+        ])
       );
 
       if (varsOpen) {
