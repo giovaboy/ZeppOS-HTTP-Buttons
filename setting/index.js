@@ -549,7 +549,9 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
 const buildPageSummary = (page) => {
   return View({ style: { padding: '4px 8px' } },
     (page.rows || []).map((row) =>
-      Text({ align: 'center', style: { fontSize: '13px', color: '#666' } }, [
+      // paragraph: true so each row renders as a block (its own line); a plain
+      // Text renders as an inline <span> and they'd all run together.
+      Text({ align: 'center', paragraph: true, style: { fontSize: '13px', color: '#666' } }, [
         (row.buttons || []).map((b) => b.spacer ? '▭' : (b.text || '—')).join('   ·   ') || '—'
       ])
     )
@@ -604,13 +606,15 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
             })
           ] : [])
         ]),
+        // Delete page — always visible (even when the page is collapsed).
+        deleteConfirm(gettext('delete_page'), '#ffffff', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '🗑', style: { margin: '0 4px', border: '2px solid #D85E33' } }),
         Button({
           label: pageOpen ? '▾' : '◂',
           style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
           onClick: () => context.state.props.settingsStorage.setItem('ui_page_' + pindex, pageOpen ? 'false' : 'true')
         })
       ]),
-      // Editing controls, only when the page is expanded.
+      // Editing controls, only when the page is expanded: colors + add row.
       ...(pageOpen ? [
         View(
           { style: { display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: '6px' } },
@@ -624,9 +628,8 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
           ]
         ),
         View(
-          { style: { display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: '6px' } },
+          { style: { display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: '6px' } },
           [
-            deleteConfirm(gettext('delete_page'), '#ffffff', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '🗑', style: { margin: '0 5px', border: '2px solid #D85E33' } }),
             Button({
               label: '+',
               style: { fontSize: '20px', fontWeight: '700', minWidth: '36px', width: '36px', height: '36px', borderRadius: '50%', background: '#ababab', color: 'white', padding: '0' },
@@ -1012,6 +1015,11 @@ AppSettingsPage({
 
       // === BUILD PAGES/ROWS/BUTTONS WITH HELPER FUNCTIONS ===
       const pages = this.state.data.pages || [];
+
+      // "Pages:" header between the variables block and the pages list.
+      contentItems.push(
+        Text({ bold: true, align: 'left', paragraph: true, style: { fontSize: '16px', padding: '4px 4px' } }, ['Pages:'])
+      );
 
       // Pages are collapsible cards (like rows) — no picker. All pages render,
       // each collapsed by default (ui_page_<i>); open one to edit it. Collapsed
