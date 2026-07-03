@@ -1016,9 +1016,9 @@ AppSettingsPage({
       // === BUILD PAGES/ROWS/BUTTONS WITH HELPER FUNCTIONS ===
       const pages = this.state.data.pages || [];
 
-      // "Pages:" header between the variables block and the pages list.
+      // "Pages: (n)" header between the variables block and the pages list.
       contentItems.push(
-        Text({ bold: true, align: 'left', paragraph: true, style: { fontSize: '16px', padding: '4px 4px' } }, ['Pages:'])
+        Text({ bold: true, align: 'left', paragraph: true, style: { fontSize: '16px', padding: '4px 4px' } }, [gettext('pages') + ' (' + pages.length + ')'])
       );
 
       // Pages are collapsible cards (like rows) — no picker. All pages render,
