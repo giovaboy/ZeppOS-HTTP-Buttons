@@ -592,6 +592,7 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
             subStyle: {
               textAlign: 'center',
               fontSize: '18px',
+              lineHeight: '32px', // match the 32px delete/chevron buttons on this row
               // != null, NOT ||: black is 0 (falsy), so `back_color || WHITE`
               // would turn a black background white.
               color: toColor(page.text_color != null ? page.text_color : COLOR_BLACK),
