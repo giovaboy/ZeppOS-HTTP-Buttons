@@ -642,8 +642,8 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
           { style: { display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: '6px' } },
           [
             Button({
-              label: '+',
-              style: { fontSize: '20px', fontWeight: '700', minWidth: '36px', width: '36px', height: '36px', borderRadius: '50%', background: '#ababab', color: 'white', padding: '0' },
+              label: gettext('add_row'),
+              style: { fontSize: '13px', fontWeight: '500', borderRadius: '30px', background: '#ababab', color: 'white', padding: '4px 22px' },
               onClick: () => context.addRow(pindex)
             })
           ]
@@ -870,8 +870,8 @@ AppSettingsPage({
     // Compact round "+" (styled text, not an emoji). Sits inline with the
     // Variables toggle. Auto-expands the list on add (see onClick).
     const addVariableBTN = Button({
-      label: '+',
-      style: { fontSize: '22px', fontWeight: '700', minWidth: '36px', width: '36px', height: '36px', borderRadius: '50%', background: toColor(COLOR_GREEN), color: 'white', padding: '0' },
+      label: gettext('add_variable'),
+      style: { fontSize: '13px', fontWeight: '500', borderRadius: '30px', background: toColor(COLOR_GREEN), color: 'white', padding: '4px 22px' },
       onClick: () => {
         let i = 1, key
         const vars = this.state.data.variables
