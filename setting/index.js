@@ -504,16 +504,21 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
       }
     },
     [
-      Text({ bold: true, align: 'center', style: { fontSize: '18px', marginRight: '6px' } }, [gettext('row') + (rindex + 1)]),
-      View({ style: { flex: 1 } }, [
-        Select({
-          options: indexRange(rindex, page.rows.length - 1),
-          onChange: (value) => {
-            if (value < 999) {
-              context.moveRow(pindex, rindex, value);
+      // Row:N kept as a styled Text (a Select's title can't be styled) with the
+      // reorder select beneath it. The reorder select is hidden when the page
+      // has a single row (nothing to reorder) — the title still shows.
+      View({ style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' } }, [
+        Text({ bold: true, align: 'center', style: { fontSize: '18px' } }, [gettext('row') + (rindex + 1)]),
+        ...(page.rows.length > 1 ? [
+          Select({
+            options: indexRange(rindex, page.rows.length - 1),
+            onChange: (value) => {
+              if (value < 999) {
+                context.moveRow(pindex, rindex, value);
+              }
             }
-          }
-        })
+          })
+        ] : [])
       ]),
       View({ style: { flex: 1 } }, [
         Select({
@@ -532,7 +537,7 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
       // Expand/collapse chevron. A Button (not a switch) so its arrow always
       // reflects the real state — ▾ open, ▸ collapsed.
       Button({
-        label: rowOpen ? '▾' : '▸',
+        label: rowOpen ? '▾' : '◂',
         style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
         onClick: () => context.state.props.settingsStorage.setItem('ui_row_' + pindex + '_' + rindex, rowOpen ? 'false' : 'true')
       })
