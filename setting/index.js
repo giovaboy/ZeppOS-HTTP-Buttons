@@ -623,7 +623,8 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
           onClick: () => context.state.props.settingsStorage.setItem('ui_page_' + pindex, pageOpen ? 'false' : 'true')
         })
       ]),
-      // Editing controls, only when the page is expanded: colors + add row.
+      // Editing controls, only when the page is expanded: page colors. (Add Row
+      // lives at the bottom of the row list, like Add Page after the pages.)
       ...(pageOpen ? [
         View(
           { style: { display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: '6px' } },
@@ -634,16 +635,6 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
             View({ style: { flex: 1 } }, [
               colorSelect(gettext('text_color'), page.text_color, (c) => context.editPage('text_color', c, pindex))
             ])
-          ]
-        ),
-        View(
-          { style: { display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: '6px' } },
-          [
-            Button({
-              label: gettext('add_row'),
-              style: { fontSize: '13px', fontWeight: '500', borderRadius: '30px', background: '#ababab', color: 'white', padding: '4px 22px' },
-              onClick: () => context.addRow(pindex)
-            })
           ]
         )
       ] : [])
@@ -1080,6 +1071,16 @@ AppSettingsPage({
               View({ style: { border: '1px solid #c9c9c9', borderRadius: '10px', padding: '6px', marginBottom: '10px', background: '#f0f0f0' }}, rowChildren)
             );
           }
+          // Add Row at the bottom of the rows (like Add Page after the pages).
+          pageChildren.push(
+            View({ style: { display: 'flex', justifyContent: 'center', margin: '8px 0 2px' }}, [
+              Button({
+                label: gettext('add_row'),
+                style: { fontSize: '13px', fontWeight: '500', borderRadius: '30px', background: '#ababab', color: 'white', padding: '4px 22px' },
+                onClick: () => this.addRow(pindex)
+              })
+            ])
+          );
         } else {
           pageChildren.push(buildPageSummary(page));
         }
