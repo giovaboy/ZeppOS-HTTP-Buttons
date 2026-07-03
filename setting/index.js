@@ -848,7 +848,7 @@ AppSettingsPage({
     // Variables toggle. Auto-expands the list on add (see onClick).
     const addVariableBTN = Button({
       label: '+',
-      style: { fontSize: '22px', fontWeight: '700', minWidth: '36px', width: '36px', height: '36px', borderRadius: '50%', background: toColor(COLOR_GREEN), color: 'white', padding: '0', marginLeft: '10px' },
+      style: { fontSize: '22px', fontWeight: '700', minWidth: '36px', width: '36px', height: '36px', borderRadius: '50%', background: toColor(COLOR_GREEN), color: 'white', padding: '0' },
       onClick: () => {
         let i = 1, key
         const vars = this.state.data.variables
@@ -856,8 +856,8 @@ AppSettingsPage({
           key = `var_${i}`
           i++
         } while (key in vars)
-        // Auto-expand the variables list so the new (empty) variable is visible.
-        this.state.props.settingsStorage.setItem('ui_vars_open', 'true')
+        // The "+" is only visible when the panel is already open, so no need to
+        // force-expand here.
         this.addGlobalVariable(key, '')
       }
     });
@@ -929,19 +929,16 @@ AppSettingsPage({
       // doesn't push the page picker far down; state in the UI-only key.
       const varCount = Object.keys(variables).length;
       const varsOpen = this.state.props.settingsStorage.getItem('ui_vars_open') === 'true';
-      // Header row: the "Variables (N)" toggle full-width (title left, switch
-      // right) with the "+" add button at the far right.
+      // Header: the "Variables (N)" toggle, full width (title left, switch right).
+      // The "+" add button lives at the bottom of the list, so it's only visible
+      // when the panel is open (no auto-expand, so the switch never falls out of
+      // sync — see the uncontrolled-MUI-Switch note).
       contentVariables.push(
-        View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', margin: '2px 0' }}, [
-          View({ style: { flex: 1 }}, [
-            Toggle({
-              label: gettext('variables') + ' (' + varCount + ')',
-              value: varsOpen,
-              onChange: (v) => this.state.props.settingsStorage.setItem('ui_vars_open', v ? 'true' : 'false')
-            })
-          ]),
-          addVariableBTN
-        ])
+        Toggle({
+          label: gettext('variables') + ' (' + varCount + ')',
+          value: varsOpen,
+          onChange: (v) => this.state.props.settingsStorage.setItem('ui_vars_open', v ? 'true' : 'false')
+        })
       );
 
       if (varsOpen) {
@@ -998,6 +995,10 @@ AppSettingsPage({
             ])
           )
         });
+        // "+" add-variable button at the bottom of the (open) list.
+        contentVariables.push(
+          View({ style: { display: 'flex', justifyContent: 'center', margin: '8px 0 2px' }}, [addVariableBTN])
+        );
       }
 
       // === BUILD PAGES/ROWS/BUTTONS WITH HELPER FUNCTIONS ===
