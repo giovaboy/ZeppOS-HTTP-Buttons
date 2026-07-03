@@ -283,9 +283,10 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
           ])
         ])
       ]),
-      // FUNCTIONS — two columns (hidden for spacers).
+      // FUNCTIONS — two columns (hidden for spacers). A top border divides it
+      // from the STYLE block above.
       ...(button.spacer ? [] : [
-        View({ style: { display: 'flex', flexDirection: 'row' } }, [
+        View({ style: { display: 'flex', flexDirection: 'row', borderTop: '1px solid #d5d5d5', marginTop: '8px', paddingTop: '8px' } }, [
           View({ style: { flex: 1 } }, [
             TextInput({
               bold: false,
