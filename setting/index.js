@@ -929,15 +929,17 @@ AppSettingsPage({
       // doesn't push the page picker far down; state in the UI-only key.
       const varCount = Object.keys(variables).length;
       const varsOpen = this.state.props.settingsStorage.getItem('ui_vars_open') === 'true';
-      // Header row, centered: the "Variables (N)" toggle with the "+" add
-      // button inline next to it.
+      // Header row: the "Variables (N)" toggle full-width (title left, switch
+      // right) with the "+" add button at the far right.
       contentVariables.push(
-        View({ style: { display: 'flex', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', margin: '2px 0' }}, [
-          Toggle({
-            label: gettext('variables') + ' (' + varCount + ')',
-            value: varsOpen,
-            onChange: (v) => this.state.props.settingsStorage.setItem('ui_vars_open', v ? 'true' : 'false')
-          }),
+        View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', margin: '2px 0' }}, [
+          View({ style: { flex: 1 }}, [
+            Toggle({
+              label: gettext('variables') + ' (' + varCount + ')',
+              value: varsOpen,
+              onChange: (v) => this.state.props.settingsStorage.setItem('ui_vars_open', v ? 'true' : 'false')
+            })
+          ]),
           addVariableBTN
         ])
       );
