@@ -248,8 +248,10 @@ const buildButtonBasicInfo = (button, pindex, rindex, bindex, context) => {
         subStyle: {
           textAlign: 'center',
           fontSize: '16px',
-          color: button.spacer ? toColor(COLOR_BLACK) : toColor(button.text_color || COLOR_BLACK),
-          background: button.spacer ? toColor(null) : toColor(button.back_color || null),
+          // != null / direct toColor, NOT ||: black is 0 (falsy), which `||`
+          // would drop (black text → default, black background → transparent).
+          color: button.spacer ? toColor(COLOR_BLACK) : toColor(button.text_color != null ? button.text_color : COLOR_BLACK),
+          background: button.spacer ? toColor(null) : toColor(button.back_color),
           borderRadius: button.radius ? (button.radius + 'px') : '0px'
         },
         maxLength: 200,
@@ -590,8 +592,10 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
             subStyle: {
               textAlign: 'center',
               fontSize: '18px',
-              color: toColor(page.text_color || COLOR_BLACK),
-              background: toColor(page.back_color || COLOR_WHITE)
+              // != null, NOT ||: black is 0 (falsy), so `back_color || WHITE`
+              // would turn a black background white.
+              color: toColor(page.text_color != null ? page.text_color : COLOR_BLACK),
+              background: toColor(page.back_color != null ? page.back_color : COLOR_WHITE)
             },
             maxLength: 200,
             onChange: (title) => {
