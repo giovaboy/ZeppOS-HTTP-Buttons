@@ -151,6 +151,18 @@ const keyboardTypes = () => {
   ];
 }
 
+// A color Select. MUI only shows the current selection when option values are
+// strings, but colors are stored as numbers — so the options use String(value)
+// and onColor is handed the number back. `current` is the stored numeric color.
+const colorSelect = (title, current, onColor) => {
+  return Select({
+    title,
+    value: current != null ? String(current) : undefined,
+    options: colors().map((c) => ({ name: c.name, value: String(c.value) })),
+    onChange: (value) => onColor(Number(value))
+  });
+}
+
 // === LAYOUT BUILDER FUNCTIONS ===
 
 // A destructive-action control that looks like a button but is backed by a
@@ -289,18 +301,8 @@ const buildButtonHTTPConfig = (button, pindex, rindex, bindex, context) => {
         value: button.radius || 0,
         onChange: (value) => context.editButton('radius', value, pindex, rindex, bindex)
       }),
-      Select({
-        title: gettext('back_color'),
-        value: button.back_color,
-        options: colors(),
-        onChange: (value) => context.editButton('back_color', value, pindex, rindex, bindex)
-      }),
-      Select({
-        title: gettext('text_color'),
-        value: button.text_color,
-        options: colors(),
-        onChange: (value) => context.editButton('text_color', value, pindex, rindex, bindex)
-      }),
+      colorSelect(gettext('back_color'), button.back_color, (c) => context.editButton('back_color', c, pindex, rindex, bindex)),
+      colorSelect(gettext('text_color'), button.text_color, (c) => context.editButton('text_color', c, pindex, rindex, bindex)),
       Select({
         title: gettext('text_size') + (button.text_size != null ? button.text_size : 'default'),
         value: button.text_size,
@@ -620,10 +622,10 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
           { style: { display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: '6px' } },
           [
             View({ style: { flex: 1 } }, [
-              Select({ title: gettext('back_color'), value: page.back_color, options: colors(), onChange: (value) => context.editPage('back_color', value, pindex) })
+              colorSelect(gettext('back_color'), page.back_color, (c) => context.editPage('back_color', c, pindex))
             ]),
             View({ style: { flex: 1 } }, [
-              Select({ title: gettext('text_color'), value: page.text_color, options: colors(), onChange: (value) => context.editPage('text_color', value, pindex) })
+              colorSelect(gettext('text_color'), page.text_color, (c) => context.editPage('text_color', c, pindex))
             ])
           ]
         ),
