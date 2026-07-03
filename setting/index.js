@@ -902,14 +902,37 @@ AppSettingsPage({
       })
     ]);
 
-    const confBTN = View({ style: { fontSize: '12px', lineHeight: '35px', borderRadius: '30px', background: '#dedede', color: 'black', textAlign: 'left', padding: '0 15px', margin: '6px 0' }}, [
-      TextInput({
-        label: gettext('conf'),
-        labelStyle: { textAlign: 'center' },
-        subStyle: { display: 'none' },
-        value: JSON.stringify(this.state.data),
-        onChange: (value) => this.state.props.settingsStorage.setItem('data', value)
-      })
+    // Collapsible advanced JSON editor. Pretty-printed + multi-line so users can
+    // read it, select-all + copy for a backup, or paste an edited config back.
+    // Saved automatically while the JSON parses; invalid JSON just toasts and is
+    // not saved. Keeps the old "select all + copy" capability, made usable.
+    const jsonOpen = props.settingsStorage.getItem('ui_json_open') === 'true';
+    const confBTN = Section({ style: { marginTop: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }}, [
+      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' }}, [
+        Text({ bold: true, align: 'left', style: { flex: 1, fontSize: '16px' }}, [gettext('conf')]),
+        Button({
+          label: jsonOpen ? '▾' : '◂',
+          style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
+          onClick: () => this.state.props.settingsStorage.setItem('ui_json_open', jsonOpen ? 'false' : 'true')
+        })
+      ]),
+      ...(jsonOpen ? [
+        Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#666', padding: '4px 2px' }}, [gettext('conf_hint')]),
+        TextInput({
+          multiline: true,
+          rows: 14,
+          value: JSON.stringify(this.state.data, null, 2),
+          subStyle: { fontSize: '12px', color: COLOR_BLACK },
+          onChange: (value) => {
+            const parsed = tryParseJSON(value);
+            if (parsed && typeof parsed === 'object') {
+              this.state.props.settingsStorage.setItem('data', JSON.stringify(parsed));
+            } else if (value && value.trim()) {
+              return Toast({ message: gettext('invalid_json') });
+            }
+          }
+        })
+      ] : [])
     ]);
 
     const conf_error = View({ style: { padding: '12px 20px' }}, [

@@ -7,6 +7,12 @@ msgstr "Hi! From here you can set up HTTP-Buttons, you can add and reorder pages
 msgid "conf"
 msgstr "Configuration"
 
+msgid "conf_hint"
+msgstr "Tap, select all and copy to back up — or paste an edited config. Saved automatically while the JSON is valid."
+
+msgid "invalid_json"
+msgstr "Invalid JSON — not saved"
+
 msgid "fix_conf"
 msgstr "Fix Configuration"
 
