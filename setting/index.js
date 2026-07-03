@@ -922,7 +922,9 @@ AppSettingsPage({
           multiline: true,
           rows: 14,
           value: JSON.stringify(this.state.data, null, 2),
-          subStyle: { fontSize: '12px', color: COLOR_BLACK },
+          // pre-wrap keeps the pretty-print line breaks/indentation in the inline
+          // preview (default white-space:normal collapsed them onto one line).
+          subStyle: { fontSize: '12px', color: COLOR_BLACK, whiteSpace: 'pre-wrap' },
           onChange: (value) => {
             const parsed = tryParseJSON(value);
             if (parsed && typeof parsed === 'object') {
