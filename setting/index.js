@@ -207,7 +207,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
           buildButtonHTTPConfig(button, pindex, rindex, bindex, context)
         ]
       ),
-      deleteConfirm(gettext('delete_button'), '#d18420ff', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || '') })
+      deleteConfirm(gettext('delete_button'), '#ffffff', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || ''), icon: '🗑', style: { border: '2px solid #D85E33' } })
     ]
   );
 };
@@ -296,7 +296,8 @@ const buildButtonHTTPConfig = (button, pindex, rindex, bindex, context) => {
         onChange: (value) => context.editButton('back_color', value, pindex, rindex, bindex)
       }),
       Select({
-        label: gettext('text_color'),
+        title: gettext('text_color'),
+        value: button.text_color,
         options: colors(),
         onChange: (value) => context.editButton('text_color', value, pindex, rindex, bindex)
       }),
@@ -538,7 +539,7 @@ const buildRowView = (row, page, pindex, rindex, context) => {
         },
         onClick: () => context.addButton(pindex, rindex)
       }),
-      deleteConfirm(gettext('delete_row'), '#fdcb3e', () => context.deleteRow(pindex, rindex), { name: String(rindex + 1), style: { margin: '0 5px 0 0' } })
+      deleteConfirm(gettext('delete_row'), '#ffffff', () => context.deleteRow(pindex, rindex), { name: String(rindex + 1), icon: '🗑', style: { margin: '0 5px 0 0', border: '2px solid #D85E33' } })
     ]
   );
 };
