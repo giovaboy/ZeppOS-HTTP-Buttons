@@ -529,9 +529,12 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
         onClick: () => context.addButton(pindex, rindex)
       }),
       deleteConfirm(gettext('delete_row'), '#ffffff', () => context.deleteRow(pindex, rindex), { name: String(rindex + 1), icon: '🗑', style: { margin: '0 4px', border: '2px solid #D85E33' } }),
-      Toggle({
-        value: rowOpen,
-        onChange: (v) => context.state.props.settingsStorage.setItem('ui_row_' + pindex + '_' + rindex, v ? 'true' : 'false')
+      // Expand/collapse chevron. A Button (not a switch) so its arrow always
+      // reflects the real state — ▾ open, ▸ collapsed.
+      Button({
+        label: rowOpen ? '▾' : '▸',
+        style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
+        onClick: () => context.state.props.settingsStorage.setItem('ui_row_' + pindex + '_' + rindex, rowOpen ? 'false' : 'true')
       })
     ]
   );
@@ -1030,9 +1033,9 @@ AppSettingsPage({
         const pageChildren = [buildPageView(page, pindex, this)];
         for (let [rindex, row] of page.rows.entries()) {
           // Wrap each row + its content in one card (page › row › buttons). The
-          // row can be collapsed: open → show the button editors; collapsed →
-          // a one-line summary of the button names. State in a UI-only key.
-          const rowOpen = this.state.props.settingsStorage.getItem('ui_row_' + pindex + '_' + rindex) !== 'false';
+          // row can be collapsed (default): open → show the button editors;
+          // collapsed → a one-line summary of the button names. UI-only key.
+          const rowOpen = this.state.props.settingsStorage.getItem('ui_row_' + pindex + '_' + rindex) === 'true';
           const rowChildren = [buildRowView(row, page, pindex, rindex, this, rowOpen)];
           if (rowOpen) {
             for (let [bindex, button] of row.buttons.entries()) {
