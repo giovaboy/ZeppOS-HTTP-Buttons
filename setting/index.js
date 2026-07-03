@@ -151,14 +151,18 @@ const keyboardTypes = () => {
   ];
 }
 
-// A color Select. MUI only shows the current selection when option values are
-// strings, but colors are stored as numbers — so the options use String(value)
-// and onColor is handed the number back. `current` is the stored numeric color.
+// A color Select. The MuiSelect value display never renders in this framework
+// (it's always blank), so — like the other selects (Method:/Auth:/…) — we show
+// the current selection by appending its palette name to the `title`
+// ("Background Color: teal"). Colors are stored as numbers; onColor gets a
+// number back. Unknown (off-palette) colors just show the bare title.
 const colorSelect = (title, current, onColor) => {
+  const palette = colors();
+  const match = palette.find((c) => c.value === current);
   return Select({
-    title,
+    title: title + (match ? ': ' + match.name : ''),
     value: current != null ? String(current) : undefined,
-    options: colors().map((c) => ({ name: c.name, value: String(c.value) })),
+    options: palette.map((c) => ({ name: c.name, value: String(c.value) })),
     onChange: (value) => onColor(Number(value))
   });
 }
