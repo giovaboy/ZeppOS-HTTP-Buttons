@@ -941,16 +941,18 @@ AppSettingsPage({
       // doesn't push the page picker far down; state in the UI-only key.
       const varCount = Object.keys(variables).length;
       const varsOpen = this.state.props.settingsStorage.getItem('ui_vars_open') === 'true';
-      // Header: the "Variables (N)" toggle, full width (title left, switch right).
-      // The "+" add button lives at the bottom of the list, so it's only visible
-      // when the panel is open (no auto-expand, so the switch never falls out of
-      // sync — see the uncontrolled-MUI-Switch note).
+      // Header: "Variables: (N)" label with a ▾/◂ chevron (a button, so it always
+      // reflects the real open state) — matching the page and row headers. The
+      // "+" add button lives at the bottom of the list (shown only when open).
       contentVariables.push(
-        Toggle({
-          label: gettext('variables') + ' (' + varCount + ')',
-          value: varsOpen,
-          onChange: (v) => this.state.props.settingsStorage.setItem('ui_vars_open', v ? 'true' : 'false')
-        })
+        View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
+          Text({ bold: true, align: 'left', style: { flex: 1, fontSize: '16px' } }, [gettext('variables') + ' (' + varCount + ')']),
+          Button({
+            label: varsOpen ? '▾' : '◂',
+            style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
+            onClick: () => this.state.props.settingsStorage.setItem('ui_vars_open', varsOpen ? 'false' : 'true')
+          })
+        ])
       );
 
       if (varsOpen) {
