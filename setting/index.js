@@ -835,13 +835,13 @@ AppSettingsPage({
         [gettext('welcome_text')])
     ])
 
-    // Round "+" (styled text, no emoji) that opens a dialog to name and create a
-    // new page. Blue; sits at the bottom of the page-picker card. Matches the
-    // other round "+" add buttons.
-    const addPageBTN = View({ style: { fontSize: '22px', fontWeight: '700', width: '36px', height: '36px', lineHeight: '36px', borderRadius: '50%', background: '#409EFF', color: 'white', textAlign: 'center', padding: '0' }}, [
+    // "Add Page" button (kept as text, not a "+", because tapping it opens a
+    // dialog to type the new page's title). Blue pill at the bottom of the
+    // page-picker card.
+    const addPageBTN = View({ style: { fontSize: '13px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background: '#409EFF', color: 'white', textAlign: 'center', padding: '0 20px' }}, [
       TextInput({
-        label: '+',
-        labelStyle: { fontWeight: '700', textAlign: 'center' },
+        label: gettext('add_page'),
+        labelStyle: { fontWeight: '500', textAlign: 'center' },
         onChange: (title) => this.addPage(title)
       })
     ]);
