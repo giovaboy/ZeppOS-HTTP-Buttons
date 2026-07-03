@@ -479,67 +479,60 @@ const buildAuthFields = (button, pindex, rindex, bindex, context) => {
   return authFields;
 };
 
-const buildRowView = (row, page, pindex, rindex, context) => {
+// Compact summary of a collapsed row: the names of the buttons it contains.
+const buildRowSummary = (row) => {
+  const names = (row.buttons || [])
+    .map((b) => b.spacer ? '▭' : (b.text || '—'))
+    .join('   ·   ');
+  return Text({ align: 'center', style: { fontSize: '13px', color: '#666', padding: '4px 8px' } }, [names || '(no buttons)']);
+};
+
+// Row header — all controls on one line: Row:N (emphasized) · reorder · height
+// · add button (+) · delete (🗑) · collapse switch (open = show buttons).
+const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
   return View(
     {
       style: {
         border: '1px solid #eaeaea',
         borderRadius: '8px',
-        padding: '6px 0',
+        padding: '4px 6px',
         marginBottom: '6px',
         display: 'flex',
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         background: '#f5f5f5'
       }
     },
     [
-      View(
-        {
-          style: {
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center'
-          }
-        },
-        [
-          Text({
-            bold: false,
-            align: 'center',
-            paragraph: false,
-            style: { fontSize: '16px' }
-          }, [gettext('row') + (rindex + 1)]),
-          Select({
-            options: indexRange(rindex, page.rows.length - 1),
-            onChange: (value) => {
-              if (value < 999) {
-                context.moveRow(pindex, rindex, value);
-              }
+      Text({ bold: true, align: 'center', style: { fontSize: '18px', marginRight: '6px' } }, [gettext('row') + (rindex + 1)]),
+      View({ style: { flex: 1 } }, [
+        Select({
+          options: indexRange(rindex, page.rows.length - 1),
+          onChange: (value) => {
+            if (value < 999) {
+              context.moveRow(pindex, rindex, value);
             }
-          }),
-          Select({
-            title: gettext('h') + row.h,
-            value: row.h,
-            options: wRange({ customValues: [16.66, 33.33, 66.66, 83.33] }),
-            onChange: (value) => context.editRow('h', value, pindex, rindex)
-          })
-        ]
-      ),
+          }
+        })
+      ]),
+      View({ style: { flex: 1 } }, [
+        Select({
+          title: gettext('h') + row.h,
+          value: row.h,
+          options: wRange({ customValues: [16.66, 33.33, 66.66, 83.33] }),
+          onChange: (value) => context.editRow('h', value, pindex, rindex)
+        })
+      ]),
       Button({
-        label: gettext('add_button'),
-        style: {
-          fontSize: '12px',
-          borderRadius: '30px',
-          background: '#ababab',
-          color: 'white',
-          marginRight: '10px',
-          maxWidth: '10%',
-        },
+        label: '+',
+        style: { fontSize: '20px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '50%', background: '#ababab', color: 'white', padding: '0', marginLeft: '4px' },
         onClick: () => context.addButton(pindex, rindex)
       }),
-      deleteConfirm(gettext('delete_row'), '#ffffff', () => context.deleteRow(pindex, rindex), { name: String(rindex + 1), icon: '🗑', style: { margin: '0 5px 0 0', border: '2px solid #D85E33' } })
+      deleteConfirm(gettext('delete_row'), '#ffffff', () => context.deleteRow(pindex, rindex), { name: String(rindex + 1), icon: '🗑', style: { margin: '0 4px', border: '2px solid #D85E33' } }),
+      Toggle({
+        value: rowOpen,
+        onChange: (v) => context.state.props.settingsStorage.setItem('ui_row_' + pindex + '_' + rindex, v ? 'true' : 'false')
+      })
     ]
   );
 };
@@ -615,8 +608,8 @@ const buildPageView = (page, pindex, context) => {
           ]),
           deleteConfirm(gettext('delete_page'), '#ffffff', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '🗑', style: { margin: '0 5px', border: '2px solid #D85E33' } }),
           Button({
-            label: gettext('add_row'),
-            style: { fontSize: '12px', borderRadius: '30px', background: '#ababab', color: 'white' },
+            label: '+',
+            style: { fontSize: '20px', fontWeight: '700', minWidth: '36px', width: '36px', height: '36px', borderRadius: '50%', background: '#ababab', color: 'white', padding: '0' },
             onClick: () => context.addRow(pindex)
           })
         ]
@@ -1036,12 +1029,17 @@ AppSettingsPage({
         const pindex = selectedPage;
         const pageChildren = [buildPageView(page, pindex, this)];
         for (let [rindex, row] of page.rows.entries()) {
-          // [redesign step 5] Wrap each row together with its buttons in one
-          // card so the visual hierarchy matches the data: page › row › buttons
-          // (previously rows and buttons were flat siblings inside the page).
-          const rowChildren = [buildRowView(row, page, pindex, rindex, this)];
-          for (let [bindex, button] of row.buttons.entries()) {
-            rowChildren.push(buildButtonView(button, pindex, rindex, bindex, this));
+          // Wrap each row + its content in one card (page › row › buttons). The
+          // row can be collapsed: open → show the button editors; collapsed →
+          // a one-line summary of the button names. State in a UI-only key.
+          const rowOpen = this.state.props.settingsStorage.getItem('ui_row_' + pindex + '_' + rindex) !== 'false';
+          const rowChildren = [buildRowView(row, page, pindex, rindex, this, rowOpen)];
+          if (rowOpen) {
+            for (let [bindex, button] of row.buttons.entries()) {
+              rowChildren.push(buildButtonView(button, pindex, rindex, bindex, this));
+            }
+          } else {
+            rowChildren.push(buildRowSummary(row));
           }
           pageChildren.push(
             View({ style: { border: '1px solid #c9c9c9', borderRadius: '10px', padding: '6px', marginBottom: '10px', background: '#f0f0f0' }}, rowChildren)
