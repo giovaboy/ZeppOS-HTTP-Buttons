@@ -234,7 +234,7 @@ const buildButtonBasicInfo = (button, pindex, rindex, bindex, context) => {
       style: {
         flex: 1,
         flexDirection: 'column',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         alignItems: 'stretch',
         display: 'flex'
       }
@@ -280,7 +280,24 @@ const buildButtonBasicInfo = (button, pindex, rindex, bindex, context) => {
         value: button.w,
         options: wRange({ customValues: [16.66, 33.33, 66.66, 83.33] }),
         onChange: (value) => context.editButton('w', value, pindex, rindex, bindex)
-      })
+      }),
+      // Style properties (hidden for spacers, which have no visible content).
+      ...(button.spacer ? [] : [
+        Slider({
+          label: gettext('radius') + (button.radius != null ? button.radius : 0),
+          min: 0, max: 100, step: 1,
+          value: button.radius || 0,
+          onChange: (value) => context.editButton('radius', value, pindex, rindex, bindex)
+        }),
+        colorSelect(gettext('back_color'), button.back_color, (c) => context.editButton('back_color', c, pindex, rindex, bindex)),
+        colorSelect(gettext('text_color'), button.text_color, (c) => context.editButton('text_color', c, pindex, rindex, bindex)),
+        Select({
+          title: gettext('text_size') + (button.text_size != null ? button.text_size : 'default'),
+          value: button.text_size,
+          options: tSizeRange(),
+          onChange: (value) => context.editButton('text_size', value, pindex, rindex, bindex)
+        })
+      ])
     ]
   );
 };
@@ -291,32 +308,13 @@ const buildButtonHTTPConfig = (button, pindex, rindex, bindex, context) => {
       style: {
         flex: 1,
         flexDirection: 'column',
-        justifyContent: 'center',
+        justifyContent: 'flex-start',
         alignItems: 'flex-start',
         display: button.spacer ? 'none' : 'flex'
       }
     },
     [
-      // Button style options
-      // [redesign step 1] Slider instead of a long "0..100 step 5" dropdown.
-      Slider({
-        label: gettext('radius') + (button.radius != null ? button.radius : 0),
-        min: 0,
-        max: 100,
-        step: 1,
-        value: button.radius || 0,
-        onChange: (value) => context.editButton('radius', value, pindex, rindex, bindex)
-      }),
-      colorSelect(gettext('back_color'), button.back_color, (c) => context.editButton('back_color', c, pindex, rindex, bindex)),
-      colorSelect(gettext('text_color'), button.text_color, (c) => context.editButton('text_color', c, pindex, rindex, bindex)),
-      Select({
-        title: gettext('text_size') + (button.text_size != null ? button.text_size : 'default'),
-        value: button.text_size,
-        options: tSizeRange(),
-        onChange: (value) => context.editButton('text_size', value, pindex, rindex, bindex)
-      }),
-
-      // HTTP Request configuration
+      // HTTP request configuration (style/appearance lives in the left column).
       TextInput({
         bold: false,
         value: button.request.url || gettext('**URL**'),
