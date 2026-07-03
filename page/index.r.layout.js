@@ -101,19 +101,46 @@ function stopButtonSpinner(h) {
 
 export const layout = {
   refs: {},
+  // Full-screen descriptive message for the error/empty states. For the
+  // "no config at all" case it also offers a button to load the example config.
+  renderMessage(vm, text, offerLoad) {
+    createWidget(widget.TEXT, {
+      x: px(20), y: 0,
+      w: px(DEVICE_WIDTH - 40), h: offerLoad ? px(DEVICE_HEIGHT * 0.68) : DEVICE_HEIGHT,
+      color: COLOR_WHITE, text_size: 30,
+      align_h: align.CENTER_H, align_v: align.CENTER_V,
+      text_style: text_style.WRAP, text: text
+    })
+    if (offerLoad) {
+      const bw = DEVICE_WIDTH * 0.6, bh = 64
+      createWidget(widget.BUTTON, {
+        x: px((DEVICE_WIDTH - bw) / 2), y: px(DEVICE_HEIGHT * 0.72),
+        w: px(bw), h: px(bh), radius: px(bh / 2),
+        normal_color: COLOR_GRAY, press_color: btnPressColor(COLOR_GRAY, 1.3),
+        color: COLOR_WHITE, text_size: TEXT_SIZE,
+        text: getText('load_example'),
+        click_func: () => vm.loadExampleConfig()
+      })
+    }
+  },
   render(vm) {
     logger.debug(getText('loading'))
-    if (vm.state.isError || !vm.state.data) {
-      createWidget(widget.TEXT, {
-        x: 0, y: 0,
-        w: DEVICE_WIDTH, h: DEVICE_HEIGHT,
-        color: COLOR_WHITE,
-        text_size: 36,
-        align_h: align.CENTER_H,
-        align_v: align.CENTER_V,
-        text_style: text_style.WRAP,
-        text: getText('comunication_error')
-      })
+    // Distinct, descriptive states (never overwrite the user's config):
+    // comms failure, no config at all (offers Load example), or invalid JSON.
+    if (vm.state.isError) {
+      this.renderMessage(vm, getText('comunication_error'), false)
+      return;
+    }
+    if (!vm.state.data) {
+      this.renderMessage(vm, getText('no_config'), true)
+      return;
+    }
+    try {
+      const parsed = JSON.parse(vm.state.data)
+      if (!parsed || !parsed.pages) throw new Error('missing pages')
+    } catch (e) {
+      logger.error('config parse error', e)
+      this.renderMessage(vm, getText('config_error'), false)
       return;
     }
     /* BUILD UI */

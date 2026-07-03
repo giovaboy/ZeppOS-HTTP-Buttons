@@ -155,6 +155,12 @@ AppSideService(
         })
       } else if (req.method === 'FETCH_IMAGE') {
         fetchConvertAndPush(this, req.params || {}, res)
+      } else if (req.method === 'LOAD_DEFAULT') {
+        // Only used from the watch's "Load example" prompt, shown when there is
+        // no config at all — safe to write since there is nothing to overwrite.
+        const d = JSON.stringify(DEFAULT_DATA)
+        settingsLib.setItem('data', d)
+        res(null, { result: d })
       }
     },
     // Kept intentionally: removing this hook in the 1.6 cleanup appears to break

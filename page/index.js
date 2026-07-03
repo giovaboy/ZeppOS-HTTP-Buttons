@@ -4,6 +4,7 @@ import { createWidget, deleteWidget, widget, prop, anim_status } from '@zos/ui'
 import { layout, LOADING_TEXT_WIDGET, LOADING_IMG_ANIM_WIDGET } from 'zosLoader:./index.[pf].layout.js'
 import { digestRequest, basicRequest, bearerRequest } from '../utils/auth-request.js'
 import { CUSTOM_TOAST, SHOW_IMAGE } from '../utils/constants.js'
+import { replace } from '@zos/router'
 
 const logger = getLogger('http-buttons')
 
@@ -210,6 +211,19 @@ Page(
         deleteWidget(this.state.loadingImgAnim)
         this.state.loadingImgAnim = null
       }
+    },
+    // Offered only when there is NO config at all: writes the example config on
+    // the phone side, then reloads the page so it renders the demo.
+    loadExampleConfig() {
+      this.showLoading()
+      this.request({ method: 'LOAD_DEFAULT' })
+        .then(() => {
+          replace({ url: 'page/index' })
+        })
+        .catch((error) => {
+          logger.error('loadExampleConfig error', JSON.stringify(error))
+          this.hideLoading() // reveals the message + button again for a retry
+        })
     },
     // Render a successful response: extract with parse_result (loose deep key
     // search) if asked, else dump the body. Unchanged from the pre-refactor

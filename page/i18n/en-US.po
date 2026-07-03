@@ -3,3 +3,12 @@ msgstr "Loading..."
 
 msgid "comunication_error"
 msgstr "Device communication error. Please check the app settings on your phone and try again."
+
+msgid "no_config"
+msgstr "No buttons configured yet. Set them up in the app on your phone, or load an example below."
+
+msgid "config_error"
+msgstr "Configuration error: the settings are not valid JSON. Please fix them in the app on your phone."
+
+msgid "load_example"
+msgstr "Load example"
