@@ -231,12 +231,14 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
             }
           })
         ]),
-        View({ style: { width: '28%', marginLeft: '4px' } }, [
-          Select({
-            options: indexRange(bindex, buttonsInRow - 1),
-            onChange: (value) => { if (value < 999) { context.moveButton(pindex, rindex, bindex, value); } }
-          })
-        ]),
+        ...(buttonsInRow > 1 ? [
+          View({ style: { width: '28%', marginLeft: '4px' } }, [
+            Select({
+              options: indexRange(bindex, buttonsInRow - 1),
+              onChange: (value) => { if (value < 999) { context.moveButton(pindex, rindex, bindex, value); } }
+            })
+          ])
+        ] : []),
         deleteConfirm(gettext('delete_button'), '#ffffff', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || ''), icon: '🗑', style: { marginLeft: '4px', border: '2px solid #D85E33' } })
       ]),
       // Spacer toggle + width on one line (so the spacer switch isn't full-width).
