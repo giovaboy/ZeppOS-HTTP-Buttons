@@ -192,229 +192,195 @@ const deleteConfirm = (label, background, onConfirm, { name, style, icon } = {})
 };
 
 const buildButtonView = (button, pindex, rindex, bindex, context) => {
+  const buttonsInRow = context.state.data.pages[pindex].rows[rindex].buttons.length;
   return View(
     {
       style: {
         border: '1px solid #d5d5d5',
         borderRadius: '8px',
-        padding: '6px 1px',
+        padding: '6px',
         marginBottom: '6px',
         display: 'flex',
-        flexDirection: 'row',
-        background: '#eaeaea',
-        alignItems: 'flex-start'
-      }
-    },
-    [
-      View(
-        {
-          style: {
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'row',
-            justifyContent: 'center',
-            alignItems: 'normal'
-          }
-        },
-        [
-          // Left column - Basic button info
-          buildButtonBasicInfo(button, pindex, rindex, bindex, context),
-          // Right column - HTTP configuration
-          buildButtonHTTPConfig(button, pindex, rindex, bindex, context)
-        ]
-      ),
-      deleteConfirm(gettext('delete_button'), '#ffffff', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || ''), icon: '🗑', style: { border: '2px solid #D85E33' } })
-    ]
-  );
-};
-
-const buildButtonBasicInfo = (button, pindex, rindex, bindex, context) => {
-  return View(
-    {
-      style: {
-        flex: 1,
         flexDirection: 'column',
-        justifyContent: 'flex-start',
-        alignItems: 'stretch',
-        display: 'flex'
+        background: '#eaeaea'
       }
     },
     [
-      TextInput({
-        placeholder: gettext('buttonText'),
-        bold: false,
-        value: button.spacer ? gettext('**SPACER**') : button.text || gettext('**NO TEXT**'),
-        labelStyle: { fontSize: '12px', display: 'none' },
-        subStyle: {
-          textAlign: 'center',
-          fontSize: '16px',
-          // != null / direct toColor, NOT ||: black is 0 (falsy), which `||`
-          // would drop (black text → default, black background → transparent).
-          color: button.spacer ? toColor(COLOR_BLACK) : toColor(button.text_color != null ? button.text_color : COLOR_BLACK),
-          background: button.spacer ? toColor(null) : toColor(button.back_color),
-          borderRadius: button.radius ? (button.radius + 'px') : '0px'
-        },
-        maxLength: 200,
-        onChange: (text) => {
-          if (text.length <= 200 || text != gettext('**NO TEXT**') || text != gettext('**SPACER**')) {
-            context.editButton('text', text, pindex, rindex, bindex);
-          }
-        }
-      }),
-      Select({
-        options: indexRange(bindex, context.state.data.pages[pindex].rows[rindex].buttons.length - 1),
-        onChange: (value) => {
-          if (value < 999) {
-            context.moveButton(pindex, rindex, bindex, value);
-          }
-        }
-      }),
-      Toggle({
-        label: gettext('is_spacer'),
-        value: button.spacer,
-        subStyle: { color: '#333', fontSize: '10px' },
-        onChange: (value) => context.editButton('spacer', value, pindex, rindex, bindex)
-      }),
-      Select({
-        title: gettext('w') + button.w,
-        value: button.w,
-        options: wRange({ customValues: [16.66, 33.33, 66.66, 83.33] }),
-        onChange: (value) => context.editButton('w', value, pindex, rindex, bindex)
-      }),
-      // Style properties (hidden for spacers, which have no visible content).
-      ...(button.spacer ? [] : [
-        Slider({
-          label: gettext('radius') + (button.radius != null ? button.radius : 0),
-          min: 0, max: 100, step: 1,
-          value: button.radius || 0,
-          onChange: (value) => context.editButton('radius', value, pindex, rindex, bindex)
-        }),
-        colorSelect(gettext('back_color'), button.back_color, (c) => context.editButton('back_color', c, pindex, rindex, bindex)),
-        colorSelect(gettext('text_color'), button.text_color, (c) => context.editButton('text_color', c, pindex, rindex, bindex)),
-        Select({
-          title: gettext('text_size') + (button.text_size != null ? button.text_size : 'default'),
-          value: button.text_size,
-          options: tSizeRange(),
-          onChange: (value) => context.editButton('text_size', value, pindex, rindex, bindex)
-        })
-      ])
-    ]
-  );
-};
-
-const buildButtonHTTPConfig = (button, pindex, rindex, bindex, context) => {
-  return View(
-    {
-      style: {
-        flex: 1,
-        flexDirection: 'column',
-        justifyContent: 'flex-start',
-        alignItems: 'flex-start',
-        display: button.spacer ? 'none' : 'flex'
-      }
-    },
-    [
-      // HTTP request configuration (style/appearance lives in the left column).
-      TextInput({
-        bold: false,
-        value: button.request.url || gettext('**URL**'),
-        placeholder: gettext('insert_url'),
-        subStyle: { color: COLOR_BLACK, fontSize: '14px' },
-        maxLength: 200,
-        onChange: (value) => {
-          if (validateURL(value)) {
-            context.editButton('url', value, pindex, rindex, bindex);
-          } else {
-            context.editButton('url', null, pindex, rindex, bindex);
-            return Toast({ message: gettext('insert_valid_url') });
-          }
-        }
-      }),
-      Select({
-        title: gettext('insert_method') + (button.request.method || '--'),
-        options: [
-          { name: 'GET', value: 'GET' },
-          { name: 'POST', value: 'POST' },
-          { name: 'PUT', value: 'PUT' },
-          { name: 'HEAD', value: 'HEAD' },
-          { name: 'DELETE', value: 'DELETE' },
-          { name: 'PATCH', value: 'PATCH' },
-          { name: 'OPTIONS', value: 'OPTIONS' },
-          { name: 'CONNECT', value: 'CONNECT' }
-        ],
-        onChange: (value) => context.editButton('method', value, pindex, rindex, bindex)
-      }),
-      Toggle({
-        label: gettext('is_input'),
-        value: button.input,
-        subStyle: { color: '#333', fontSize: '10px' },
-        onChange: (value) => context.editButton('input', value, pindex, rindex, bindex)
-      }),
-      // Keyboard type selector (only visible when input is enabled)
-      View({
-        style: {
-          display: button.input ? 'block' : 'none'
-        }
-      }, [
-        Select({
-          title: gettext('keyboard_type'),
-          value: button.keyboard_type || KB_TYPE_CHAR,
-          options: keyboardTypes(),
-          onChange: (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex)
-        })
+      // Top row: preview · reorder · delete.
+      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
+        View({ style: { flex: 1 } }, [
+          TextInput({
+            placeholder: gettext('buttonText'),
+            bold: false,
+            value: button.spacer ? gettext('**SPACER**') : button.text || gettext('**NO TEXT**'),
+            labelStyle: { fontSize: '12px', display: 'none' },
+            subStyle: {
+              textAlign: 'center',
+              fontSize: '16px',
+              lineHeight: '32px',
+              // != null / direct toColor, NOT ||: black is 0 (falsy).
+              color: button.spacer ? toColor(COLOR_BLACK) : toColor(button.text_color != null ? button.text_color : COLOR_BLACK),
+              background: button.spacer ? toColor(null) : toColor(button.back_color),
+              borderRadius: button.radius ? (button.radius + 'px') : '0px'
+            },
+            maxLength: 200,
+            onChange: (text) => {
+              if (text.length <= 200 || text != gettext('**NO TEXT**') || text != gettext('**SPACER**')) {
+                context.editButton('text', text, pindex, rindex, bindex);
+              }
+            }
+          })
+        ]),
+        View({ style: { width: '28%', marginLeft: '4px' } }, [
+          Select({
+            options: indexRange(bindex, buttonsInRow - 1),
+            onChange: (value) => { if (value < 999) { context.moveButton(pindex, rindex, bindex, value); } }
+          })
+        ]),
+        deleteConfirm(gettext('delete_button'), '#ffffff', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || ''), icon: '🗑', style: { marginLeft: '4px', border: '2px solid #D85E33' } })
       ]),
-
-      // Authentication
-      ...buildAuthFields(button, pindex, rindex, bindex, context),
-
-      // Headers and Body
-      TextInput({
-        bold: false,
-        value: button.request.headers || gettext('**HEADERS**'),
-        placeholder: gettext('insert_headers'),
-        subStyle: { color: COLOR_BLACK, fontSize: '14px' },
-        maxLength: 200,
-        onChange: (value) => {
-          if (value.length > 0 && value.length <= 200 || value != gettext('**HEADERS**')) {
-            context.editButton('headers', value, pindex, rindex, bindex);
-          }
-        }
-      }),
-      TextInput({
-        bold: false,
-        value: button.request.body || gettext('**BODY**'),
-        placeholder: gettext('insert_body'),
-        subStyle: { color: COLOR_BLACK, fontSize: '14px' },
-        maxLength: 200,
-        onChange: (value) => {
-          if (value.length > 0 && value.length <= 200 || value != gettext('**BODY**')) {
-            context.editButton('body', value, pindex, rindex, bindex);
-          }
-        }
-      }),
-      TextInput({
-        bold: false,
-        value: button.request.parse_result || gettext('**parse_result**'),
-        subStyle: { color: COLOR_BLACK, fontSize: '14px' },
-        maxLength: 200,
-        onChange: (value) => {
-          if (value.length > 0 && value.length <= 200 || value != gettext('**parse_result**')) {
-            context.editButton('parse_result', value, pindex, rindex, bindex);
-          }
-        }
-      }),
-      Select({
-        title: gettext('response_style'),
-        value: button.request.response_style,
-        options: [
-          { name: gettext('system_toast'), value: SYSTEM_TOAST },
-          { name: gettext('custom_toast'), value: CUSTOM_TOAST },
-          { name: gettext('no_notification'), value: NO_NOTIFICATION },
-          { name: gettext('system_modal'), value: SYSTEM_MODAL },
-          { name: gettext('show_image'), value: SHOW_IMAGE }
-        ],
-        onChange: (value) => context.editButton('response_style', value, pindex, rindex, bindex)
-      })
+      // Spacer toggle + width on one line (so the spacer switch isn't full-width).
+      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
+        View({ style: { flex: 1 } }, [
+          Toggle({
+            label: gettext('is_spacer'),
+            value: button.spacer,
+            subStyle: { color: '#333', fontSize: '10px' },
+            onChange: (value) => context.editButton('spacer', value, pindex, rindex, bindex)
+          })
+        ]),
+        View({ style: { flex: 1 } }, [
+          Select({
+            title: gettext('w') + button.w,
+            value: button.w,
+            options: wRange({ customValues: [16.66, 33.33, 66.66, 83.33] }),
+            onChange: (value) => context.editButton('w', value, pindex, rindex, bindex)
+          })
+        ])
+      ]),
+      // STYLE — two columns (hidden for spacers, which have no visible content).
+      ...(button.spacer ? [] : [
+        View({ style: { display: 'flex', flexDirection: 'row' } }, [
+          View({ style: { flex: 1 } }, [
+            Slider({
+              label: gettext('radius') + (button.radius != null ? button.radius : 0),
+              min: 0, max: 100, step: 1,
+              value: button.radius || 0,
+              onChange: (value) => context.editButton('radius', value, pindex, rindex, bindex)
+            }),
+            colorSelect(gettext('back_color'), button.back_color, (c) => context.editButton('back_color', c, pindex, rindex, bindex))
+          ]),
+          View({ style: { flex: 1 } }, [
+            colorSelect(gettext('text_color'), button.text_color, (c) => context.editButton('text_color', c, pindex, rindex, bindex)),
+            Select({
+              title: gettext('text_size') + (button.text_size != null ? button.text_size : 'default'),
+              value: button.text_size,
+              options: tSizeRange(),
+              onChange: (value) => context.editButton('text_size', value, pindex, rindex, bindex)
+            })
+          ])
+        ])
+      ]),
+      // FUNCTIONS — two columns (hidden for spacers).
+      ...(button.spacer ? [] : [
+        View({ style: { display: 'flex', flexDirection: 'row' } }, [
+          View({ style: { flex: 1 } }, [
+            TextInput({
+              bold: false,
+              value: button.request.url || gettext('**URL**'),
+              placeholder: gettext('insert_url'),
+              subStyle: { color: COLOR_BLACK, fontSize: '14px' },
+              maxLength: 200,
+              onChange: (value) => {
+                if (validateURL(value)) {
+                  context.editButton('url', value, pindex, rindex, bindex);
+                } else {
+                  context.editButton('url', null, pindex, rindex, bindex);
+                  return Toast({ message: gettext('insert_valid_url') });
+                }
+              }
+            }),
+            Select({
+              title: gettext('insert_method') + (button.request.method || '--'),
+              options: [
+                { name: 'GET', value: 'GET' },
+                { name: 'POST', value: 'POST' },
+                { name: 'PUT', value: 'PUT' },
+                { name: 'HEAD', value: 'HEAD' },
+                { name: 'DELETE', value: 'DELETE' },
+                { name: 'PATCH', value: 'PATCH' },
+                { name: 'OPTIONS', value: 'OPTIONS' },
+                { name: 'CONNECT', value: 'CONNECT' }
+              ],
+              onChange: (value) => context.editButton('method', value, pindex, rindex, bindex)
+            }),
+            Toggle({
+              label: gettext('is_input'),
+              value: button.input,
+              subStyle: { color: '#333', fontSize: '10px' },
+              onChange: (value) => context.editButton('input', value, pindex, rindex, bindex)
+            }),
+            View({ style: { display: button.input ? 'block' : 'none' } }, [
+              Select({
+                title: gettext('keyboard_type'),
+                value: button.keyboard_type || KB_TYPE_CHAR,
+                options: keyboardTypes(),
+                onChange: (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex)
+              })
+            ])
+          ]),
+          View({ style: { flex: 1 } }, [
+            ...buildAuthFields(button, pindex, rindex, bindex, context),
+            TextInput({
+              bold: false,
+              value: button.request.headers || gettext('**HEADERS**'),
+              placeholder: gettext('insert_headers'),
+              subStyle: { color: COLOR_BLACK, fontSize: '14px' },
+              maxLength: 200,
+              onChange: (value) => {
+                if (value.length > 0 && value.length <= 200 || value != gettext('**HEADERS**')) {
+                  context.editButton('headers', value, pindex, rindex, bindex);
+                }
+              }
+            }),
+            TextInput({
+              bold: false,
+              value: button.request.body || gettext('**BODY**'),
+              placeholder: gettext('insert_body'),
+              subStyle: { color: COLOR_BLACK, fontSize: '14px' },
+              maxLength: 200,
+              onChange: (value) => {
+                if (value.length > 0 && value.length <= 200 || value != gettext('**BODY**')) {
+                  context.editButton('body', value, pindex, rindex, bindex);
+                }
+              }
+            }),
+            TextInput({
+              bold: false,
+              value: button.request.parse_result || gettext('**parse_result**'),
+              subStyle: { color: COLOR_BLACK, fontSize: '14px' },
+              maxLength: 200,
+              onChange: (value) => {
+                if (value.length > 0 && value.length <= 200 || value != gettext('**parse_result**')) {
+                  context.editButton('parse_result', value, pindex, rindex, bindex);
+                }
+              }
+            }),
+            Select({
+              title: gettext('response_style'),
+              value: button.request.response_style,
+              options: [
+                { name: gettext('system_toast'), value: SYSTEM_TOAST },
+                { name: gettext('custom_toast'), value: CUSTOM_TOAST },
+                { name: gettext('no_notification'), value: NO_NOTIFICATION },
+                { name: gettext('system_modal'), value: SYSTEM_MODAL },
+                { name: gettext('show_image'), value: SHOW_IMAGE }
+              ],
+              onChange: (value) => context.editButton('response_style', value, pindex, rindex, bindex)
+            })
+          ])
+        ])
+      ])
     ]
   );
 };
