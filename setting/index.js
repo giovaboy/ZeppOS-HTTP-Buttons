@@ -545,7 +545,21 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
   );
 };
 
-const buildPageView = (page, pindex, context) => {
+// Summary of a collapsed page: each row's button names on its own line.
+const buildPageSummary = (page) => {
+  return View({ style: { padding: '4px 8px' } },
+    (page.rows || []).map((row) =>
+      Text({ align: 'center', style: { fontSize: '13px', color: '#666' } }, [
+        (row.buttons || []).map((b) => b.spacer ? '▭' : (b.text || '—')).join('   ·   ') || '—'
+      ])
+    )
+  );
+};
+
+// Page header. Title (editable, with the page's own colors as a preview) sits
+// above the reorder select (hidden when there's a single page), with a collapse
+// chevron on the right. The color/delete/add-row controls show only when open.
+const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
   return View(
     {
       style: {
@@ -558,70 +572,69 @@ const buildPageView = (page, pindex, context) => {
       }
     },
     [
-      // 1. Page title — full width, centered, previewing its own colors.
-      TextInput({
-        placeholder: gettext('page_title'),
-        bold: true,
-        value: page.title || gettext('**NO TEXT**'),
-        subStyle: {
-          textAlign: 'center',
-          fontSize: '18px',
-          color: toColor(page.text_color || COLOR_BLACK),
-          background: toColor(page.back_color || COLOR_WHITE)
-        },
-        maxLength: 200,
-        onChange: (title) => {
-          if (title.length <= 200 || title != gettext('**NO TEXT**')) {
-            context.editPage('title', title, pindex);
-          }
-        }
-      }),
-      // 2. Colors side by side.
-      View(
-        { style: { display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center' } },
-        [
-          View({ style: { flex: 1 } }, [
+      // Header line: title (+ reorder beneath it) and the collapse chevron.
+      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
+        View({ style: { flex: 1, display: 'flex', flexDirection: 'column' } }, [
+          TextInput({
+            placeholder: gettext('page_title'),
+            bold: true,
+            value: page.title || gettext('**NO TEXT**'),
+            subStyle: {
+              textAlign: 'center',
+              fontSize: '18px',
+              color: toColor(page.text_color || COLOR_BLACK),
+              background: toColor(page.back_color || COLOR_WHITE)
+            },
+            maxLength: 200,
+            onChange: (title) => {
+              if (title.length <= 200 || title != gettext('**NO TEXT**')) {
+                context.editPage('title', title, pindex);
+              }
+            }
+          }),
+          ...(pageCount > 1 ? [
             Select({
-              title: gettext('back_color'),
-              value: page.back_color,
-              options: colors(),
-              onChange: (value) => context.editPage('back_color', value, pindex)
-            })
-          ]),
-          View({ style: { flex: 1 } }, [
-            Select({
-              title: gettext('text_color'),
-              value: page.text_color,
-              options: colors(),
-              onChange: (value) => context.editPage('text_color', value, pindex)
-            })
-          ])
-        ]
-      ),
-      // 3. Actions: reorder page · delete page · add row.
-      View(
-        { style: { display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: '6px' } },
-        [
-          View({ style: { flex: 1 } }, [
-            Select({
-              title: gettext('page') + (pindex + 1),
               value: undefined,
-              options: indexRange(pindex, context.state.data.pages.length - 1),
+              options: indexRange(pindex, pageCount - 1),
               onChange: (value) => {
                 if (value < 999) {
                   context.movePage(pindex, value);
                 }
               }
             })
-          ]),
-          deleteConfirm(gettext('delete_page'), '#ffffff', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '🗑', style: { margin: '0 5px', border: '2px solid #D85E33' } }),
-          Button({
-            label: '+',
-            style: { fontSize: '20px', fontWeight: '700', minWidth: '36px', width: '36px', height: '36px', borderRadius: '50%', background: '#ababab', color: 'white', padding: '0' },
-            onClick: () => context.addRow(pindex)
-          })
-        ]
-      )
+          ] : [])
+        ]),
+        Button({
+          label: pageOpen ? '▾' : '◂',
+          style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
+          onClick: () => context.state.props.settingsStorage.setItem('ui_page_' + pindex, pageOpen ? 'false' : 'true')
+        })
+      ]),
+      // Editing controls, only when the page is expanded.
+      ...(pageOpen ? [
+        View(
+          { style: { display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: '6px' } },
+          [
+            View({ style: { flex: 1 } }, [
+              Select({ title: gettext('back_color'), value: page.back_color, options: colors(), onChange: (value) => context.editPage('back_color', value, pindex) })
+            ]),
+            View({ style: { flex: 1 } }, [
+              Select({ title: gettext('text_color'), value: page.text_color, options: colors(), onChange: (value) => context.editPage('text_color', value, pindex) })
+            ])
+          ]
+        ),
+        View(
+          { style: { display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: '6px' } },
+          [
+            deleteConfirm(gettext('delete_page'), '#ffffff', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '🗑', style: { margin: '0 5px', border: '2px solid #D85E33' } }),
+            Button({
+              label: '+',
+              style: { fontSize: '20px', fontWeight: '700', minWidth: '36px', width: '36px', height: '36px', borderRadius: '50%', background: '#ababab', color: 'white', padding: '0' },
+              onClick: () => context.addRow(pindex)
+            })
+          ]
+        )
+      ] : [])
     ]
   );
 };
@@ -657,15 +670,9 @@ AppSettingsPage({
     let newPage = clone(DEFAULT_PAGE);
     newPage.title = title;
     this.state.data.pages.push(newPage);
-    // [redesign step 2] jump the view to the freshly added page
-    this.state.props.settingsStorage.setItem('ui_page', String(this.state.data.pages.length - 1));
+    // Expand the freshly added page (pages are collapsed by default).
+    this.state.props.settingsStorage.setItem('ui_page_' + (this.state.data.pages.length - 1), 'true');
     this.setItem()
-  },
-  // [redesign step 2] Progressive disclosure: which page is currently shown.
-  // Stored in a UI-only settingsStorage key so writing it triggers a re-render
-  // (the watch's getData only reads 'data'/'test_mode', so it ignores this key).
-  selectPage(i) {
-    this.state.props.settingsStorage.setItem('ui_page', String(i));
   },
   editPage(prop, val, pindex) {
     switch (prop) {
@@ -1006,64 +1013,41 @@ AppSettingsPage({
       // === BUILD PAGES/ROWS/BUTTONS WITH HELPER FUNCTIONS ===
       const pages = this.state.data.pages || [];
 
-      // [redesign step 2] Progressive disclosure: render ONLY the selected page
-      // instead of every page at once. Selection comes from the UI-only
-      // 'ui_page' key, clamped to the current page count.
-      let selectedPage = Number(this.state.props.settingsStorage.getItem('ui_page')) || 0;
-      if (selectedPage < 0) selectedPage = 0;
-      if (selectedPage > pages.length - 1) selectedPage = pages.length - 1;
-
-      // Page-picker card (below the variables): selected page title full width,
-      // then the page select (no title), then the "+" Add Page at the bottom.
-      // Rendered even with 0 pages so Add Page stays reachable.
-      const selPage = pages.length > 0 ? pages[selectedPage] : null;
-      contentItems.push(
-        View({ style: { margin: '10px 0', padding: '8px 12px', border: '1px solid #cfe0ff', borderRadius: '12px', background: '#eef4ff', display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}, [
-          ...(selPage ? [
-            Text({ bold: true, align: 'center', style: { fontSize: '18px', padding: '2px 0 6px' }}, [selPage.title || (gettext('page') + (selectedPage + 1))]),
-            Select({
-              value: String(selectedPage),
-              options: pages.map((p, i) => ({
-                name: gettext('page') + (i + 1) + (p.title ? ' · ' + p.title : ''),
-                value: String(i)
-              })),
-              onChange: (v) => this.selectPage(Number(v))
-            })
-          ] : []),
-          View({ style: { display: 'flex', justifyContent: 'center', marginTop: '6px' }}, [addPageBTN])
-        ])
-      );
-
-      if (pages.length > 0) {
-        // Only the selected page: its header + rows + buttons, in one Section.
-        const page = pages[selectedPage];
-        const pindex = selectedPage;
-        const pageChildren = [buildPageView(page, pindex, this)];
-        for (let [rindex, row] of page.rows.entries()) {
-          // Wrap each row + its content in one card (page › row › buttons). The
-          // row can be collapsed (default): open → show the button editors;
-          // collapsed → a one-line summary of the button names. UI-only key.
-          const rowOpen = this.state.props.settingsStorage.getItem('ui_row_' + pindex + '_' + rindex) === 'true';
-          const rowChildren = [buildRowView(row, page, pindex, rindex, this, rowOpen)];
-          if (rowOpen) {
-            for (let [bindex, button] of row.buttons.entries()) {
-              rowChildren.push(buildButtonView(button, pindex, rindex, bindex, this));
+      // Pages are collapsible cards (like rows) — no picker. All pages render,
+      // each collapsed by default (ui_page_<i>); open one to edit it. Collapsed
+      // shows a summary of its buttons (one line per row).
+      for (let [pindex, page] of pages.entries()) {
+        const pageOpen = this.state.props.settingsStorage.getItem('ui_page_' + pindex) === 'true';
+        const pageChildren = [buildPageView(page, pindex, this, pageOpen, pages.length)];
+        if (pageOpen) {
+          for (let [rindex, row] of page.rows.entries()) {
+            // Each row is itself collapsible: open → button editors; collapsed →
+            // a one-line summary of the button names. UI-only key, default closed.
+            const rowOpen = this.state.props.settingsStorage.getItem('ui_row_' + pindex + '_' + rindex) === 'true';
+            const rowChildren = [buildRowView(row, page, pindex, rindex, this, rowOpen)];
+            if (rowOpen) {
+              for (let [bindex, button] of row.buttons.entries()) {
+                rowChildren.push(buildButtonView(button, pindex, rindex, bindex, this));
+              }
+            } else {
+              rowChildren.push(buildRowSummary(row));
             }
-          } else {
-            rowChildren.push(buildRowSummary(row));
+            pageChildren.push(
+              View({ style: { border: '1px solid #c9c9c9', borderRadius: '10px', padding: '6px', marginBottom: '10px', background: '#f0f0f0' }}, rowChildren)
+            );
           }
-          pageChildren.push(
-            View({ style: { border: '1px solid #c9c9c9', borderRadius: '10px', padding: '6px', marginBottom: '10px', background: '#f0f0f0' }}, rowChildren)
-          );
+        } else {
+          pageChildren.push(buildPageSummary(page));
         }
         contentItems.push(
-          // No Section title: buildPageView already shows the page title in its
-          // own colors (a live preview), and the page picker above names it.
-          Section({
-            style: { marginBottom: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }
-          }, pageChildren)
+          Section({ style: { marginBottom: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }}, pageChildren)
         );
       }
+
+      // Add Page at the bottom (always reachable, even with 0 pages).
+      contentItems.push(
+        View({ style: { display: 'flex', justifyContent: 'center', margin: '10px 0' }}, [addPageBTN])
+      );
     }
 
     // === FINAL RENDERING ===
