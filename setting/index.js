@@ -297,21 +297,6 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
       ...(button.spacer ? [] : [
         View({ style: { display: 'flex', flexDirection: 'row', borderTop: '1px solid #d5d5d5', marginTop: '8px', paddingTop: '8px' } }, [
           fieldCol([
-            TextInput({
-              bold: false,
-              value: button.request.url || gettext('**URL**'),
-              placeholder: gettext('insert_url'),
-              subStyle: { color: COLOR_BLACK, fontSize: '14px' },
-              maxLength: 200,
-              onChange: (value) => {
-                if (validateURL(value)) {
-                  context.editButton('url', value, pindex, rindex, bindex);
-                } else {
-                  context.editButton('url', null, pindex, rindex, bindex);
-                  return Toast({ message: gettext('insert_valid_url') });
-                }
-              }
-            }),
             Select({
               title: gettext('insert_method') + (button.request.method || '--'),
               options: [
@@ -341,6 +326,21 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
           ]),
           fieldCol([
             ...buildAuthFields(button, pindex, rindex, bindex, context),
+            TextInput({
+              bold: false,
+              value: button.request.url || gettext('**URL**'),
+              placeholder: gettext('insert_url'),
+              subStyle: { color: COLOR_BLACK, fontSize: '14px' },
+              maxLength: 200,
+              onChange: (value) => {
+                if (validateURL(value)) {
+                  context.editButton('url', value, pindex, rindex, bindex);
+                } else {
+                  context.editButton('url', null, pindex, rindex, bindex);
+                  return Toast({ message: gettext('insert_valid_url') });
+                }
+              }
+            }),
             TextInput({
               bold: false,
               value: button.request.headers || gettext('**HEADERS**'),
