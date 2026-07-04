@@ -192,6 +192,14 @@ const deleteConfirm = (label, background, onConfirm, { name, style, icon } = {})
   ]);
 };
 
+// Two-column form controls have different intrinsic heights (the radius slider
+// is taller than the selects), so the two columns drift out of alignment. Wrap
+// each control in a fixed-height, vertically-centred cell and they line up on a
+// grid. Tune FIELD_MIN_H if the grid looks too airy or too tight.
+const FIELD_MIN_H = '64px';
+const fieldCell = (child) => View({ style: { minHeight: FIELD_MIN_H, display: 'flex', flexDirection: 'column', justifyContent: 'center' } }, [child]);
+const fieldCol = (children) => View({ style: { flex: 1 } }, children.map(fieldCell));
+
 const buildButtonView = (button, pindex, rindex, bindex, context) => {
   const buttonsInRow = context.state.data.pages[pindex].rows[rindex].buttons.length;
   return View(
@@ -264,7 +272,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
       // STYLE — two columns (hidden for spacers, which have no visible content).
       ...(button.spacer ? [] : [
         View({ style: { display: 'flex', flexDirection: 'row' } }, [
-          View({ style: { flex: 1 } }, [
+          fieldCol([
             Slider({
               label: gettext('radius') + (button.radius != null ? button.radius : 0),
               min: 0, max: 100, step: 1,
@@ -273,7 +281,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
             }),
             colorSelect(gettext('back_color'), button.back_color, (c) => context.editButton('back_color', c, pindex, rindex, bindex))
           ]),
-          View({ style: { flex: 1 } }, [
+          fieldCol([
             colorSelect(gettext('text_color'), button.text_color, (c) => context.editButton('text_color', c, pindex, rindex, bindex)),
             Select({
               title: gettext('text_size') + (button.text_size != null ? button.text_size : 'default'),
@@ -288,7 +296,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
       // from the STYLE block above.
       ...(button.spacer ? [] : [
         View({ style: { display: 'flex', flexDirection: 'row', borderTop: '1px solid #d5d5d5', marginTop: '8px', paddingTop: '8px' } }, [
-          View({ style: { flex: 1 } }, [
+          fieldCol([
             TextInput({
               bold: false,
               value: button.request.url || gettext('**URL**'),
@@ -324,16 +332,14 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
               subStyle: { color: '#333', fontSize: '10px' },
               onChange: (value) => context.editButton('input', value, pindex, rindex, bindex)
             }),
-            View({ style: { display: button.input ? 'block' : 'none' } }, [
-              Select({
-                title: gettext('keyboard_type'),
-                value: button.keyboard_type || KB_TYPE_CHAR,
-                options: keyboardTypes(),
-                onChange: (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex)
-              })
-            ])
+            ...(button.input ? [Select({
+              title: gettext('keyboard_type'),
+              value: button.keyboard_type || KB_TYPE_CHAR,
+              options: keyboardTypes(),
+              onChange: (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex)
+            })] : [])
           ]),
-          View({ style: { flex: 1 } }, [
+          fieldCol([
             ...buildAuthFields(button, pindex, rindex, bindex, context),
             TextInput({
               bold: false,
