@@ -886,9 +886,12 @@ AppSettingsPage({
           onChange: (value) => {
             const parsed = tryParseJSON(value);
             if (parsed && typeof parsed === 'object') {
+              this.state.props.settingsStorage.setItem('ui_json_error', 'false');
               this.state.props.settingsStorage.setItem('data', JSON.stringify(parsed));
             } else if (value && value.trim()) {
-              return Toast({ message: gettext('invalid_json') });
+              // A Toast returned from onChange isn't rendered; flip a flag so the
+              // Toast in build()'s tree becomes visible on the re-render.
+              this.state.props.settingsStorage.setItem('ui_json_error', 'true');
             }
           }
         })
@@ -1078,7 +1081,14 @@ AppSettingsPage({
         ...contentItems,
         confBTN,
         clearBTN,
-        testModeSwitch
+        testModeSwitch,
+        // Rendered here (not returned from the editor's onChange, where it would
+        // be ignored); shown when the JSON editor rejects invalid input.
+        Toast({
+          message: gettext('invalid_json'),
+          visible: props.settingsStorage.getItem('ui_json_error') === 'true',
+          onClose: () => this.state.props.settingsStorage.setItem('ui_json_error', 'false')
+        })
       ])
     }
   }
