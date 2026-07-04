@@ -239,7 +239,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
             })
           ])
         ] : []),
-        deleteConfirm(gettext('delete_button'), '#ffffff', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || ''), icon: '🗑', style: { marginLeft: '4px', border: '2px solid #D85E33' } })
+        deleteConfirm(gettext('delete_button'), '#db2c2c', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || ''), icon: '×', style: { marginLeft: '4px' } })
       ]),
       // Spacer toggle + width on one line (so the spacer switch isn't full-width).
       View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
@@ -463,7 +463,7 @@ const buildRowSummary = (row) => {
 };
 
 // Row header — all controls on one line: Row:N (emphasized) · reorder · height
-// · add button (+) · delete (🗑) · collapse switch (open = show buttons).
+// · add button (+) · delete (×) · collapse switch (open = show buttons).
 const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
   return View(
     {
@@ -508,7 +508,7 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
         style: { fontSize: '20px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '50%', background: '#ababab', color: 'white', padding: '0', marginLeft: '4px' },
         onClick: () => context.addButton(pindex, rindex)
       }),
-      deleteConfirm(gettext('delete_row'), '#ffffff', () => context.deleteRow(pindex, rindex), { name: String(rindex + 1), icon: '🗑', style: { margin: '0 4px', border: '2px solid #D85E33' } }),
+      deleteConfirm(gettext('delete_row'), '#db2c2c', () => context.deleteRow(pindex, rindex), { name: String(rindex + 1), icon: '×', style: { margin: '0 4px' } }),
       // Expand/collapse chevron. A Button (not a switch) so its arrow always
       // reflects the real state — ▾ open, ▸ collapsed.
       Button({
@@ -585,7 +585,7 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
           ] : [])
         ]),
         // Delete page — always visible (even when the page is collapsed).
-        deleteConfirm(gettext('delete_page'), '#ffffff', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '🗑', style: { margin: '0 4px', border: '2px solid #D85E33' } }),
+        deleteConfirm(gettext('delete_page'), '#db2c2c', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '×', style: { margin: '0 4px' } }),
         Button({
           label: pageOpen ? '▾' : '◂',
           style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
@@ -848,7 +848,7 @@ AppSettingsPage({
     // ("delete storage?"), and onChange only fires once the user confirms.
     // A real Button would delete immediately with no confirmation — which we
     // don't want for a destructive action. Keep as-is.
-    const clearBTN = View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background: '#db2c2c', color: 'white', textAlign: 'left', padding: '0 15px'}}, [
+    const clearBTN = View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background: '#db2c2c', color: 'white', textAlign: 'left', padding: '0 15px', marginTop: '18px'}}, [
       TextInput({
         label: gettext('delete_storage'),
         labelStyle: { textAlign: 'center' },
