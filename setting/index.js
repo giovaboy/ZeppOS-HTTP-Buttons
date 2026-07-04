@@ -175,13 +175,14 @@ const colorSelect = (title, current, onColor) => {
 // delete on the first tap with no confirmation (see the note on clearBTN).
 const deleteConfirm = (label, background, onConfirm, { name, style, icon } = {}) => {
   // Confirm dialog always names the element, e.g. Delete Button "ON/OFF"?.
-  // `icon` (optional) replaces the button text with a glyph (e.g. a trash can),
-  // while the confirm text stays explicit.
+  // Styled to match the round "+" add button (same 32px circle / 20px glyph); a
+  // TextInput is used rather than a Button because tapping must ask for
+  // confirmation via its placeholder before firing onConfirm.
   const placeholder = label + (name ? ' "' + name + '"' : '') + '?';
-  return View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background, color: 'white', textAlign: 'center', padding: '0 15px', ...style } }, [
+  return View({ style: { fontSize: '20px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '50%', background, color: 'white', textAlign: 'center', padding: '0', ...style } }, [
     TextInput({
       label: icon || label,
-      labelStyle: { textAlign: 'center' },
+      labelStyle: { textAlign: 'center', fontSize: '20px', fontWeight: '700', lineHeight: '32px', padding: '0', margin: '0', color: 'white' },
       subStyle: { display: 'none' },
       disabled: true,
       placeholder,
@@ -508,7 +509,7 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
         style: { fontSize: '20px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '50%', background: '#ababab', color: 'white', padding: '0', marginLeft: '4px' },
         onClick: () => context.addButton(pindex, rindex)
       }),
-      deleteConfirm(gettext('delete_row'), '#db2c2c', () => context.deleteRow(pindex, rindex), { name: String(rindex + 1), icon: '×', style: { margin: '0 4px' } }),
+      deleteConfirm(gettext('delete_row'), '#db2c2c', () => context.deleteRow(pindex, rindex), { name: String(rindex + 1), icon: '×', style: { marginLeft: '4px' } }),
       // Expand/collapse chevron. A Button (not a switch) so its arrow always
       // reflects the real state — ▾ open, ▸ collapsed.
       Button({
@@ -585,7 +586,7 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
           ] : [])
         ]),
         // Delete page — always visible (even when the page is collapsed).
-        deleteConfirm(gettext('delete_page'), '#db2c2c', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '×', style: { margin: '0 4px' } }),
+        deleteConfirm(gettext('delete_page'), '#db2c2c', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '×', style: { marginLeft: '4px' } }),
         Button({
           label: pageOpen ? '▾' : '◂',
           style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
