@@ -11,7 +11,7 @@ import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
   COLOR_BROWN, COLOR_TAN, COLOR_BEIGE,
   COLOR_LIGHT_GRAY, COLOR_DARK_GRAY, COLOR_SILVER,
   SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE,
-  KB_TYPE_CHAR, KB_TYPE_NUMERIC } from '../utils/constants.js'
+  KB_TYPE_CHAR, KB_TYPE_NUMERIC, DEFAULT_REQUEST_TIMEOUT_MS } from '../utils/constants.js'
 
 // === UTILITY FUNCTIONS ===
 // Deep-clones a default template. The DEFAULT_* objects in constants.js are
@@ -91,6 +91,18 @@ const tSizeRange = () => {
     arr.push({ name: i.toString() + 'px', value: i });
   }
   return arr;
+}
+
+// Request-timeout choices, stored in ms (what the fetch expects) but shown in
+// seconds. The "default" entry (undefined) makes a button fall back to the
+// global value — and the global select fall back to the app default (10 s).
+// 60 s is the ceiling: beyond it the zml messaging window would fire first.
+const timeoutLabel = (ms) => (ms / 1000) + ' s';
+const timeoutRange = () => {
+  return [
+    { name: gettext('timeout_default'), value: undefined },
+    ...[5, 10, 15, 20, 30, 45, 60].map((s) => ({ name: timeoutLabel(s * 1000), value: s * 1000 }))
+  ];
 }
 
 const colors = () => {
@@ -322,7 +334,13 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
               value: button.keyboard_type || KB_TYPE_CHAR,
               options: keyboardTypes(),
               onChange: (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex)
-            })] : [])
+            })] : []),
+            Select({
+              title: gettext('timeout') + ': ' + (button.request.timeout ? timeoutLabel(button.request.timeout) : gettext('timeout_default')),
+              value: button.request.timeout,
+              options: timeoutRange(),
+              onChange: (value) => context.editButton('timeout', value, pindex, rindex, bindex)
+            })
           ]),
           fieldCol([
             ...buildAuthFields(button, pindex, rindex, bindex, context),
@@ -645,6 +663,16 @@ AppSettingsPage({
     delete this.state.data.variables[key]
     this.setItem()
   },
+  // Global fetch timeout (data.timeout, ms). undefined = app default: delete
+  // the key so the config doesn't carry a redundant value.
+  editGlobalTimeout(ms) {
+    if (ms) {
+      this.state.data.timeout = ms;
+    } else {
+      delete this.state.data.timeout;
+    }
+    this.setItem()
+  },
   addPage(title) {
     let newPage = clone(DEFAULT_PAGE);
     newPage.title = title;
@@ -737,6 +765,9 @@ AppSettingsPage({
       case 'body': btn.request.body = val; break;
       case 'parse_result': btn.request.parse_result = val; break;
       case 'response_style': btn.request.response_style = val; break;
+      // undefined (the "default" choice) is dropped by JSON.stringify in
+      // setItem, so the key disappears from the config instead of lingering.
+      case 'timeout': btn.request.timeout = val; break;
       case 'auth': btn.request.auth = val; break;
       case 'user': btn.request.user = val; break;
       case 'pass': btn.request.pass = val; break;
@@ -936,6 +967,21 @@ AppSettingsPage({
         [gettext('test_mode_hint')])
     ])
 
+    // Global request timeout — how long every HTTP request (and the image
+    // download) may run before failing. Each button's own Timeout select
+    // overrides it. Shown as a card between the pages and the JSON editor.
+    const globalTimeoutMs = this.state.data && this.state.data.timeout;
+    const timeoutCard = Section({ style: { marginTop: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }}, [
+      Text({ bold: true, align: 'left', style: { fontSize: '16px' }}, [gettext('timeout_global')]),
+      Select({
+        title: gettext('timeout') + ': ' + (globalTimeoutMs ? timeoutLabel(globalTimeoutMs) : gettext('timeout_default') + ' (' + timeoutLabel(DEFAULT_REQUEST_TIMEOUT_MS) + ')'),
+        value: globalTimeoutMs,
+        options: timeoutRange(),
+        onChange: (value) => this.editGlobalTimeout(value)
+      }),
+      Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#666', padding: '4px 2px' }}, [gettext('timeout_hint')])
+    ])
+
     // === DYNAMIC LAYOUT BUILDING ===
 
     if (this.state.data) {
@@ -1086,6 +1132,7 @@ AppSettingsPage({
         contentVariables.length > 0 && Section({ style: { marginTop: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }},
           [...contentVariables]),
         ...contentItems,
+        timeoutCard,
         confBTN,
         clearBTN,
         testModeSwitch,

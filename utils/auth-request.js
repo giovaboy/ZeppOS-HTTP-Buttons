@@ -1,10 +1,16 @@
 import { log as Logger } from '@zos/utils'
 import { parseChallenge, buildDigestAuth, requestUri } from './digest.js'
+import { DEFAULT_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_RPC_MARGIN_MS } from './constants.js'
 
 const logger = Logger.getLogger("http-buttons-auth-request");
 
+// Keep the watch↔phone RPC window above the fetch timeout, so the fetch — whose
+// error carries the readable "timeout in N ms" cause — fires first, never the
+// messaging layer.
+const rpcOpts = (timeout) => ({ timeout: timeout + REQUEST_TIMEOUT_RPC_MARGIN_MS });
+
 export async function digestRequest(pluginContext, opts) {
-  const { method, url, username, password, body = undefined, headers = {}, timeout } = opts;
+  const { method, url, username, password, body = undefined, headers = {}, timeout = DEFAULT_REQUEST_TIMEOUT_MS } = opts;
   const uri = requestUri(url)
 
   const defaultHeaders = {
@@ -26,7 +32,7 @@ export async function digestRequest(pluginContext, opts) {
       headers: defaultHeaders,
       body: body,
       timeout: timeout
-    });
+    }, rpcOpts(timeout));
     logger.debug("Richiesta completata: ", JSON.stringify(res));
   } catch (error) {
     logger.error("Errore nella richiesta: ", JSON.stringify(error));
@@ -51,7 +57,7 @@ export async function digestRequest(pluginContext, opts) {
       },
       body: body ? JSON.stringify(body) : undefined,
       timeout: timeout
-    });
+    }, rpcOpts(timeout));
 
     logger.debug("res > ", JSON.stringify(body))
   }
@@ -64,7 +70,7 @@ export async function digestRequest(pluginContext, opts) {
   method = "GET",
   headers = {},
   body,
-  timeout = 5000,
+  timeout = DEFAULT_REQUEST_TIMEOUT_MS,
   username,
   password
 }) {
@@ -113,7 +119,7 @@ export async function digestRequest(pluginContext, opts) {
       headers: defaultHeaders,
       body,
       timeout
-    });
+    }, rpcOpts(timeout));
 
     return res;
   } catch (error) {
@@ -127,7 +133,7 @@ export async function bearerRequest(pluginContext, {
   method = "GET",
   headers = {},
   body,
-  timeout = 5000,
+  timeout = DEFAULT_REQUEST_TIMEOUT_MS,
   token
 }) {
   const defaultHeaders = {
@@ -142,7 +148,7 @@ export async function bearerRequest(pluginContext, {
       headers: defaultHeaders,
       body,
       timeout
-    });
+    }, rpcOpts(timeout));
 
     return res;
   } catch (error) {

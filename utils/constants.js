@@ -72,7 +72,9 @@ export const TEST_DATA = {
     { title: "⑤ Edge & Input", back_color: 856343, text_color: 16777215, rows: [
       { h: 33, buttons: [
         { text: "500", w: 33, radius: 14, back_color: 9109504, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/status/500", response_style: 0 } },
-        { text: "Timeout", w: 33, radius: 14, back_color: 9109504, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/delay/10", response_style: 0 } },
+        // timeout: 5000 exercises the per-button override: /delay/10 always
+        // outlasts it, so this fails deterministically with the timeout error.
+        { text: "Timeout", w: 33, radius: 14, back_color: 9109504, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/delay/10", timeout: 5000, response_style: 0 } },
         { text: "Redirect", w: 34, radius: 14, back_color: 4915330, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/redirect/1", parse_result: "url", response_style: 0 } }
       ] },
       { h: 33, buttons: [
@@ -127,6 +129,17 @@ export const TEST_DATA = {
 // Keyboard types for input buttons
 export const KB_TYPE_CHAR = 0;     // text (abc/ABC/symbols, switchable at runtime)
 export const KB_TYPE_NUMERIC = 1;  // 123
+
+// HTTP fetch timeout (ms) applied to every request fired from the watch and to
+// the SHOW_IMAGE download on the phone side. Overridable globally
+// (data.timeout) and per button (request.timeout), clamped to [MIN, MAX].
+// MAX matches zml's 60 s watch↔phone RPC window: each RPC gets RPC_MARGIN of
+// extra headroom above the fetch timeout so the fetch — whose error carries the
+// clear "timeout in N ms" cause — always fires first, not the messaging layer.
+export const DEFAULT_REQUEST_TIMEOUT_MS = 10000;
+export const MIN_REQUEST_TIMEOUT_MS = 1000;
+export const MAX_REQUEST_TIMEOUT_MS = 60000;
+export const REQUEST_TIMEOUT_RPC_MARGIN_MS = 5000;
 
 export const BTN_RADIUS = 12;
 export const BTN_PADDING = 12;

@@ -25,6 +25,7 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 - **Response Handling** — Choose between toast, modal, or silent notifications
 - **Image Display** — Fetch a remote image (PNG/JPEG) and show it fullscreen on the watch
 - **JSON Parsing** — Extract specific fields from API responses
+- **Timeouts** — Global and per-button request timeouts (5–60 s) for slow endpoints
 
 ## Installation
 
@@ -60,6 +61,31 @@ Then use in URLs: `http://{server_ip}/api/action`
 ### Input Buttons
 
 Enable the "Input" option on a button to show an on-watch keyboard. The typed text replaces `{input}` in your request URL or body.
+
+### Request Timeouts
+
+By default each request may run for **10 seconds** before failing. Slow endpoints (e.g. AI services that generate a response) may need more: raise the global **Request timeout** in the settings, or override it per button with the **Timeout** select (5–60 s). The same timeout also bounds the image download of Image-style buttons.
+
+In the JSON config the value is in milliseconds: `"timeout"` at the top level sets the global default, `"timeout"` inside a button's `request` overrides it (a `session` block's `login`/`logout` sub-requests accept their own too):
+
+```json
+{
+  "timeout": 20000,
+  "pages": [ ... ]
+}
+```
+
+```json
+{
+  "text": "🤖 Ask AI",
+  "request": {
+    "url": "https://host/webhook/ask",
+    "method": "POST",
+    "timeout": 45000,
+    "response_style": 2
+  }
+}
+```
 
 ### Image Display
 

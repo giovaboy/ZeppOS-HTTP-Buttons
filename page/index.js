@@ -3,7 +3,7 @@ import { getLogger } from '../utils/logger.js'
 import { createWidget, deleteWidget, widget, prop, anim_status } from '@zos/ui'
 import { layout, LOADING_TEXT_WIDGET, LOADING_IMG_ANIM_WIDGET } from 'zosLoader:./index.[pf].layout.js'
 import { digestRequest, basicRequest, bearerRequest } from '../utils/auth-request.js'
-import { CUSTOM_TOAST, SHOW_IMAGE } from '../utils/constants.js'
+import { CUSTOM_TOAST, SHOW_IMAGE, DEFAULT_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS, MAX_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_RPC_MARGIN_MS } from '../utils/constants.js'
 import { replace } from '@zos/router'
 
 const logger = getLogger('http-buttons')
@@ -52,6 +52,14 @@ function getByPath(obj, path) {
 // wire. Shared by the main request and the optional login/logout sub-requests.
 const DESCRIPTOR_FIELDS = ['url', 'method', 'headers', 'body', 'auth', 'user', 'pass', 'token'];
 
+// Clamp a config-supplied timeout (ms) to a sane range. Non-numeric or missing
+// values yield undefined so callers fall through: button → global → default.
+function normalizeTimeout(v) {
+  const n = Number(v);
+  if (!isFinite(n) || n <= 0) return undefined;
+  return Math.min(Math.max(n, MIN_REQUEST_TIMEOUT_MS), MAX_REQUEST_TIMEOUT_MS);
+}
+
 // Copy just the request fields we care about out of a raw config block.
 function pickDescriptor(src) {
   const d = {};
@@ -59,6 +67,9 @@ function pickDescriptor(src) {
   for (const f of DESCRIPTOR_FIELDS) {
     if (src[f] !== undefined) d[f] = src[f];
   }
+  // Numeric, so outside DESCRIPTOR_FIELDS (no placeholder substitution): the
+  // per-request timeout override, honored by performRequest.
+  if (src.timeout !== undefined) d.timeout = src.timeout;
   return d;
 }
 
@@ -81,13 +92,15 @@ function applyReplacements(d, pairs) {
 // Single entry point for firing one HTTP request, dispatching by auth type.
 // Login, main and logout all go through here — a login/logout is "just another
 // request", only its purpose differs. Returns the same promise the underlying
-// helpers do (this.httpRequest already returns a promise).
+// helpers do (this.httpRequest already returns a promise). The fetch timeout
+// resolves per-request override → global (ctx.globalTimeoutMs, set per press in
+// executeButtonRequest) → app default.
 function performRequest(ctx, d) {
   const method = d.method;
   const url = d.url;
   const headers = (d.headers && isJsonString(d.headers)) ? JSON.parse(d.headers) : undefined;
   const body = (d.body && isJsonString(d.body)) ? JSON.parse(d.body) : undefined;
-  const timeout = 5000;
+  const timeout = normalizeTimeout(d.timeout) || ctx.globalTimeoutMs || DEFAULT_REQUEST_TIMEOUT_MS;
 
   if (d.auth === 'Digest') {
     return digestRequest(ctx, { url, method, headers, body, timeout, username: d.user, password: d.pass });
@@ -96,7 +109,8 @@ function performRequest(ctx, d) {
   } else if (d.auth === 'Bearer') {
     return bearerRequest(ctx, { url, method, headers, body, timeout, token: d.token });
   }
-  return ctx.httpRequest({ url, method, headers, body, timeout });
+  // RPC window above the fetch timeout: the fetch's readable error must win.
+  return ctx.httpRequest({ url, method, headers, body, timeout }, { timeout: timeout + REQUEST_TIMEOUT_RPC_MARGIN_MS });
 }
 
 // Short, watch-sized message for a failed phase (display space is tiny).
@@ -328,6 +342,11 @@ Page(
     executeButtonRequest(request, pageid, input = null) {
       const dt = JSON.parse(this.state.data)
 
+      // Global timeout (data.timeout), resolved once per press; per-button
+      // overrides ride the descriptor (request.timeout, via pickDescriptor) and
+      // win inside performRequest.
+      this.globalTimeoutMs = normalizeTimeout(dt.timeout)
+
       // Build the config-time replacement list: global variables {key} + {input}.
       const replacements = []
       if (dt.variables) {
@@ -358,14 +377,19 @@ Page(
         }
         // Loading feedback is the on-button spinner (started by the layout's
         // click handler); we just clear it on failure here.
+        // The resolved timeout bounds the phone-side download; the RPC window
+        // gets 45 s on top of it — the ack only comes back after the download
+        // AND the convert/push have started, so it needs real headroom.
+        const timeout = normalizeTimeout(main.timeout) || this.globalTimeoutMs || DEFAULT_REQUEST_TIMEOUT_MS
         return this.request({
           method: 'FETCH_IMAGE',
           params: {
             url: main.url,
             headers: (main.headers && isJsonString(main.headers)) ? JSON.parse(main.headers) : undefined,
-            auth: main.auth, user: main.user, pass: main.pass, token: main.token
+            auth: main.auth, user: main.user, pass: main.pass, token: main.token,
+            timeout
           }
-        }).then((resp) => {
+        }, { timeout: timeout + 45000 }).then((resp) => {
           if (!resp || !resp.ok) {
             this.clearImageSpinner()
             layout.notifyResult((resp && resp.error) || 'Image error', pageid, true, CUSTOM_TOAST)

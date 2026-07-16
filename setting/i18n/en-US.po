@@ -156,3 +156,15 @@ msgstr "Text (abc)"
 
 msgid "kb_numeric"
 msgstr "Numeric (123)"
+
+msgid "timeout"
+msgstr "Timeout"
+
+msgid "timeout_global"
+msgstr "Request timeout"
+
+msgid "timeout_default"
+msgstr "default"
+
+msgid "timeout_hint"
+msgstr "How long each request may run before failing (default 10 s). Raise it for slow endpoints, e.g. AI services. Each button's Timeout select can override this."

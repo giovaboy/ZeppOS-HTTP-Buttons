@@ -1,5 +1,5 @@
 import { BaseSideService, settingsLib } from '@zeppos/zml/base-side'
-import { DEFAULT_DATA, TEST_DATA } from '../utils/constants.js'
+import { DEFAULT_DATA, TEST_DATA, DEFAULT_REQUEST_TIMEOUT_MS } from '../utils/constants.js'
 import { parseChallenge, buildDigestAuth, requestUri } from '../utils/digest.js'
 
 // Where the downloaded snapshot is stored on the phone side before conversion.
@@ -41,12 +41,12 @@ function buildImageAuthHeaders({ auth, user, pass, token }) {
 // this.convert / this.sendFile, registered by zml 0.0.41). convert accepts
 // common raster formats (PNG, JPEG, …); a genuinely unsupported/corrupt file
 // fails the .catch.
-function startImageDownload(ctx, url, reqHeaders, res) {
+function startImageDownload(ctx, url, reqHeaders, res, timeout) {
   // Let the downloader pick the destination and tell us where it landed, rather
   // than forcing a custom path (convert was reporting the forced path as "not
   // found", so the file wasn't actually being written there).
   const task = ctx.download(url, {
-    timeout: 15000,
+    timeout,
     headers: reqHeaders,
     filePath: IMAGE_DOWNLOAD_PATH,
   })
@@ -87,26 +87,28 @@ function readHeader(headers, name) {
     headers[name.replace(/\b\w/g, (c) => c.toUpperCase())]
 }
 
-function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }, res) {
+// `timeout` arrives already resolved by the watch (button → global → default);
+// the fallback only covers a request from an older page version.
+function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, timeout = DEFAULT_REQUEST_TIMEOUT_MS }, res) {
   const baseHeaders = { ...(headers || {}) }
 
   if (auth === 'Digest') {
     // The downloader can't do the 401 challenge round-trip itself, so we do it:
     // probe with fetch to read WWW-Authenticate, compute the Digest header
     // (reusing the device's digest helpers), then hand it to the downloader.
-    fetch({ url, method: 'GET' })
+    fetch({ url, method: 'GET', timeout })
       .then((probe) => {
         const wa = readHeader(probe && probe.headers, 'www-authenticate')
         if (wa && /Digest/i.test(wa)) {
           const challenge = parseChallenge(wa)
           const uri = requestUri(url)
           const authHeader = buildDigestAuth({ username: user, password: pass, method: 'GET', uri, challenge })
-          startImageDownload(ctx, url, { ...baseHeaders, Authorization: authHeader }, res)
+          startImageDownload(ctx, url, { ...baseHeaders, Authorization: authHeader }, res, timeout)
         } else {
           // No challenge surfaced (already open, or headers not exposed) — just
           // download; the downloader's statusCode reports the truth (e.g. 401).
           console.log('[img] digest: no challenge header from probe, status=', probe && probe.status)
-          startImageDownload(ctx, url, baseHeaders, res)
+          startImageDownload(ctx, url, baseHeaders, res, timeout)
         }
       })
       .catch((e) => {
@@ -116,7 +118,7 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token }
     return
   }
 
-  startImageDownload(ctx, url, { ...baseHeaders, ...buildImageAuthHeaders({ auth, user, pass, token }) }, res)
+  startImageDownload(ctx, url, { ...baseHeaders, ...buildImageAuthHeaders({ auth, user, pass, token }) }, res, timeout)
 }
 
 // One-time migration: earlier versions stored `data` as an array of configs;
