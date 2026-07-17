@@ -24,7 +24,7 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 - **Input Keyboard** — On-watch keyboard for dynamic request parameters
 - **Response Handling** — Choose between toast, modal, or silent notifications
 - **Image Display** — Fetch a remote image (PNG/JPEG) and show it fullscreen on the watch
-- **JSON Parsing** — Extract specific fields from API responses
+- **JSON Parsing** — Extract specific fields from API responses, with path expressions like `choices[0].message.content`, `[*]` wildcards and `[?field==value]` filters
 - **Timeouts** — Global and per-button request timeouts (5–60 s) for slow endpoints
 
 ## Installation
@@ -61,6 +61,23 @@ Then use in URLs: `http://{server_ip}/api/action`
 ### Input Buttons
 
 Enable the "Input" option on a button to show an on-watch keyboard. The typed text replaces `{input}` in your request URL or body.
+
+### Response Parsing (`parse_result`)
+
+The `parse_result` field of a request extracts a value from the JSON response body instead of showing the whole payload. Two modes, chosen automatically:
+
+- **Bare key** (no dots or brackets), e.g. `"fact"` — searches the whole response tree for that key name, at any depth, and shows every match. Simple and forgiving; ideal when the interesting field has a unique name.
+- **Path expression** (contains `.` or `[…]`) — walks the exact path from the root:
+
+| Expression | Meaning |
+|---|---|
+| `data.user.name` | nested field |
+| `choices[0].message.content` | array element by index (`choices.0.…` works too) |
+| `items[-1].id` | negative index counts from the end |
+| `choices[*].message.content` | all elements — results are joined with commas |
+| `choices[?finish_reason==stop].message.content` | only elements whose field equals the value |
+
+The filter also accepts the JSONPath spelling `[?(@.finish_reason=='stop')]`; quotes around the value are optional. If a path expression matches nothing, the app falls back to the loose key search, and finally to showing the full response — so a wrong expression never hides the data.
 
 ### Request Timeouts
 
@@ -129,7 +146,7 @@ The flow is: **login → extract token → inject into the main request → (opt
 ```
 
 - **`login`** — the preliminary request that returns the token.
-- **`extract.path`** — dotted path to the value in the login response body (`session.sid`, `data.token`, nested keys supported). **`as`** names the placeholder (`{{token}}` here).
+- **`extract.path`** — exact path to the value in the login response body (`session.sid`, `data.token`, `items[0].id` — dot and bracket indices supported). **`as`** names the placeholder (`{{token}}` here).
 - **`extract.ttl`** — seconds to keep the token cached, so rapid presses reuse the same session instead of logging in every time. **`ttl_path`** (optional) reads the lifetime from the login response instead. With no ttl the token is not reused.
 - **`logout`** (optional) — `mode: "each"` runs login → main → logout on every press; `mode: "expiry"` (default) keeps the cached session and logs out only when it expires or when the app closes.
 - **Errors are labelled by phase** on the watch: `Auth: …` (login failed, main not run) vs `Req: …` (main failed); logout failures are silent.

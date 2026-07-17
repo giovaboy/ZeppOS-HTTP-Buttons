@@ -386,6 +386,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
             TextInput({
               bold: false,
               value: button.request.parse_result || gettext('**parse_result**'),
+              placeholder: gettext('insert_parse_result'),
               subStyle: { color: COLOR_BLACK, fontSize: '14px' },
               maxLength: 200,
               onChange: (value) => {

@@ -85,6 +85,9 @@ msgstr "Spacer"
 msgid "insert_method"
 msgstr "Method: "
 
+msgid "insert_parse_result"
+msgstr "key or path, e.g. choices[0].message.content"
+
 msgid "response_style"
 msgstr "Response Style"
 

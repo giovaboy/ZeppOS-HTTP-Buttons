@@ -33,13 +33,102 @@ function searchJSON(obj, key) {
   return results;
 }
 
+// Split a selector like "choices[0].message.content" into segments
+// (["choices", "0", "message", "content"]). Bracket contents become their own
+// segment verbatim, so "[*]" and "[?version==1.2]" survive even when the
+// filter value contains dots. Returns null on unbalanced brackets.
+function parseSelector(expr) {
+  const s = String(expr);
+  const segs = [];
+  let buf = '';
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '.') {
+      if (buf) { segs.push(buf); buf = ''; }
+    } else if (ch === '[') {
+      if (buf) { segs.push(buf); buf = ''; }
+      const end = s.indexOf(']', i);
+      if (end === -1) return null;
+      segs.push(s.slice(i + 1, end));
+      i = end;
+    } else if (ch === ']') {
+      return null;
+    } else {
+      buf += ch;
+    }
+  }
+  if (buf) segs.push(buf);
+  return segs;
+}
+
+// Parse a "?field==value" filter segment into { field, value }. Tolerates the
+// JSONPath spellings — "?(...)" wrapping, "@." prefix, quoted value — so
+// "[?(@.finish_reason=='stop')]" and "[?finish_reason==stop]" mean the same
+// thing. Returns null when the segment isn't a usable filter.
+function parseFilter(seg) {
+  let f = seg.slice(1);
+  if (f.charAt(0) === '(' && f.charAt(f.length - 1) === ')') f = f.slice(1, -1);
+  if (f.slice(0, 2) === '@.') f = f.slice(2);
+  const at = f.indexOf('==');
+  if (at === -1) return null;
+  const field = f.slice(0, at).trim();
+  let value = f.slice(at + 2).trim();
+  const q = value.charAt(0);
+  if ((q === "'" || q === '"') && value.length > 1 && value.charAt(value.length - 1) === q) {
+    value = value.slice(1, -1);
+  }
+  if (!field) return null;
+  return { field, value };
+}
+
+// Exact-path extraction for parse_result expressions that look like a path
+// (contain dots or brackets). Plain segments walk objects/arrays (negative
+// numbers index arrays from the end), "*" fans out over every element of an
+// array, "?field==value" keeps only the array elements whose field
+// (string-)equals value. Always returns an array of matches — [] on any miss
+// or malformed selector — so reportResult can treat it like searchJSON output.
+function extractByPath(obj, expr) {
+  const parts = parseSelector(expr);
+  if (!parts || parts.length === 0) return [];
+  let current = [obj];
+  for (const p of parts) {
+    const next = [];
+    if (p === '*') {
+      for (const c of current) {
+        if (Array.isArray(c)) for (const el of c) next.push(el);
+      }
+    } else if (p.charAt(0) === '?') {
+      const f = parseFilter(p);
+      if (!f) return [];
+      for (const c of current) {
+        if (!Array.isArray(c)) continue;
+        for (const el of c) {
+          if (el != null && String(el[f.field]) === f.value) next.push(el);
+        }
+      }
+    } else {
+      for (const c of current) {
+        if (c == null || typeof c !== 'object') continue;
+        let v;
+        if (Array.isArray(c) && /^-\d+$/.test(p)) v = c[c.length + Number(p)];
+        else v = c[p];
+        if (v !== undefined) next.push(v);
+      }
+    }
+    if (next.length === 0) return [];
+    current = next;
+  }
+  return current;
+}
+
 // Deterministic nested lookup for the two-step auth flow (e.g. "session.sid",
-// "data.token"). Unlike searchJSON — which does a loose deep search by key name
-// anywhere in the tree — this walks the exact path, in order. Numeric segments
-// index arrays too. Returns undefined if any hop is missing.
+// "data.token", "items[0].id"). Unlike searchJSON — which does a loose deep
+// search by key name anywhere in the tree — this walks the exact path, in
+// order. Numeric segments (dot or bracket form) index arrays too. Returns
+// undefined if any hop is missing.
 function getByPath(obj, path) {
   if (!obj || !path) return undefined;
-  const parts = String(path).split('.');
+  const parts = parseSelector(path) || String(path).split('.');
   let cur = obj;
   for (const p of parts) {
     if (cur == null) return undefined;
@@ -239,13 +328,22 @@ Page(
           this.hideLoading() // reveals the message + button again for a retry
         })
     },
-    // Render a successful response: extract with parse_result (loose deep key
-    // search) if asked, else dump the body. Unchanged from the pre-refactor
-    // behavior, just factored out so every branch shares it.
+    // Render a successful response: extract with parse_result if asked, else
+    // dump the body. Path-looking expressions ("choices[0].message.content",
+    // "[*]", "[?field==value]") take the exact route via extractByPath; bare
+    // keys keep the historical loose deep search. A path miss falls back to
+    // the loose search so a key that merely contains a dot still resolves.
     reportResult(result, request, pageid) {
       let txtToReturn;
       if (request.parse_result) {
-        txtToReturn = searchJSON(result.body, request.parse_result)
+        const expr = String(request.parse_result);
+        txtToReturn = [];
+        if (expr.indexOf('.') !== -1 || expr.indexOf('[') !== -1) {
+          txtToReturn = extractByPath(result.body, expr);
+        }
+        if (txtToReturn.length < 1) {
+          txtToReturn = searchJSON(result.body, expr);
+        }
         if (txtToReturn.length < 1) {
           txtToReturn = JSON.stringify(result.body);
         } else {
