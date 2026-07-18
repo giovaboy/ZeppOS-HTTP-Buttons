@@ -170,4 +170,10 @@ msgid "timeout_default"
 msgstr "default"
 
 msgid "timeout_hint"
-msgstr "How long each request may run before failing (default 10 s); each button's Timeout select can override this. Note: the phone drops any request after ~10 s of total server silence, whatever is set here — timeouts above 10 s only work with endpoints that keep sending bytes (streaming/heartbeat) while they work. For servers that stay silent until the result is ready, use the async poll block instead (see the README)."
+msgstr "How long each request may run before failing (default 10 s); each button's Timeout select can override this. Note: the phone drops any request after ~10 s of total server silence, whatever is set here — timeouts above 10 s only work with endpoints that keep sending bytes (streaming/heartbeat) while they work. For servers that stay silent until the result is ready, use the async poll block instead:"
+
+msgid "open_readme"
+msgstr "📖 README on GitHub"
+
+msgid "made_with_love"
+msgstr "Made with ❤️ for Zepp OS"

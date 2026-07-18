@@ -13,6 +13,11 @@ import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
   SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE,
   KB_TYPE_CHAR, KB_TYPE_NUMERIC, DEFAULT_REQUEST_TIMEOUT_MS } from '../utils/constants.js'
 
+// Shown in the footer link and next to the README links. Keep in sync with
+// package.json / app.json when bumping the app version.
+const APP_VERSION = '1.6.0';
+const GITHUB_URL = 'https://github.com/giovaboy/ZeppOS-HTTP-Buttons';
+
 // === UTILITY FUNCTIONS ===
 // Deep-clones a default template. The DEFAULT_* objects in constants.js are
 // shared singletons, so they must never be inserted into state by reference.
@@ -980,7 +985,15 @@ AppSettingsPage({
         options: timeoutRange(),
         onChange: (value) => this.editGlobalTimeout(value)
       }),
-      Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#666', padding: '4px 2px' }}, [gettext('timeout_hint')])
+      Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#666', padding: '4px 2px' }}, [gettext('timeout_hint')]),
+      Link({ source: GITHUB_URL + '#async-jobs-polling', style: { fontSize: '12px', color: '#409EFF' }}, [gettext('open_readme')])
+    ])
+
+    // Footer — GitHub link (app name + version), same shape as the sibling
+    // companion apps' settings footers.
+    const footer = View({ style: { marginTop: '30px', marginBottom: '20px', textAlign: 'center', padding: '15px', borderTop: '1px solid #dee2e6' }}, [
+      Link({ source: GITHUB_URL, style: { fontSize: '12px', color: '#6c757d' }}, [gettext('title_text') + ' v' + APP_VERSION]),
+      Text({ style: { fontSize: '16px', color: '#adb5bd', marginTop: '5px' }}, [' | ' + gettext('made_with_love')])
     ])
 
     // === DYNAMIC LAYOUT BUILDING ===
@@ -1137,6 +1150,7 @@ AppSettingsPage({
         confBTN,
         clearBTN,
         testModeSwitch,
+        footer,
         // Rendered here (not returned from the editor's onChange, where it would
         // be ignored); shown when the JSON editor rejects invalid input.
         Toast({
