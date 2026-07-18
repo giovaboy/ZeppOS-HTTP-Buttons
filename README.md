@@ -187,7 +187,7 @@ Some endpoints take longer than the platform allows (see the ~10 s silence limit
 
 The button's `parse_result` and `response_style` apply to the **final** poll response, and the button spinner runs until the poll settles. Polling only runs while the app is open on the watch; leaving the page cancels pending attempts. Image buttons ignore a `poll` block.
 
-A matching n8n flow: **Webhook** → **Respond to Webhook** immediately (`{"id": "..."}`) → run the AI → store the result where a second **Webhook** (the poll URL) can return it — `{}` while running, `{"answer": "..."}` when done.
+Server-side, any backend or automation platform can implement the matching pair: the start endpoint replies immediately (`{"id": "..."}`) and kicks off the work; the result endpoint returns `{}` while the job is running and `{"answer": "..."}` when done.
 
 ## Configuration Example
 
