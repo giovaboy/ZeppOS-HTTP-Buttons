@@ -83,6 +83,8 @@ The filter also accepts the JSONPath spelling `[?(@.finish_reason=='stop')]`; qu
 
 By default each request may run for **10 seconds** before failing. Slow endpoints (e.g. AI services that generate a response) may need more: raise the global **Request timeout** in the settings, or override it per button with the **Timeout** select (5–60 s). The same timeout also bounds the image download of Image-style buttons.
 
+> **Platform limit:** the phone's native HTTP client aborts a request after ~10 s of *silence* from the server (generic `network error`), regardless of the timeout configured here. The total duration may exceed 10 s as long as the server keeps sending bytes — timeouts above 10 s therefore only help with endpoints that stream or send keep-alive bytes while working. For servers that stay silent until the full response is ready, use an async pattern instead — see *Async jobs (polling)* below.
+
 In the JSON config the value is in milliseconds: `"timeout"` at the top level sets the global default, `"timeout"` inside a button's `request` overrides it (a `session` block's `login`/`logout` sub-requests accept their own too):
 
 ```json
@@ -152,6 +154,40 @@ The flow is: **login → extract token → inject into the main request → (opt
 - **Errors are labelled by phase** on the watch: `Auth: …` (login failed, main not run) vs `Req: …` (main failed); logout failures are silent.
 
 The token cache is in-memory only. This flow applies to normal requests; image buttons ignore a `session` block.
+
+### Async jobs (polling)
+
+Some endpoints take longer than the platform allows (see the ~10 s silence limit under *Request Timeouts*) — typically AI workflows: the full answer isn't ready within the window the phone gives a single request. The fix is to split the work in two: the button's request only **starts** the job and returns immediately (e.g. with a job id), then the watch **polls** a second URL until the result is ready. Add an optional `poll` block to the button's `request`:
+
+```json
+{
+  "text": "🤖 Ask AI",
+  "request": {
+    "method": "POST",
+    "url": "https://host/webhook/ask",
+    "body": "{\"q\": \"{input}\"}",
+    "parse_result": "answer",
+    "response_style": 2,
+    "poll": {
+      "extract": { "path": "id", "as": "job" },
+      "url": "https://host/webhook/result?id={{job}}",
+      "every": 2000,
+      "max": 30,
+      "until": "answer"
+    }
+  }
+}
+```
+
+- **`url`** (required) — the poll request. Placeholders work as everywhere else: `{variables}`, `{input}`, the extracted `{{job}}`, and `{{token}}` when a `session` block is present. `method` defaults to GET; `headers`, `body`, `auth`/`user`/`pass`/`token` and `timeout` are accepted like on any request.
+- **`extract`** — where in the *first* response the job id lives (`path`, dotted/bracket syntax; `as` names the placeholder, default `job`). Omit it if the poll URL needs no id.
+- **`every`** — milliseconds between attempts (default 2000, clamped to 1–60 s). Attempts never overlap: the next wait starts when the previous attempt settles.
+- **`max`** — attempts before giving up with `Poll: not ready…` (default 30, up to 120).
+- **`until`** — path that must yield a non-empty value in a poll response for it to count as the result. Without it, the first 2xx response wins. Not-ready responses (404, errors) just schedule the next attempt.
+
+The button's `parse_result` and `response_style` apply to the **final** poll response, and the button spinner runs until the poll settles. Polling only runs while the app is open on the watch; leaving the page cancels pending attempts. Image buttons ignore a `poll` block.
+
+A matching n8n flow: **Webhook** → **Respond to Webhook** immediately (`{"id": "..."}`) → run the AI → store the result where a second **Webhook** (the poll URL) can return it — `{}` while running, `{"answer": "..."}` when done.
 
 ## Configuration Example
 

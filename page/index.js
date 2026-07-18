@@ -121,6 +121,14 @@ function extractByPath(obj, expr) {
   return current;
 }
 
+// res.body is an object on most models but a JSON *string* on some (documented
+// fetch compat quirk); normalize before path lookups.
+function parsedBody(res) {
+  const b = res && res.body
+  if (typeof b === 'string' && isJsonString(b)) return JSON.parse(b)
+  return b
+}
+
 // Deterministic nested lookup for the two-step auth flow (e.g. "session.sid",
 // "data.token", "items[0].id"). Unlike searchJSON — which does a loose deep
 // search by key name anywhere in the tree — this walks the exact path, in
@@ -328,6 +336,70 @@ Page(
           this.hideLoading() // reveals the message + button again for a retry
         })
     },
+    // Async-job support: with a poll block, the main response only *started* a
+    // job — extract the job id from it ({{job}} by default), then re-request
+    // the poll URL until the result is ready or attempts run out. Without a
+    // poll block this is a plain reportResult. Chained one-shot timers, not
+    // setInterval: the next wait starts only after an attempt fully settles,
+    // so slow polls never overlap. Timers are tracked on the vm for onDestroy
+    // cleanup. `pairs` carries the replacements already applied to the main
+    // request ({var}/{input}, plus {{token}} on the session path) so the poll
+    // descriptor gets them too.
+    finishOrPoll(result, request, pageid, pairs) {
+      const poll = request.poll
+      if (!poll || !poll.url) return this.reportResult(result, request, pageid)
+
+      const asName = (poll.extract && poll.extract.as) || 'job'
+      if (poll.extract && poll.extract.path) {
+        const id = getByPath(parsedBody(result), poll.extract.path)
+        if (id === undefined || id === null || id === '') {
+          return this.reportError('no ' + asName, request, pageid, 'Poll')
+        }
+        pairs = pairs.concat([['{{' + asName + '}}', id]])
+      }
+
+      const d = applyReplacements(pickDescriptor(poll), pairs)
+      if (!d.method) d.method = 'GET'
+      const every = Math.min(Math.max(Number(poll.every) || 2000, 1000), 60000)
+      const max = Math.min(Math.max(Number(poll.max) || 30, 1), 120)
+
+      // Done-condition: with `until`, the dotted path must yield a non-empty
+      // value in the poll response body; without it, any 2xx response is the
+      // result. Anything else (404 while the job runs, transport hiccups)
+      // counts as "not ready" and schedules the next attempt.
+      const isDone = (res) => {
+        if (poll.until) {
+          const v = getByPath(parsedBody(res), poll.until)
+          return !(v === undefined || v === null || v === '')
+        }
+        return res.status >= 200 && res.status < 300
+      }
+
+      let attempts = 0
+      return new Promise((resolve) => {
+        const finish = (report) => { report(); resolve() }
+        const schedule = () => {
+          if (attempts >= max) {
+            return finish(() => this.reportError('not ready after ' + attempts + ' tries', request, pageid, 'Poll'))
+          }
+          // Page tearing down: stop silently, nothing left to report to.
+          if (this.pollsCancelled) return resolve()
+          this.pollTimers = this.pollTimers || []
+          const t = setTimeout(() => {
+            this.pollTimers = this.pollTimers.filter((x) => x !== t)
+            attempts++
+            performRequest(this, d)
+              .then((res) => {
+                if (isDone(res)) return finish(() => this.reportResult(res, request, pageid))
+                schedule()
+              })
+              .catch(() => schedule())
+          }, every)
+          this.pollTimers.push(t)
+        }
+        schedule()
+      })
+    },
     // Render a successful response: extract with parse_result if asked, else
     // dump the body. Path-looking expressions ("choices[0].message.content",
     // "[*]", "[?field==value]") take the exact route via extractByPath; bare
@@ -473,6 +545,9 @@ Page(
         if (request.session) {
           logger.debug('session ignored for image request')
         }
+        if (request.poll) {
+          logger.debug('poll ignored for image request')
+        }
         // Loading feedback is the on-button spinner (started by the layout's
         // click handler); we just clear it on failure here.
         // The resolved timeout bounds the phone-side download; the RPC window
@@ -499,10 +574,11 @@ Page(
         })
       }
 
-      // Single-request path (no session block) — unchanged behavior.
+      // Single-request path (no session block) — unchanged behavior unless a
+      // poll block turns the response into the start of an async job.
       if (!request.session) {
         return performRequest(this, main)
-          .then((result) => this.reportResult(result, request, pageid))
+          .then((result) => this.finishOrPoll(result, request, pageid, replacements))
           .catch((error) => this.reportError(error, request, pageid))
       }
 
@@ -513,13 +589,16 @@ Page(
 
       return this.resolveSessionToken(session, replacements, mode)
         .then((token) => {
-          const mainWithToken = applyReplacements(main, [['{{' + asName + '}}', token]])
+          const tokenPair = ['{{' + asName + '}}', token]
+          const mainWithToken = applyReplacements(main, [tokenPair])
           // Main-phase errors are caught here so they read as "Req", not "Auth".
+          // The token pair rides along so a poll block can use {{token}} too.
           return performRequest(this, mainWithToken)
-            .then((result) => this.reportResult(result, request, pageid))
+            .then((result) => this.finishOrPoll(result, request, pageid, replacements.concat([tokenPair])))
             .catch((error) => this.reportError(error, request, pageid, 'Req'))
             .then(() => {
-              // 'each' mode: close the session right after the main request.
+              // 'each' mode: close the session right after the main request
+              // (and after any polling, which may still need it).
               // Fire-and-forget (not returned) so the spinner stops on the result.
               if (mode === 'each') this.runLogout(session, token, replacements)
             })
@@ -528,6 +607,13 @@ Page(
     },
     onDestroy() {
       logger.debug('page onDestroy invoked')
+      // Stop any in-flight poll chains: clear the pending timers and flag the
+      // loops so an attempt resolving after teardown doesn't reschedule.
+      this.pollsCancelled = true
+      if (this.pollTimers) {
+        this.pollTimers.forEach((t) => clearTimeout(t))
+        this.pollTimers = null
+      }
       // Best-effort cleanup of any cached expiry-mode session (no background
       // timer on the watch, so logout happens lazily — here or before re-login).
       // Fire-and-forget: a hard app kill may skip this, which is acceptable.

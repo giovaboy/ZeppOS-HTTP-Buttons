@@ -11,8 +11,9 @@ export const DEFAULT_DATA = {"variables":{"city":"London"},"pages":[{"title":"�
 // string + SHA-256), response styles, images (PNG/JPEG, landscape/portrait for
 // centering, a non-image for graceful failure), and edge cases (5xx, timeout,
 // redirect, {input} in body), the two-step session flow (login → token
-// extract → {{token}} injection → main, flat + nested path, plus logout), and
-// parse_result path expressions (index, negative index, [*], filters).
+// extract → {{token}} injection → main, flat + nested path, plus logout),
+// parse_result path expressions (index, negative index, [*], filters), and
+// async-job polling (extract → {{job}} → until, plus the attempts limit).
 // Mostly against httpbin.io; the camera button uses the {cam}/{user}/{pass}
 // variables below.
 export const TEST_DATA = {
@@ -140,6 +141,28 @@ export const TEST_DATA = {
       { h: 34, buttons: [
         { text: "?(@.==)", w: 50, radius: 14, back_color: 14423100, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/json", parse_result: "slideshow.slides[?(@.type=='all')].title", response_style: 0 } },
         { text: "Loose key", w: 50, radius: 14, back_color: 32896, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/json", parse_result: "author", response_style: 0 } }
+      ] }
+    ] },
+    // Async job + polling. httpbin fakes the job flow: /uuid is the "start job"
+    // response, the poll echoes the extracted id back — ready on the first
+    // attempt, so this exercises the mechanics (extract → {{job}} → until), not
+    // the waiting. The second button polls for a field /get never returns,
+    // exercising the attempts limit (3 × 2 s → "Poll: not ready…").
+    { title: "⑧ Poll", back_color: 856343, text_color: 16777215, rows: [
+      { h: 50, buttons: [
+        { text: "Poll ok", w: 100, radius: 14, back_color: 558288, text_color: 16777215, request: {
+          method: "GET", url: "https://httpbin.io/uuid", parse_result: "url", response_style: 2,
+          poll: {
+            extract: { path: "uuid", as: "job" },
+            url: "https://httpbin.io/anything/{{job}}", every: 2000, max: 5, until: "url"
+          }
+        } }
+      ] },
+      { h: 50, buttons: [
+        { text: "Poll never", w: 100, radius: 14, back_color: 9109504, text_color: 16777215, request: {
+          method: "GET", url: "https://httpbin.io/uuid", response_style: 0,
+          poll: { url: "https://httpbin.io/get", every: 2000, max: 3, until: "missing" }
+        } }
       ] }
     ] }
   ]
