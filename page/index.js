@@ -658,7 +658,12 @@ Page(
       // The press: the URL with the typed text put back as {input} (the phone
       // scrubs the rest: secrets, query values, and the address unless DEV)
       if (LOG_TRACE) {
-        const shownUrl = (input && typeof main.url === 'string') ? main.url.split(input).join('{input}') : main.url
+        // Built again from the template with {input} left as is: replacing the
+        // typed text in the final URL also hit its other occurrences (an input
+        // "1" turned 192.168.1.40 into {input}92.{input}68…)
+        const shownUrl = input
+          ? applyReplacements({ url: request.url }, replacements.filter(([s]) => s !== '{input}')).url
+          : main.url
         devLog(`${run.tag}: ${String(main.method || 'GET').trim()} ${urlForLog(shownUrl)} auth=${authForLog(main.auth)} timeout=${timeout}ms` +
           `${request.response_style === SHOW_IMAGE ? ' image' : ''}${request.session ? ' session' : ''}${request.poll ? ' poll' : ''}` +
           `${input != null ? `, input of ${String(input).length} chars` : ''}`)

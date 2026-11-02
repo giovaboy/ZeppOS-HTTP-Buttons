@@ -6,8 +6,13 @@ import { LOG_KEY, LOG_MAX, scrubLog, configSecrets, sizeText } from './log.js'
 import { urlForLog, authForLog } from '../utils/log-text.js'
 
 // Where the downloaded snapshot is stored on the phone side before conversion.
-// One fixed name is enough: requests are one-shot and never run in parallel.
-const IMAGE_DOWNLOAD_PATH = 'data://download/httpbtn_snapshot.png'
+// One fixed name is enough: requests are one-shot and never run in parallel
+// (and the side service can't delete files: a name per image would pile up).
+// Only the file name: ZML's downloader adds the folder itself, so the old
+// 'data://download/…' landed in data://download/download/ (seen in the Logs
+// box; field-notes.md, "Messaging"). The real path is read from the event.
+const IMAGE_DOWNLOAD_NAME = 'httpbtn_snapshot.png'
+const IMAGE_DOWNLOAD_PATH = 'data://download/' + IMAGE_DOWNLOAD_NAME
 
 // ── Logs box ──────────────────────────────────────────────────
 // Three levels (config.js LOG_LEVEL): vlog (trace: diagnostics), plog (info:
@@ -109,7 +114,7 @@ function startImageDownload(ctx, url, reqHeaders, res, timeout, t0) {
   const task = ctx.download(url, {
     timeout,
     headers: reqHeaders,
-    filePath: IMAGE_DOWNLOAD_PATH,
+    filePath: IMAGE_DOWNLOAD_NAME,
   })
 
   task.onFail = (e) => {
@@ -131,7 +136,12 @@ function startImageDownload(ctx, url, reqHeaders, res, timeout, t0) {
     ctx.convert({ filePath: srcPath })
       .then((result) => {
         const target = result && result.targetFilePath
-        vlog(`[img] converted in ${Date.now() - tConv}ms → ${target} (fields ${fieldsOf(result)})`)
+        // `options` is what convert worked with: it may tell how to ask for a
+        // smaller image (the converted file is ~2 bytes per pixel, and the
+        // transfer runs at ~70 KB/s)
+        let opts = ''
+        try { opts = JSON.stringify(result && result.options).slice(0, 200) } catch (e) { opts = String(e) }
+        vlog(`[img] converted in ${Date.now() - tConv}ms → ${target}, options ${opts}`)
         // The image itself reaches the device over the transfer channel
         // (the page's onReceivedFile hook); here we just push it and ack.
         const tSend = Date.now()
