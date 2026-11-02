@@ -12,6 +12,8 @@
 import { px } from '@zos/utils'
 import { createWidget, deleteWidget, widget, prop, anim_status } from '@zos/ui'
 import { COLOR_BLACK, COLOR_WHITE, LOADING_STYLE_BORDER, LOADING_STYLE_PULSE, LOADING_STYLE_CORNER } from './constants.js'
+import { devLog, LOG_TRACE } from './remote-log.js'
+import { errorText } from './memory.js'
 
 const TICK_MS = 40 // 25 frames per second
 
@@ -60,23 +62,37 @@ function pointAt(p, s) {
   return corner(x + r, y + r, Math.PI)
 }
 
+// A dot of the trail is a small FILL_RECT rounded into a disc: moved with
+// setProperty(prop.MORE, { x, y, w, h }), as the custom toast is. CIRCLE dots
+// moved with { center_x, center_y } stayed where they were created on the
+// device (the trail froze in the button's top-left corner).
+function dotGeometry(cx, cy, r) {
+  return { x: px(Math.round(cx - r)), y: px(Math.round(cy - r)), w: px(2 * r), h: px(2 * r) }
+}
+
 function tick() {
   const now = Date.now()
   for (const l of running) {
-    if (l.style === LOADING_STYLE_BORDER) {
-      const head = (now - l.t0) * l.speed
-      for (let i = 0; i < l.dots.length; i++) {
-        const [cx, cy] = pointAt(l.path, head - i * TRAIL_GAP)
-        l.dots[i].setProperty(prop.MORE, { center_x: px(Math.round(cx)), center_y: px(Math.round(cy)) })
+    l.ticks++
+    try {
+      if (l.style === LOADING_STYLE_BORDER) {
+        const head = (now - l.t0) * l.speed
+        for (let i = 0; i < l.dots.length; i++) {
+          const [cx, cy] = pointAt(l.path, head - i * TRAIL_GAP)
+          l.dots[i].setProperty(prop.MORE, dotGeometry(cx, cy, TRAIL[i][0]))
+          if (i === 0) l.head = [Math.round(cx), Math.round(cy)]
+        }
+      } else if (l.style === LOADING_STYLE_PULSE) {
+        // Every other tick (12.5 fps is plenty for a breath); the whole
+        // geometry with it: there is no prop for line_width alone before the
+        // API 4.0 setters
+        if (l.ticks % 2) continue
+        l.step = (l.step + 1) % PULSE_WIDTHS.length
+        l.stroke.setProperty(prop.MORE, { ...l.geometry, line_width: px(PULSE_WIDTHS[l.step]) })
       }
-    } else if (l.style === LOADING_STYLE_PULSE) {
-      // Every other tick (12.5 fps is plenty for a breath); the whole
-      // geometry with it: there is no prop for line_width alone before the
-      // API 4.0 setters
-      l.frame++
-      if (l.frame % 2) continue
-      l.step = (l.step + 1) % PULSE_WIDTHS.length
-      l.stroke.setProperty(prop.MORE, { ...l.geometry, line_width: px(PULSE_WIDTHS[l.step]) })
+    } catch (e) {
+      l.errors++
+      if (!l.firstError) l.firstError = errorText(e)
     }
   }
 }
@@ -119,7 +135,7 @@ export function startLoader(style, rect, back) {
       radius: px(Math.max(0, radius - 1)), color,
     }
     const stroke = createWidget(widget.STROKE_RECT, { ...geometry, line_width: px(PULSE_WIDTHS[0]) })
-    const l = { style, widgets: [stroke], stroke, geometry, step: 0, frame: 0 }
+    const l = { style, widgets: [stroke], stroke, geometry, step: 0, ticks: 0, errors: 0, t0: Date.now() }
     running.add(l)
     ensureTicker()
     return l
@@ -133,9 +149,9 @@ export function startLoader(style, rect, back) {
   const speed = Math.min(Math.max(path.perimeter / LAP_MS, MIN_SPEED), MAX_SPEED)
   const dots = TRAIL.map(([r, alpha], i) => {
     const [cx, cy] = pointAt(path, -i * TRAIL_GAP)
-    return createWidget(widget.CIRCLE, { center_x: px(Math.round(cx)), center_y: px(Math.round(cy)), radius: px(r), color, alpha })
+    return createWidget(widget.FILL_RECT, { ...dotGeometry(cx, cy, r), radius: px(r), color, alpha })
   })
-  const l = { style: LOADING_STYLE_BORDER, widgets: dots, dots, path, speed, t0: Date.now() }
+  const l = { style: LOADING_STYLE_BORDER, widgets: dots, dots, path, speed, t0: Date.now(), ticks: 0, errors: 0 }
   running.add(l)
   ensureTicker()
   return l
@@ -143,6 +159,13 @@ export function startLoader(style, rect, back) {
 
 export function stopLoader(l) {
   if (!l) return
+  // What the animation did, for the Logs box: frames run (0: the interval
+  // never fired), errors, where the head got to
+  if (LOG_TRACE && l.ticks !== undefined) {
+    const ms = Date.now() - l.t0
+    devLog(`[anim] ${l.style}: ${l.ticks} frames in ${ms}ms${l.head ? `, head at ${l.head[0]},${l.head[1]}` : ''}` +
+      `${l.errors ? `, ${l.errors} errors (first: ${l.firstError})` : ''}`)
+  }
   running.delete(l)
   dropTickerIfIdle()
   for (const wd of l.widgets || []) {
