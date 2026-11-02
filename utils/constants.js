@@ -190,8 +190,8 @@ export const RESULT_TEXT_MAX = 1024;
 
 // The animation of a button while its request runs (config `loading_style`,
 // utils/button-loader.js)
-export const LOADING_STYLE_BORDER = 'border';  // dots running round the border (default)
-export const LOADING_STYLE_PULSE = 'pulse';    // the border breathing
+export const LOADING_STYLE_BORDER = 'border';  // dots running round the border
+export const LOADING_STYLE_PULSE = 'pulse';    // the border breathing (default)
 export const LOADING_STYLE_CORNER = 'corner';  // the spinner in the top-right corner
 
 // Presses waiting behind a running one, per button: later taps queue (none

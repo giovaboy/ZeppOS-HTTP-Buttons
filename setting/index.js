@@ -674,9 +674,9 @@ AppSettingsPage({
   // Global fetch timeout (data.timeout, ms). undefined = app default: delete
   // the key so the config doesn't carry a redundant value.
   // The buttons' loading animation (utils/button-loader.js); the default
-  // (running border) is stored as no key at all
+  // (pulsing border) is stored as no key at all
   editLoadingStyle(style) {
-    if (style && style !== LOADING_STYLE_BORDER) {
+    if (style && style !== LOADING_STYLE_PULSE) {
       this.state.data.loading_style = style;
     } else {
       delete this.state.data.loading_style;
@@ -997,11 +997,11 @@ AppSettingsPage({
 
     // The buttons' loading animation, for every button (config loading_style)
     const loadingStyles = [
-      { name: gettext('loading_border'), value: LOADING_STYLE_BORDER },
       { name: gettext('loading_pulse'), value: LOADING_STYLE_PULSE },
+      { name: gettext('loading_border'), value: LOADING_STYLE_BORDER },
       { name: gettext('loading_corner'), value: LOADING_STYLE_CORNER },
     ]
-    const currentLoading = (this.state.data && this.state.data.loading_style) || LOADING_STYLE_BORDER
+    const currentLoading = (this.state.data && this.state.data.loading_style) || LOADING_STYLE_PULSE
     const currentLoadingName = (loadingStyles.find((o) => o.value === currentLoading) || loadingStyles[0]).name
     const loadingCard = Section({ style: { marginTop: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }}, [
       Text({ bold: true, align: 'left', style: { fontSize: '16px' }}, [gettext('loading_style')]),

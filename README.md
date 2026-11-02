@@ -114,8 +114,8 @@ While a button's request runs, the button shows an animation. Choose it in the s
 
 | Value | Animation |
 |-------|-----------|
-| `"border"` (default) | A short white trail running round the button's border (black on light buttons) |
-| `"pulse"` | The button's border breathing |
+| `"pulse"` (default) | The button's border breathing |
+| `"border"` | A white trail running round the button's border (black on light buttons) |
 | `"corner"` | A small spinner in the button's top-right corner |
 
 One request runs at a time per button: tapping a button that is still busy queues the tap (up to 10), and it fires as soon as the previous one is done. With an image button, the button stays busy until the picture is on screen.

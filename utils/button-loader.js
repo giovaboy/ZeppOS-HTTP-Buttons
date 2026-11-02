@@ -1,9 +1,9 @@
 // The "request in flight" animation of a button, in one of three styles
 // (config `loading_style`, chosen in the phone settings):
-//   'border' (default) a short trail of dots running round the button's
-//            rounded border, clockwise
-//   'pulse'  the border drawn as a stroke that breathes (its width grows and
-//            shrinks)
+//   'pulse'  (default) the border drawn as a stroke that breathes (its width
+//            grows and shrinks)
+//   'border' a trail of dots running round the button's rounded border,
+//            clockwise
 //   'corner' the old spinner in the button's top-right corner (it was cut off
 //            on a top-right button of a round screen)
 // Shared by both layouts. One interval drives every running animation and
@@ -18,7 +18,11 @@ import { errorText } from './memory.js'
 const TICK_MS = 40 // 25 frames per second
 
 // Running border: dots of the trail, head first (radius, alpha)
-const TRAIL = [[3, 255], [3, 225], [2, 190], [2, 155], [2, 120], [2, 85], [2, 55]]
+// 12 dots, ~55 px (7 dots, ~30 px, looked too short on the device): the
+// head a little bigger, the alpha fading to the tail
+const TRAIL_DOTS = 12
+const TRAIL = Array.from({ length: TRAIL_DOTS }, (_, i) =>
+  [i < 3 ? 3 : 2, Math.round(255 - (255 - 40) * i / (TRAIL_DOTS - 1))])
 const TRAIL_GAP = 5    // px between dots along the border
 const BORDER_INSET = 4 // px from the button's edge to the dots' path
 const LAP_MS = 1400    // one lap, whatever the button's size...
@@ -182,5 +186,5 @@ export function stopAllLoaders() {
 
 export function loadingStyle(config) {
   const s = config && config.loading_style
-  return (s === LOADING_STYLE_PULSE || s === LOADING_STYLE_CORNER) ? s : LOADING_STYLE_BORDER
+  return (s === LOADING_STYLE_BORDER || s === LOADING_STYLE_CORNER) ? s : LOADING_STYLE_PULSE
 }
