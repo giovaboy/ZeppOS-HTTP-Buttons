@@ -1,8 +1,6 @@
-import { log as Logger } from '@zos/utils'
 import { parseChallenge, buildDigestAuth, requestUri } from './digest.js'
 import { DEFAULT_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_RPC_MARGIN_MS } from './constants.js'
-
-const logger = Logger.getLogger("http-buttons-auth-request");
+import { devLog, LOG_TRACE } from './remote-log.js'
 
 // Keep the watch↔phone RPC window above the fetch timeout, so the fetch — whose
 // error carries the readable "timeout in N ms" cause — fires first, never the
@@ -18,35 +16,21 @@ export async function digestRequest(pluginContext, opts) {
     ...(headers || {})
   };
 
-  logger.debug("method > ", method)
-  logger.debug("url > ", url)
-  logger.debug("uri > ", uri)
-  logger.debug("defaultHeaders > ", defaultHeaders)
-  logger.debug("body > ", body)
+  // No headers, bodies, challenges or Authorization values in any log: the
+  // request lines (timing, status, size) are written by the page.
+  // A failure is thrown, not returned: a returned error read as a success.
+  let res = await pluginContext.httpRequest({
+    url: url,
+    method: method,
+    headers: defaultHeaders,
+    body: body,
+    timeout: timeout
+  }, rpcOpts(timeout));
 
-  let res;
-  try {
-    res = await pluginContext.httpRequest({
-      url: url,
-      method: method,
-      headers: defaultHeaders,
-      body: body,
-      timeout: timeout
-    }, rpcOpts(timeout));
-    logger.debug("Richiesta completata: ", JSON.stringify(res));
-  } catch (error) {
-    logger.error("Errore nella richiesta: ", JSON.stringify(error));
-    return error;
-  }
-
-  logger.debug("res.status > ", res.status)
-
-  if (res.status === 401 && res.headers['www-authenticate']?.startsWith('Digest')) {
+  if (res.status === 401 && res.headers && res.headers['www-authenticate']?.startsWith('Digest')) {
+    if (LOG_TRACE) devLog(`[auth] digest challenge (HTTP 401), answering it`)
     const challenge = parseChallenge(res.headers['www-authenticate']);
-    logger.debug("challenge > ", challenge)
-
     const auth = buildDigestAuth({ username, password, method, uri, challenge, body });
-    logger.debug("auth > ", auth)
 
     res = await pluginContext.httpRequest({
       method: method,
@@ -58,8 +42,6 @@ export async function digestRequest(pluginContext, opts) {
       body: body ? JSON.stringify(body) : undefined,
       timeout: timeout
     }, rpcOpts(timeout));
-
-    logger.debug("res > ", JSON.stringify(body))
   }
 
   return res;
@@ -123,7 +105,7 @@ export async function digestRequest(pluginContext, opts) {
 
     return res;
   } catch (error) {
-    logger.error("Errore nella richiesta: ", JSON.stringify(error));
+    // Logged by the page (status, time), never the request itself
     throw error;
   }
 }
@@ -152,7 +134,7 @@ export async function bearerRequest(pluginContext, {
 
     return res;
   } catch (error) {
-    logger.error("Errore nella richiesta: ", JSON.stringify(error));
+    // Logged by the page (status, time), never the request itself
     throw error;
   }
 }

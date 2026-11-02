@@ -40,7 +40,7 @@ export function openSystemKeyboard(vm, button, pageId, onSubmit) {
     inputType: getSystemInputType(button.keyboard_type),
     onComplete: (_, result) => {
       const text = (result && result.data != null) ? result.data : ''
-      logger.debug('system keyboard complete:', text)
+      logger.debug('system keyboard complete, chars:', String(text).length)
       deleteKeyboard()
       if (typeof onSubmit === 'function') {
         onSubmit(text)

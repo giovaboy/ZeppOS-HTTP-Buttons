@@ -1,6 +1,9 @@
 import { log } from '@zos/utils';
+import { LOG_LEVEL } from '../config.js';
 
-const LOG_LEVEL = 'warn';
+// The device console (not visible to anyone in practice: the Zepp app's log
+// viewer can't copy text). What Claude reads is the phone's Logs box: see
+// utils/remote-log.js. The console follows config.js LOG_LEVEL.
 
 const levels = {
   debug: 0,
@@ -10,7 +13,8 @@ const levels = {
   error: 4
 };
 
-const currentLevel = levels[LOG_LEVEL] || levels.debug;
+const CONSOLE_LEVEL = { trace: levels.debug, info: levels.info, warn: levels.warn };
+const currentLevel = CONSOLE_LEVEL[LOG_LEVEL] !== undefined ? CONSOLE_LEVEL[LOG_LEVEL] : levels.warn;
 
 export const getLogger = (name) => {
   const zosLogger = log.getLogger(name);

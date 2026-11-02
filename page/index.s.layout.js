@@ -126,32 +126,28 @@ export const layout = {
     }
   },
   render(vm) {
-    logger.debug(getText('loading'))
     // Distinct, descriptive states (never overwrite the user's config):
-    // comms failure, no config at all (offers Load example), or invalid JSON.
+    // comms failure, invalid JSON, or no config at all (offers Load example).
+    // The page parsed the config once (vm.state.config); a press reads the
+    // same object.
     if (vm.state.isError) {
       this.renderMessage(vm, getText('comunication_error'), false)
       return;
     }
-    if (!vm.state.data) {
-      this.renderMessage(vm, getText('no_config'), true)
-      return;
-    }
-    try {
-      const parsed = JSON.parse(vm.state.data)
-      if (!parsed || !parsed.pages) throw new Error('missing pages')
-    } catch (e) {
-      logger.error('config parse error', e)
+    if (vm.state.configError) {
       this.renderMessage(vm, getText('config_error'), false)
       return;
     }
+    if (!vm.state.config) {
+      this.renderMessage(vm, getText('no_config'), true)
+      return;
+    }
     /* BUILD UI */
-    logger.info(vm.state.data)
     let inputText = '';
     let currentKeyboard = null;
     let kbBackground = null;
     let currentLayoutIds = null;
-    let data = JSON.parse(vm.state.data)
+    let data = vm.state.config
 
     setPageBrightTime({ brightTime: 60000 })
 
@@ -166,7 +162,6 @@ export const layout = {
     createWidget(widget.PAGE_SCROLLBAR, {});
 
     for (let [pi, page] of data.pages.entries()) {
-      logger.debug('new page id:', pi);
 
       let offsetYpage = (DEVICE_HEIGHT * pi);
       let titleHeight = 0;
@@ -211,7 +206,6 @@ export const layout = {
       let pageButtonSpaceH = DEVICE_HEIGHT - titleHeight
 
       for (let [ri, row] of page.rows.entries()) {
-        logger.debug('new row id:', ri);
 
         let perchbefore = 0;
 
@@ -239,7 +233,6 @@ export const layout = {
         }
 
         for (let [bi, button] of row.buttons.entries()) {
-          logger.debug('new button id:', bi);
 
           let percWbefore = 0;
           row.buttons.slice(0, bi).forEach((btn) => {
@@ -275,6 +268,8 @@ export const layout = {
               click_func: () => {
                 const spinnerX = startXforThisBtn + widthOfTheButton - SPINNER_SIZE - 6
                 const spinnerY = startYforThisBtn + 6
+                // Names the button in the log lines (page, row, button, label)
+                const label = 'p' + pi + 'r' + ri + 'b' + bi + (button.text ? ' ' + String(button.text).slice(0, 20) : '')
                 const runRequest = (text) => {
                   // Image requests keep their spinner until the picture is shown
                   // (cleared in onReceivedFile); others stop it when the task settles.
@@ -282,9 +277,9 @@ export const layout = {
                   const sp = startButtonSpinner(spinnerX, spinnerY)
                   if (button.request && button.request.response_style === SHOW_IMAGE) {
                     vm.pendingImageSpinner = sp
-                    vm.executeButtonRequest(button.request, pi, text)
+                    vm.executeButtonRequest(button.request, pi, text, label)
                   } else {
-                    const p = vm.executeButtonRequest(button.request, pi, text)
+                    const p = vm.executeButtonRequest(button.request, pi, text, label)
                     if (p && p.then) { p.then(() => stopButtonSpinner(sp), () => stopButtonSpinner(sp)) }
                     else { stopButtonSpinner(sp) }
                   }
@@ -298,7 +293,7 @@ export const layout = {
                   }
 
                   function onKeyPress(kb, id, value) {
-                    logger.debug(`id:${id} char:${value}`)
+                    logger.debug(`key id:${id}`)
                     switch (value) {
                       case KEY_BACKSPACE:
                         if (inputText.length > 0) {
@@ -335,7 +330,7 @@ export const layout = {
 
                   function sendText(text) {
                     inputText = ''
-                    logger.debug('Text sent:', text);
+                    logger.debug('Text sent, chars:', String(text).length);
                     runRequest(text)
                     closeKeyboard()
                   }
@@ -490,21 +485,21 @@ export const layout = {
   showImage(vm, filePath, pageid) {
     const offsetY = (pageid || 0) * DEVICE_HEIGHT;
     this.hideImage();
-    logger.debug('showImage src', filePath);
     this.refs.imageViewBg = createWidget(widget.FILL_RECT, {
       x: 0, y: px(offsetY), w: px(DEVICE_WIDTH), h: px(DEVICE_HEIGHT),
       color: COLOR_BLACK, alpha: 255,
     });
     // Create at native size first so we can read the image's real dimensions,
     // then scale-to-fit (keeping aspect) and center it on both axes.
+    let drawn = null; // { iw, ih, w, h } for the page's log line
     const img = createWidget(widget.IMG, { x: 0, y: px(offsetY), src: filePath });
     const iw = img.getProperty(prop.W);
     const ih = img.getProperty(prop.H);
-    logger.debug('image native size', iw, ih);
     if (iw && ih && iw > 0 && ih > 0) {
       const scale = Math.min(DEVICE_WIDTH / iw, DEVICE_HEIGHT / ih);
       const w = Math.round(iw * scale);
       const h = Math.round(ih * scale);
+      drawn = { iw, ih, w, h };
       img.setProperty(prop.MORE, {
         x: px(Math.round((DEVICE_WIDTH - w) / 2)),
         y: px(Math.round(offsetY + (DEVICE_HEIGHT - h) / 2)),
@@ -525,6 +520,7 @@ export const layout = {
     this.refs.imageViewImg = img;
     this.refs.imageViewBg.addEventListener(event.CLICK_DOWN, () => this.hideImage());
     this.refs.imageViewImg.addEventListener(event.CLICK_DOWN, () => this.hideImage());
+    return drawn;
   },
   notifyResult(txt, pageid, isError, type) {
     if (type == SYSTEM_TOAST) {

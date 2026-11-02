@@ -12,6 +12,7 @@ import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
   COLOR_LIGHT_GRAY, COLOR_DARK_GRAY, COLOR_SILVER,
   SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE,
   KB_TYPE_CHAR, KB_TYPE_NUMERIC, DEFAULT_REQUEST_TIMEOUT_MS } from '../utils/constants.js'
+import { LOG_KEY } from '../app-side/log.js'
 
 // Shown in the footer link and next to the README links. Keep in sync with
 // package.json / app.json when bumping the app version.
@@ -813,28 +814,22 @@ AppSettingsPage({
   setState(props) {
     this.state.props = props
     const rawData = props.settingsStorage.getItem('data');
-    console.log(rawData);
     const dt = tryParseJSON(rawData);
 
     if (dt) {
-      console.log(dt);
       this.state.is_conf_error = false;
       if (Array.isArray(dt)) {
-        console.log('isArray');
         this.state.data = dt[0] || clone(DEFAULT_DATA);
       } else if (typeof dt === 'object') {
         this.state.data = dt;
       } else {
-        console.log('data format invalid');
         this.state.is_conf_error = true;
         this.state.data = clone(DEFAULT_DATA);
       }
     } else if (rawData) {
-      console.log('data error');
       this.state.is_conf_error = true;
       this.state.data = clone(DEFAULT_DATA);
     } else {
-      console.log('data empty');
       this.state.is_conf_error = false;
       this.state.data = clone(DEFAULT_DATA);
     }
@@ -989,6 +984,36 @@ AppSettingsPage({
       Link({ source: GITHUB_URL + '#async-jobs-polling', style: { fontSize: '12px', color: '#409EFF' }}, [gettext('open_readme')])
     ])
 
+    // Logs box (shared rule, ../_shared/zeppos-ai-doc/logging.md): the latest
+    // watch ([w]) and phone lines, already scrubbed by the side service. A
+    // multi-line TextInput because a Text can't be selected; its changes are
+    // ignored. Each log write rebuilds this page while it is open.
+    let logLines = []
+    try { logLines = JSON.parse(props.settingsStorage.getItem(LOG_KEY) || '[]') } catch (e) { logLines = [] }
+    const logsCard = Section({ style: { marginTop: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }}, [
+      Text({ bold: true, align: 'left', style: { fontSize: '16px' }}, [gettext('logs_title') + ' (' + logLines.length + ')']),
+      Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#666', padding: '4px 2px' }},
+        [gettext(logLines.length ? 'logs_hint' : 'logs_empty')]),
+      ...(logLines.length ? [
+        TextInput({
+          label: gettext('logs_copy'),
+          value: logLines.join('\n'),
+          multiline: true,
+          rows: 8,
+          labelStyle: { fontSize: '12px', color: '#666' },
+          subStyle: { fontSize: '11px', fontFamily: 'monospace', color: COLOR_BLACK, whiteSpace: 'pre-wrap', maxHeight: '240px', overflow: 'hidden' },
+          onChange: () => {}
+        }),
+        View({ style: { display: 'flex', justifyContent: 'center', margin: '8px 0 2px' }}, [
+          Button({
+            label: gettext('logs_clear'),
+            style: { fontSize: '13px', fontWeight: '500', borderRadius: '30px', background: '#ababab', color: 'white', padding: '4px 22px' },
+            onClick: () => this.state.props.settingsStorage.removeItem(LOG_KEY)
+          })
+        ])
+      ] : [])
+    ])
+
     // Footer — GitHub link (app name + version), same shape as the sibling
     // companion apps' settings footers.
     const footer = View({ style: { marginTop: '30px', marginBottom: '20px', textAlign: 'center', padding: '15px', borderTop: '1px solid #dee2e6' }}, [
@@ -1137,7 +1162,7 @@ AppSettingsPage({
     // === FINAL RENDERING ===
 
     if (this.state.is_conf_error === true) {
-      return View({ style: { padding: '12px 20px' }}, [conf_error])
+      return View({ style: { padding: '12px 20px' }}, [conf_error, logsCard])
     } else {
       return View({ style: { padding: '12px 5px' }}, [
         welcomeText,
@@ -1150,6 +1175,7 @@ AppSettingsPage({
         confBTN,
         clearBTN,
         testModeSwitch,
+        logsCard,
         footer,
         // Rendered here (not returned from the editor's onChange, where it would
         // be ignored); shown when the JSON editor rejects invalid input.

@@ -183,6 +183,11 @@ export const MIN_REQUEST_TIMEOUT_MS = 1000;
 export const MAX_REQUEST_TIMEOUT_MS = 60000;
 export const REQUEST_TIMEOUT_RPC_MARGIN_MS = 5000;
 
+// Longest result text shown on the watch (characters, then "…"). The custom
+// toast shows 7 rows; a longer text only costs memory in the TEXT widget and
+// its layout. The full size is in the log line of the press.
+export const RESULT_TEXT_MAX = 1024;
+
 export const BTN_RADIUS = 12;
 export const BTN_PADDING = 12;
 export const ROW_PADDING = 12;

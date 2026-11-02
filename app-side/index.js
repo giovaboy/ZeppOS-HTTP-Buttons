@@ -1,10 +1,69 @@
 import { BaseSideService, settingsLib } from '@zeppos/zml/base-side'
 import { DEFAULT_DATA, TEST_DATA, DEFAULT_REQUEST_TIMEOUT_MS } from '../utils/constants.js'
 import { parseChallenge, buildDigestAuth, requestUri } from '../utils/digest.js'
+import { logs, logsPrivate } from '../config.js'
+import { LOG_KEY, LOG_MAX, scrubLog, configSecrets, sizeText } from './log.js'
 
 // Where the downloaded snapshot is stored on the phone side before conversion.
 // One fixed name is enough: requests are one-shot and never run in parallel.
 const IMAGE_DOWNLOAD_PATH = 'data://download/httpbtn_snapshot.png'
+
+// ── Logs box ──────────────────────────────────────────────────
+// Three levels (config.js LOG_LEVEL): vlog (trace: diagnostics), plog (info:
+// the main events), wlog (problems, always). The watch's [w] lines come already
+// filtered by the watch. Every line is scrubbed (app-side/log.js): the
+// config's secrets, credentials by their shape, and addresses unless DEV.
+
+// The secrets of the config the watch reads, worked out again only when it
+// changes
+let secretsOf = null
+let secrets = []
+function currentSecrets() {
+  const raw = getData() || ''
+  if (raw !== secretsOf) {
+    secretsOf = raw
+    try { secrets = configSecrets(raw) } catch (e) { secrets = [] }
+  }
+  return secrets
+}
+
+// One write of the store for all of `msgs` (a batch of watch lines rewrote the
+// whole 200-line store once per line otherwise)
+function writeLines(msgs) {
+  try {
+    if (!msgs.length) return
+    const now = new Date()
+    const ts = `${now.toTimeString().slice(0, 8)}.${String(now.getMilliseconds()).padStart(3, '0')}`
+    const s = currentSecrets()
+    const raw = settingsLib.getItem(LOG_KEY)
+    const lines = raw ? JSON.parse(raw) : []
+    for (const msg of msgs) {
+      const line = `${ts} ${scrubLog(msg, s)}`
+      if (logsPrivate()) console.log(line)
+      lines.push(line)
+    }
+    if (lines.length > LOG_MAX) lines.splice(0, lines.length - LOG_MAX)
+    settingsLib.setItem(LOG_KEY, JSON.stringify(lines))
+  } catch (e) { /* never throw from the logger */ }
+}
+const writeLog = (msg) => writeLines([msg])
+const plog = (msg) => { if (logs('info')) writeLog(msg) }
+const wlog = (msg) => writeLog(msg)
+const vlog = (msg) => { if (logs('trace')) writeLog(msg) }
+
+function errorText(e) {
+  if (e === null) return 'null (out of memory)'
+  if (e === undefined) return 'undefined'
+  if (typeof e === 'string') return e
+  const parts = []
+  if (e.code !== undefined) parts.push(`code ${e.code}`)
+  if (e.message) parts.push(e.message)
+  if (parts.length) return parts.join(' ')
+  try { return JSON.stringify(e).slice(0, 200) } catch (x) { return String(e) }
+}
+
+// Field names of an object, to learn what a native callback hands over
+const fieldsOf = (o) => (o && typeof o === 'object') ? Object.keys(o).join(',') : typeof o
 
 // Minimal base64 for Basic auth (the side service has no btoa).
 function encodeBase64(str) {
@@ -40,8 +99,9 @@ function buildImageAuthHeaders({ auth, user, pass, token }) {
 // push it to the watch — all via the zml side-service helpers (this.download /
 // this.convert / this.sendFile, registered by zml 0.0.41). convert accepts
 // common raster formats (PNG, JPEG, …); a genuinely unsupported/corrupt file
-// fails the .catch.
-function startImageDownload(ctx, url, reqHeaders, res, timeout) {
+// fails the .catch. `t0` is when the watch's request arrived, for the timings.
+function startImageDownload(ctx, url, reqHeaders, res, timeout, t0) {
+  const tDl = Date.now()
   // Let the downloader pick the destination and tell us where it landed, rather
   // than forcing a custom path (convert was reporting the forced path as "not
   // found", so the file wasn't actually being written there).
@@ -52,26 +112,43 @@ function startImageDownload(ctx, url, reqHeaders, res, timeout) {
   })
 
   task.onFail = (e) => {
-    console.log('[img] download failed', e && e.code, e && e.message)
+    wlog(`[img] download failed after ${Date.now() - tDl}ms: ${errorText(e)}`)
     res(null, { ok: false, error: `Download failed: ${e && e.message ? e.message : 'unknown'}` })
   }
 
   task.onSuccess = (event) => {
+    const dlMs = Date.now() - tDl
     if (event && event.statusCode && (event.statusCode < 200 || event.statusCode >= 300)) {
+      wlog(`[img] download: HTTP ${event.statusCode} in ${dlMs}ms`)
       res(null, { ok: false, error: `HTTP ${event.statusCode}` })
       return
     }
 
     const srcPath = (event && (event.filePath || event.tempFilePath)) || IMAGE_DOWNLOAD_PATH
+    vlog(`[img] downloaded in ${dlMs}ms: HTTP ${event && event.statusCode}, at ${srcPath} (fields ${fieldsOf(event)})`)
+    const tConv = Date.now()
     ctx.convert({ filePath: srcPath })
       .then((result) => {
+        const target = result && result.targetFilePath
+        vlog(`[img] converted in ${Date.now() - tConv}ms → ${target} (fields ${fieldsOf(result)})`)
         // The image itself reaches the device over the transfer channel
         // (the page's onReceivedFile hook); here we just push it and ack.
-        ctx.sendFile(result.targetFilePath, { type: 'image', name: 'snapshot' })
+        const tSend = Date.now()
+        const file = ctx.sendFile(target, { type: 'image', name: 'snapshot' })
+        if (file && typeof file.on === 'function') {
+          // Only the start and the end of a transfer say something on the
+          // phone (field-notes.md, "File transfer"); the watch logs its side
+          file.on('change', (e) => {
+            const state = e && e.data && e.data.readyState
+            if (state === 'error' || state === 'canceled') wlog(`[img] transfer ${state} after ${Date.now() - tSend}ms`)
+            else vlog(`[img] transfer ${state} at ${Date.now() - tSend}ms${file.fileSize ? `, ${sizeText(file.fileSize)}` : ''}`)
+          })
+        }
+        plog(`[img] ready in ${Date.now() - t0}ms (download ${dlMs}ms), sending it to the watch`)
         res(null, { ok: true })
       })
       .catch((err) => {
-        console.log('[img] convert failed', err && err.message, String(err))
+        wlog(`[img] convert failed after ${Date.now() - tConv}ms: ${errorText(err)}`)
         res(null, { ok: false, error: 'Image conversion failed' })
       })
   }
@@ -90,7 +167,9 @@ function readHeader(headers, name) {
 // `timeout` arrives already resolved by the watch (button → global → default);
 // the fallback only covers a request from an older page version.
 function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, timeout = DEFAULT_REQUEST_TIMEOUT_MS }, res) {
+  const t0 = Date.now()
   const baseHeaders = { ...(headers || {}) }
+  plog(`[img] asked: GET ${url} auth=${auth || 'none'} timeout=${timeout}ms`)
 
   if (auth === 'Digest') {
     // The downloader can't do the 401 challenge round-trip itself, so we do it:
@@ -100,25 +179,26 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, 
       .then((probe) => {
         const wa = readHeader(probe && probe.headers, 'www-authenticate')
         if (wa && /Digest/i.test(wa)) {
+          vlog(`[img] digest challenge in ${Date.now() - t0}ms (HTTP ${probe && probe.status})`)
           const challenge = parseChallenge(wa)
           const uri = requestUri(url)
           const authHeader = buildDigestAuth({ username: user, password: pass, method: 'GET', uri, challenge })
-          startImageDownload(ctx, url, { ...baseHeaders, Authorization: authHeader }, res, timeout)
+          startImageDownload(ctx, url, { ...baseHeaders, Authorization: authHeader }, res, timeout, t0)
         } else {
           // No challenge surfaced (already open, or headers not exposed) — just
           // download; the downloader's statusCode reports the truth (e.g. 401).
-          console.log('[img] digest: no challenge header from probe, status=', probe && probe.status)
-          startImageDownload(ctx, url, baseHeaders, res, timeout)
+          vlog(`[img] digest: no challenge from the probe (HTTP ${probe && probe.status}) in ${Date.now() - t0}ms`)
+          startImageDownload(ctx, url, baseHeaders, res, timeout, t0)
         }
       })
       .catch((e) => {
-        console.log('[img] digest probe failed', String(e))
+        wlog(`[img] digest probe failed after ${Date.now() - t0}ms: ${errorText(e)}`)
         res(null, { ok: false, error: 'Digest auth probe failed' })
       })
     return
   }
 
-  startImageDownload(ctx, url, { ...baseHeaders, ...buildImageAuthHeaders({ auth, user, pass, token }) }, res, timeout)
+  startImageDownload(ctx, url, { ...baseHeaders, ...buildImageAuthHeaders({ auth, user, pass, token }) }, res, timeout, t0)
 }
 
 // One-time migration: earlier versions stored `data` as an array of configs;
@@ -131,9 +211,10 @@ function migrateDataIfNeeded() {
     const parsed = JSON.parse(raw)
     if (Array.isArray(parsed)) {
       settingsLib.setItem('data', JSON.stringify(parsed[0] || DEFAULT_DATA))
+      plog('[cfg] old config list collapsed to its first config')
     }
   } catch (e) {
-    console.log('migrateDataIfNeeded: bad data JSON', e)
+    wlog(`[cfg] stored config is not valid JSON (${sizeText(raw.length)}): ${errorText(e)}`)
   }
 }
 
@@ -148,27 +229,49 @@ function getData() {
 AppSideService(
   BaseSideService({
     onInit() {
+      plog('phone service started')
       migrateDataIfNeeded()
     },
     onRequest(req, res) {
-      if (req.method === 'GET_DATA') {
-        res(null, {
-          result: getData()
-        })
-      } else if (req.method === 'FETCH_IMAGE') {
-        fetchConvertAndPush(this, req.params || {}, res)
-      } else if (req.method === 'LOAD_DEFAULT') {
-        // Only used from the watch's "Load example" prompt, shown when there is
-        // no config at all — safe to write since there is nothing to overwrite.
-        const d = JSON.stringify(DEFAULT_DATA)
-        settingsLib.setItem('data', d)
-        res(null, { result: d })
+      const method = req && req.method
+      try {
+        if (method === 'GET_DATA') {
+          const data = getData()
+          const what = settingsLib.getItem('test_mode') === 'true' ? 'the test suite' : (data ? 'the config' : 'no config')
+          vlog(`[cfg] GET_DATA: ${what}${data ? `, ${sizeText(data.length)}` : ''}`)
+          res(null, {
+            result: data
+          })
+        } else if (method === 'FETCH_IMAGE') {
+          fetchConvertAndPush(this, req.params || {}, res)
+        } else if (method === 'LOAD_DEFAULT') {
+          // Only used from the watch's "Load example" prompt, shown when there is
+          // no config at all — safe to write since there is nothing to overwrite.
+          const d = JSON.stringify(DEFAULT_DATA)
+          settingsLib.setItem('data', d)
+          plog('[cfg] example config loaded from the watch')
+          res(null, { result: d })
+        } else if (method === 'debug.deviceLog') {
+          // The watch's lines (app.js "Remote log"), already filtered by its level
+          const params = req.params || {}
+          writeLines([].concat(params.lines || []).map((line) => `[w] ${line}`))
+          res(null, {})
+        } else {
+          wlog(`unknown request: ${method}`)
+          res(null, { ok: false, error: 'unknown request' })
+        }
+      } catch (e) {
+        wlog(`CRASH in onRequest ${method}: ${errorText(e)}`)
+        res(null, { ok: false, error: 'phone error' })
       }
     },
     // Kept intentionally: removing this hook in the 1.6 cleanup appears to break
     // the side service init on device (page stuck on loading — GET_DATA never
-    // answered). Config is pulled on demand via GET_DATA, so the body is a no-op.
+    // answered). Config is pulled on demand via GET_DATA; here we only log.
+    // Never log for LOG_KEY (our own writes) nor the settings page's ui_* keys.
     onSettingsChange({ key, newValue, oldValue }) {
+      if (key === 'data') vlog(`[cfg] config changed in the settings: ${newValue ? sizeText(String(newValue).length) : 'removed'}`)
+      else if (key === 'test_mode') plog(`[cfg] test mode ${newValue === 'true' ? 'on' : 'off'}`)
     },
     onRun() {},
     onDestroy() {}

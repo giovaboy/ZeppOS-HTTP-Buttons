@@ -1,22 +1,42 @@
 import { BasePage } from '@zeppos/zml/base-page'
-import { getLogger } from '../utils/logger.js'
 import { createWidget, deleteWidget, widget, prop, anim_status } from '@zos/ui'
+import { readdirSync, statSync } from '@zos/fs'
 import { layout, LOADING_TEXT_WIDGET, LOADING_IMG_ANIM_WIDGET } from 'zosLoader:./index.[pf].layout.js'
 import { digestRequest, basicRequest, bearerRequest } from '../utils/auth-request.js'
-import { CUSTOM_TOAST, SHOW_IMAGE, DEFAULT_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS, MAX_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_RPC_MARGIN_MS } from '../utils/constants.js'
+import { CUSTOM_TOAST, SHOW_IMAGE, DEFAULT_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS, MAX_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_RPC_MARGIN_MS, RESULT_TEXT_MAX } from '../utils/constants.js'
 import { replace } from '@zos/router'
+import { devLog, infoLog, warnLog, LOG_TRACE } from '../utils/remote-log.js'
+import { memoryUsage, errorText, sizeText } from '../utils/memory.js'
 
-const logger = getLogger('http-buttons')
+// Log lines (utils/remote-log.js): one per event, facts with numbers. A press
+// is tagged by its button ("p0r1b2 Lamp"). Never the session token, the typed
+// {input}, headers or bodies: only their sizes.
 
-function isJsonString(str) {
-  if (typeof str !== 'string') return false;
+// The value of a JSON text, or undefined when it isn't one. One parse (the
+// old isJsonString parsed and the callers parsed again).
+function parseJSON(str) {
+  if (typeof str !== 'string') return undefined;
   try {
-      JSON.parse(str);
-      return true;
+    return JSON.parse(str);
   } catch (e) {
-      logger.error('isJsonString:',e);
-      return false;
+    return undefined;
   }
+}
+
+// Size of a response body for a trace line (stringifies an object body: trace
+// builds only)
+function bodySize(res) {
+  const b = res && res.body
+  if (b == null) return 0
+  if (typeof b === 'string') return b.length
+  try { return JSON.stringify(b).length } catch (e) { return -1 }
+}
+
+// A watch-sized text: the toast shows 7 rows, a modal a few more. A longer
+// one only costs memory (the TEXT and its layout keep their own copies).
+function capText(txt) {
+  const s = String(txt)
+  return s.length > RESULT_TEXT_MAX ? s.slice(0, RESULT_TEXT_MAX) + '…' : s
 }
 
 function searchJSON(obj, key) {
@@ -125,7 +145,10 @@ function extractByPath(obj, expr) {
 // fetch compat quirk); normalize before path lookups.
 function parsedBody(res) {
   const b = res && res.body
-  if (typeof b === 'string' && isJsonString(b)) return JSON.parse(b)
+  if (typeof b === 'string') {
+    const v = parseJSON(b)
+    return v === undefined ? b : v
+  }
   return b
 }
 
@@ -195,8 +218,8 @@ function applyReplacements(d, pairs) {
 function performRequest(ctx, d) {
   const method = d.method;
   const url = d.url;
-  const headers = (d.headers && isJsonString(d.headers)) ? JSON.parse(d.headers) : undefined;
-  const body = (d.body && isJsonString(d.body)) ? JSON.parse(d.body) : undefined;
+  const headers = d.headers ? parseJSON(d.headers) : undefined;
+  const body = d.body ? parseJSON(d.body) : undefined;
   const timeout = normalizeTimeout(d.timeout) || ctx.globalTimeoutMs || DEFAULT_REQUEST_TIMEOUT_MS;
 
   if (d.auth === 'Digest') {
@@ -210,13 +233,51 @@ function performRequest(ctx, d) {
   return ctx.httpRequest({ url, method, headers, body, timeout }, { timeout: timeout + REQUEST_TIMEOUT_RPC_MARGIN_MS });
 }
 
+// performRequest with a trace line for each request of a press (login, main,
+// poll attempt, logout): status, time, body size. `what` names it
+// ("[req] p0r1b2 Lamp"). Failures are traced here and rethrown: the press's
+// outcome line (reportResult / reportError) says what the user saw.
+function performRequestLogged(ctx, d, what) {
+  const t0 = Date.now()
+  let p
+  try { p = performRequest(ctx, d) } catch (e) { p = Promise.reject(e) }
+  return p.then((res) => {
+    if (LOG_TRACE) devLog(`${what}: HTTP ${res && res.status} in ${Date.now() - t0}ms, body ${sizeText(bodySize(res))}`)
+    return res
+  }, (e) => {
+    if (LOG_TRACE) devLog(`${what}: failed after ${Date.now() - t0}ms: ${errorText(e)}`)
+    throw e
+  })
+}
+
+// Pages, rows and buttons (spacers left out) of a config, for a log line
+function configCounts(cfg) {
+  let rows = 0, buttons = 0
+  for (const p of cfg.pages || []) {
+    for (const r of p.rows || []) {
+      rows++
+      for (const b of r.buttons || []) if (!b.spacer) buttons++
+    }
+  }
+  return `${(cfg.pages || []).length} pages, ${rows} rows, ${buttons} buttons`
+}
+
 // Short, watch-sized message for a failed phase (display space is tiny).
 function shortError(e) {
+  if (e === null) return 'out of memory';
   if (e == null) return 'error';
   if (typeof e === 'string') return e;
   if (e.status) return 'HTTP ' + e.status;
   if (e.message) return e.message;
   return JSON.stringify(e);
+}
+
+// The error as raw JSON (the historical unprefixed message), but readable
+// when JSON says nothing: an Error instance stringifies to "{}"
+function rawError(e) {
+  if (e === null) return 'out of memory';
+  const json = JSON.stringify(e);
+  return (json === undefined || json === '{}') ? shortError(e) : json;
 }
 
 // In-memory token cache for the two-step flow, keyed by login url (+ user).
@@ -233,16 +294,30 @@ function sessionKey(loginDescriptor) {
 Page(
   BasePage({
     state: {
-      data: null,
+      config: null,
       isError: false
     },
     onInit() {
-      logger.debug('page onInit invoked')
-      // Loading widgets live on this.state (created in showLoading, cleared in
-      // hideLoading); nothing to set up here beyond the state defaults above.
+      // ZML BasePage shares `state` between instances of this page (a replace
+      // to page/index, as "Load example" does, sees the old one's), and the
+      // vm fields below may outlive a run: reset what a run needs here
+      // (field-notes.md, "Pages and the app").
+      if (LOG_TRACE && (this.state.config || this.state.loadingText)) devLog(`[page] init: the previous instance's state is still here (shared state)`)
+      this.state.isError = false
+      this.state.config = null
+      this.state.configError = false
+      this.state.loadingText = null
+      this.state.loadingImgAnim = null
+      this.pollsCancelled = false
+      this.pollTimers = null
+      this.pendingImageSpinner = null
+      this.pendingImagePage = 0
+      this.pendingImageRun = null
+      this.globalTimeoutMs = undefined
     },
     build() {
-      logger.debug('page build invoked')
+      this.buildAt = Date.now()
+      if (LOG_TRACE) devLog(`[page] build: ${memoryUsage()}`)
       this.showLoading()
       this.getDataFromPhone()
     },
@@ -251,20 +326,34 @@ Page(
       // aren't written yet. We must wait for the 'change'→'transferred' event
       // before reading filePath, otherwise we'd show an empty (black) file.
       if (!file) return
-      logger.debug('image incoming', file.fileName)
+      const run = this.pendingImageRun
+      const tag = run ? run.tag : '[img]'
+      const tIn = Date.now()
+      if (LOG_TRACE) devLog(`${tag}: file incoming${file.fileSize ? `, ${sizeText(file.fileSize)}` : ''}${run ? `, ${tIn - run.t0}ms after the press` : ''}`)
       file.on('change', (event) => {
         const state = event.data.readyState
-        logger.debug('image file state', state)
         if (state === 'transferred') {
           this.clearImageSpinner()
           const userData = file.params || {}
+          if (LOG_TRACE) devLog(`${tag}: transferred in ${Date.now() - tIn}ms to ${file.filePath}; ${downloadFolderText(file.filePath)}`)
           if (userData.type === 'image' && typeof layout.showImage === 'function') {
-            logger.debug('showing image', file.filePath)
-            layout.showImage(this, file.filePath, this.pendingImagePage || 0)
+            const memBefore = LOG_TRACE ? memoryUsage() : ''
+            let shown
+            try {
+              shown = layout.showImage(this, file.filePath, this.pendingImagePage || 0)
+            } catch (e) {
+              warnLog(`${tag}: image not shown: ${errorText(e)}`)
+              return
+            }
+            if (LOG_TRACE) devLog(`${tag}: image ${shown ? `${shown.iw}x${shown.ih} drawn at ${shown.w}x${shown.h}` : 'size unknown'}; before ${memBefore}; after ${memoryUsage()}`)
+            infoLog(`${tag}: image shown${run ? ` ${Date.now() - run.t0}ms after the press` : ''}`)
           }
-        } else if (state === 'error') {
+        } else if (state === 'error' || state === 'canceled') {
           this.clearImageSpinner()
+          warnLog(`${tag}: image transfer ${state} after ${Date.now() - tIn}ms`)
           layout.notifyResult('Image transfer failed', this.pendingImagePage || 0, true, CUSTOM_TOAST)
+        } else if (LOG_TRACE) {
+          devLog(`${tag}: transfer ${state} at ${Date.now() - tIn}ms`)
         }
       })
     },
@@ -280,21 +369,35 @@ Page(
       }
     },
     getDataFromPhone() {
+      const t0 = Date.now()
       this.request({
         method: 'GET_DATA'
       })
         .then(
           ({ result }) => {
-            //logger.info('getDataFromPhone success', result)
-            this.state.data = result
+            const askMs = Date.now() - t0
+            // Parsed once here; the layout and every press read state.config
+            // (a press used to parse the whole config text again)
             this.state.isError = false
+            this.state.config = null
+            this.state.configError = false
+            if (result) {
+              const cfg = parseJSON(result)
+              if (cfg && cfg.pages) this.state.config = cfg
+              else this.state.configError = true
+            }
+            if (this.state.config) infoLog(`[cfg] config ${sizeText(result.length)} in ${askMs}ms: ${configCounts(this.state.config)}`)
+            else if (this.state.configError) warnLog(`[cfg] config not usable (${sizeText(result.length)}): not JSON or no pages`)
+            else infoLog(`[cfg] no config on the phone (${askMs}ms)`)
+            const tRender = Date.now()
             layout.render(this)
             this.hideLoading()
+            if (LOG_TRACE) devLog(`[page] drawn in ${Date.now() - tRender}ms (${Date.now() - this.buildAt}ms since build): ${memoryUsage()}`)
           }
         )
         .catch(
           (error) => {
-            logger.error('getDataFromPhone error', error)
+            warnLog(`[cfg] GET_DATA failed after ${Date.now() - t0}ms: ${errorText(error)}`)
             this.state.isError = true
             layout.render(this)
             this.hideLoading()
@@ -302,12 +405,10 @@ Page(
         )
     },
     showLoading() {
-      logger.debug('page showLoading invoked')
       this.state.loadingText = createWidget(widget.TEXT, { ...LOADING_TEXT_WIDGET });
       this.state.loadingImgAnim = createWidget(widget.IMG_ANIM, { ...LOADING_IMG_ANIM_WIDGET });
     },
     hideLoading() {
-      logger.debug('page hideLoading invoked')
       // Guarded + idempotent: reused both for the initial load and while waiting
       // for an image snapshot, and the inbox callback may fire more than once.
       if (!this.state.loadingText && !this.state.loadingImgAnim) return;
@@ -329,10 +430,11 @@ Page(
       this.showLoading()
       this.request({ method: 'LOAD_DEFAULT' })
         .then(() => {
+          infoLog('[cfg] example config loaded, reloading the page')
           replace({ url: 'page/index' })
         })
         .catch((error) => {
-          logger.error('loadExampleConfig error', JSON.stringify(error))
+          warnLog(`[cfg] LOAD_DEFAULT failed: ${errorText(error)}`)
           this.hideLoading() // reveals the message + button again for a retry
         })
     },
@@ -344,16 +446,16 @@ Page(
     // so slow polls never overlap. Timers are tracked on the vm for onDestroy
     // cleanup. `pairs` carries the replacements already applied to the main
     // request ({var}/{input}, plus {{token}} on the session path) so the poll
-    // descriptor gets them too.
-    finishOrPoll(result, request, pageid, pairs) {
+    // descriptor gets them too. `run` ({ tag, t0 }) is the press, for the logs.
+    finishOrPoll(result, request, pageid, pairs, run) {
       const poll = request.poll
-      if (!poll || !poll.url) return this.reportResult(result, request, pageid)
+      if (!poll || !poll.url) return this.reportResult(result, request, pageid, run)
 
       const asName = (poll.extract && poll.extract.as) || 'job'
       if (poll.extract && poll.extract.path) {
         const id = getByPath(parsedBody(result), poll.extract.path)
         if (id === undefined || id === null || id === '') {
-          return this.reportError('no ' + asName, request, pageid, 'Poll')
+          return this.reportError('no ' + asName, request, pageid, 'Poll', run)
         }
         pairs = pairs.concat([['{{' + asName + '}}', id]])
       }
@@ -362,6 +464,7 @@ Page(
       if (!d.method) d.method = 'GET'
       const every = Math.min(Math.max(Number(poll.every) || 2000, 1000), 60000)
       const max = Math.min(Math.max(Number(poll.max) || 30, 1), 120)
+      if (LOG_TRACE) devLog(`${run.tag}: polling every ${every}ms, at most ${max} tries${poll.until ? ', until a value' : ', until a 2xx'}`)
 
       // Done-condition: with `until`, the dotted path must yield a non-empty
       // value in the poll response body; without it, any 2xx response is the
@@ -380,7 +483,7 @@ Page(
         const finish = (report) => { report(); resolve() }
         const schedule = () => {
           if (attempts >= max) {
-            return finish(() => this.reportError('not ready after ' + attempts + ' tries', request, pageid, 'Poll'))
+            return finish(() => this.reportError('not ready after ' + attempts + ' tries', request, pageid, 'Poll', run))
           }
           // Page tearing down: stop silently, nothing left to report to.
           if (this.pollsCancelled) return resolve()
@@ -388,9 +491,9 @@ Page(
           const t = setTimeout(() => {
             this.pollTimers = this.pollTimers.filter((x) => x !== t)
             attempts++
-            performRequest(this, d)
+            performRequestLogged(this, d, `${run.tag} poll ${attempts}/${max}`)
               .then((res) => {
-                if (isDone(res)) return finish(() => this.reportResult(res, request, pageid))
+                if (isDone(res)) return finish(() => this.reportResult(res, request, pageid, run))
                 schedule()
               })
               .catch(() => schedule())
@@ -405,35 +508,44 @@ Page(
     // "[*]", "[?field==value]") take the exact route via extractByPath; bare
     // keys keep the historical loose deep search. A path miss falls back to
     // the loose search so a key that merely contains a dot still resolves.
-    reportResult(result, request, pageid) {
+    // The body is normalized first (some models deliver it as a JSON string),
+    // and the text shown is capped at RESULT_TEXT_MAX.
+    reportResult(result, request, pageid, run) {
+      const body = parsedBody(result);
       let txtToReturn;
       if (request.parse_result) {
         const expr = String(request.parse_result);
         txtToReturn = [];
         if (expr.indexOf('.') !== -1 || expr.indexOf('[') !== -1) {
-          txtToReturn = extractByPath(result.body, expr);
+          txtToReturn = extractByPath(body, expr);
         }
         if (txtToReturn.length < 1) {
-          txtToReturn = searchJSON(result.body, expr);
+          txtToReturn = searchJSON(body, expr);
         }
         if (txtToReturn.length < 1) {
-          txtToReturn = JSON.stringify(result.body);
+          txtToReturn = JSON.stringify(body);
         } else {
           txtToReturn = JSON.stringify(txtToReturn)
           txtToReturn = txtToReturn.substring(1, txtToReturn.length - 1);
         }
       } else {
-        txtToReturn = JSON.stringify(result.body);
+        txtToReturn = JSON.stringify(body);
+      }
+      const fullLength = txtToReturn ? txtToReturn.length : 0
+      txtToReturn = capText(txtToReturn)
+      if (run) {
+        infoLog(`${run.tag}: HTTP ${result && result.status} in ${Date.now() - run.t0}ms, ${sizeText(fullLength)} result${fullLength > RESULT_TEXT_MAX ? ` (cut to ${RESULT_TEXT_MAX})` : ''}`)
+        if (LOG_TRACE) devLog(`${run.tag}: shown: ${memoryUsage()}`)
       }
       layout.notifyResult(txtToReturn, pageid, false, request.response_style)
     },
     // Show an error. Without a phase prefix this matches the old single-request
     // behavior (raw JSON). With a prefix (Auth/Req/…) it's a short, watch-sized
     // message so the wearer can tell which step of a two-step flow failed.
-    reportError(error, request, pageid, prefix) {
-      logger.error((prefix || '') + ' error=>', JSON.stringify(error))
-      const msg = prefix ? (prefix + ': ' + shortError(error)) : JSON.stringify(error)
-      layout.notifyResult(msg, pageid, true, request.response_style)
+    reportError(error, request, pageid, prefix, run) {
+      const msg = prefix ? (prefix + ': ' + shortError(error)) : rawError(error)
+      warnLog(`${run ? run.tag : '[req]'}: ${prefix ? prefix + ': ' : ''}${errorText(error)}${run ? ` after ${Date.now() - run.t0}ms` : ''}`)
+      layout.notifyResult(capText(msg), pageid, true, request.response_style)
     },
     // Fire the optional logout sub-request for a session, substituting the token.
     // Fire-and-forget: failures are logged, never surfaced, and never touch the
@@ -443,8 +555,8 @@ Page(
       const asName = (session.extract && session.extract.as) || 'token'
       let d = applyReplacements(pickDescriptor(session.logout), replacements)
       d = applyReplacements(d, [['{{' + asName + '}}', token]])
-      return performRequest(this, d).catch((e) => {
-        logger.error('logout error=>', JSON.stringify(e))
+      return performRequestLogged(this, d, '[auth] logout').catch((e) => {
+        warnLog(`[auth] logout failed: ${errorText(e)}`)
       })
     },
     // Resolve the session token: from the in-memory cache when still valid,
@@ -452,11 +564,11 @@ Page(
     // extract.path. Concurrent presses during an in-flight login share the same
     // promise (dedup). 'each' mode never caches (login every press); 'expiry'
     // mode caches and lazily logs out a stale token before re-login.
-    resolveSessionToken(session, replacements, mode) {
+    resolveSessionToken(session, replacements, mode, tag) {
       const extract = session.extract || {}
       const login = applyReplacements(pickDescriptor(session.login), replacements)
 
-      const doLogin = () => performRequest(this, login).then((res) => {
+      const doLogin = () => performRequestLogged(this, login, `${tag} login`).then((res) => {
         const token = extract.path ? getByPath(res.body, extract.path) : undefined
         if (token === undefined || token === null || token === '') {
           const e = new Error('no token'); e.__auth = true; throw e
@@ -472,15 +584,18 @@ Page(
       const now = Date.now()
       const cached = sessionCache[key]
       if (cached && cached.token && cached.expiresAt > now) {
+        if (LOG_TRACE) devLog(`${tag} session: token from the cache, ${Math.round((cached.expiresAt - now) / 1000)}s left`)
         return Promise.resolve(cached.token)
       }
       if (cached && cached.promise) {
+        if (LOG_TRACE) devLog(`${tag} session: waiting for the login already running`)
         return cached.promise
       }
 
       // Expiry mode: clean up the stale session before opening a new one.
       let pre = Promise.resolve()
       if (cached && cached.token && mode === 'expiry') {
+        if (LOG_TRACE) devLog(`${tag} session: cached token expired, logging out first`)
         pre = this.runLogout(session, cached.token, replacements).catch(() => {})
       }
 
@@ -490,6 +605,7 @@ Page(
           const v = getByPath(res.body, extract.ttl_path)
           if (typeof v === 'number' && v > 0) ttlMs = v * 1000
         }
+        if (LOG_TRACE) devLog(`${tag} session: token received, ${ttlMs > 0 ? `kept ${Math.round(ttlMs / 1000)}s` : 'not kept (no ttl)'}`)
         sessionCache[key] = {
           token,
           // ttlMs 0 → expiresAt 0 → treated as expired next press (no reuse).
@@ -509,8 +625,11 @@ Page(
       sessionCache[key] = { token: cached && cached.token, expiresAt: 0, promise, session, replacements, mode }
       return promise
     },
-    executeButtonRequest(request, pageid, input = null) {
-      const dt = JSON.parse(this.state.data)
+    // `label` names the button in the log lines ("p0r1b2 Lamp"), given by the
+    // layout's click handler.
+    executeButtonRequest(request, pageid, input = null, label = null) {
+      const dt = this.state.config || {}
+      const run = { tag: '[btn] ' + (label || ('p' + pageid)), t0: Date.now() }
 
       // Global timeout (data.timeout), resolved once per press; per-button
       // overrides ride the descriptor (request.timeout, via pickDescriptor) and
@@ -530,10 +649,16 @@ Page(
 
       // The main request, with variables/input resolved.
       const main = applyReplacements(pickDescriptor(request), replacements)
+      const timeout = normalizeTimeout(main.timeout) || this.globalTimeoutMs || DEFAULT_REQUEST_TIMEOUT_MS
 
-      logger.debug('method', main.method)
-      logger.debug('url', main.url)
-      logger.debug('auth', main.auth)
+      // The press: the URL with the typed text put back as {input} (the phone
+      // scrubs the rest: secrets, query values, and the address unless DEV)
+      if (LOG_TRACE) {
+        const shownUrl = (input && typeof main.url === 'string') ? main.url.split(input).join('{input}') : main.url
+        devLog(`${run.tag}: ${main.method || 'GET'} ${shownUrl} auth=${main.auth || 'none'} timeout=${timeout}ms` +
+          `${request.response_style === SHOW_IMAGE ? ' image' : ''}${request.session ? ' session' : ''}${request.poll ? ' poll' : ''}` +
+          `${input != null ? `, input of ${String(input).length} chars` : ''}`)
+      }
 
       if (request.response_style === SHOW_IMAGE) {
         // Delegate the whole download → convert → push pipeline to the phone
@@ -542,44 +667,43 @@ Page(
         // image overlay can't render a failure. The two-step session flow does
         // not apply here (the image pipeline lives on the phone side).
         this.pendingImagePage = pageid
-        if (request.session) {
-          logger.debug('session ignored for image request')
-        }
-        if (request.poll) {
-          logger.debug('poll ignored for image request')
-        }
+        this.pendingImageRun = run
+        if (request.session && LOG_TRACE) devLog(`${run.tag}: session ignored for an image`)
+        if (request.poll && LOG_TRACE) devLog(`${run.tag}: poll ignored for an image`)
         // Loading feedback is the on-button spinner (started by the layout's
         // click handler); we just clear it on failure here.
         // The resolved timeout bounds the phone-side download; the RPC window
         // gets 45 s on top of it — the ack only comes back after the download
         // AND the convert/push have started, so it needs real headroom.
-        const timeout = normalizeTimeout(main.timeout) || this.globalTimeoutMs || DEFAULT_REQUEST_TIMEOUT_MS
         return this.request({
           method: 'FETCH_IMAGE',
           params: {
             url: main.url,
-            headers: (main.headers && isJsonString(main.headers)) ? JSON.parse(main.headers) : undefined,
+            headers: main.headers ? parseJSON(main.headers) : undefined,
             auth: main.auth, user: main.user, pass: main.pass, token: main.token,
             timeout
           }
         }, { timeout: timeout + 45000 }).then((resp) => {
           if (!resp || !resp.ok) {
+            warnLog(`${run.tag}: image failed on the phone after ${Date.now() - run.t0}ms: ${(resp && resp.error) || 'no answer'}`)
             this.clearImageSpinner()
             layout.notifyResult((resp && resp.error) || 'Image error', pageid, true, CUSTOM_TOAST)
+          } else if (LOG_TRACE) {
+            devLog(`${run.tag}: phone has the image, ${Date.now() - run.t0}ms after the press`)
           }
         }).catch((error) => {
-          logger.error('FETCH_IMAGE error=>', JSON.stringify(error))
+          warnLog(`${run.tag}: FETCH_IMAGE failed after ${Date.now() - run.t0}ms: ${errorText(error)}`)
           this.clearImageSpinner()
-          layout.notifyResult(JSON.stringify(error), pageid, true, CUSTOM_TOAST)
+          layout.notifyResult(capText(rawError(error)), pageid, true, CUSTOM_TOAST)
         })
       }
 
       // Single-request path (no session block) — unchanged behavior unless a
       // poll block turns the response into the start of an async job.
       if (!request.session) {
-        return performRequest(this, main)
-          .then((result) => this.finishOrPoll(result, request, pageid, replacements))
-          .catch((error) => this.reportError(error, request, pageid))
+        return performRequestLogged(this, main, run.tag)
+          .then((result) => this.finishOrPoll(result, request, pageid, replacements, run))
+          .catch((error) => this.reportError(error, request, pageid, undefined, run))
       }
 
       // Two-step (session) path: login → extract token → main → optional logout.
@@ -587,15 +711,15 @@ Page(
       const asName = (session.extract && session.extract.as) || 'token'
       const mode = session.logout ? (session.logout.mode || 'expiry') : 'none'
 
-      return this.resolveSessionToken(session, replacements, mode)
+      return this.resolveSessionToken(session, replacements, mode, run.tag)
         .then((token) => {
           const tokenPair = ['{{' + asName + '}}', token]
           const mainWithToken = applyReplacements(main, [tokenPair])
           // Main-phase errors are caught here so they read as "Req", not "Auth".
           // The token pair rides along so a poll block can use {{token}} too.
-          return performRequest(this, mainWithToken)
-            .then((result) => this.finishOrPoll(result, request, pageid, replacements.concat([tokenPair])))
-            .catch((error) => this.reportError(error, request, pageid, 'Req'))
+          return performRequestLogged(this, mainWithToken, run.tag)
+            .then((result) => this.finishOrPoll(result, request, pageid, replacements.concat([tokenPair]), run))
+            .catch((error) => this.reportError(error, request, pageid, 'Req', run))
             .then(() => {
               // 'each' mode: close the session right after the main request
               // (and after any polling, which may still need it).
@@ -603,13 +727,13 @@ Page(
               if (mode === 'each') this.runLogout(session, token, replacements)
             })
         })
-        .catch((error) => this.reportError(error, request, pageid, 'Auth'))
+        .catch((error) => this.reportError(error, request, pageid, 'Auth', run))
     },
     onDestroy() {
-      logger.debug('page onDestroy invoked')
       // Stop any in-flight poll chains: clear the pending timers and flag the
       // loops so an attempt resolving after teardown doesn't reschedule.
       this.pollsCancelled = true
+      const polls = this.pollTimers ? this.pollTimers.length : 0
       if (this.pollTimers) {
         this.pollTimers.forEach((t) => clearTimeout(t))
         this.pollTimers = null
@@ -617,13 +741,16 @@ Page(
       // Best-effort cleanup of any cached expiry-mode session (no background
       // timer on the watch, so logout happens lazily — here or before re-login).
       // Fire-and-forget: a hard app kill may skip this, which is acceptable.
+      let logouts = 0
       Object.keys(sessionCache).forEach((key) => {
         const entry = sessionCache[key]
         if (entry && entry.token && entry.mode === 'expiry' && entry.session && entry.session.logout) {
+          logouts++
           this.runLogout(entry.session, entry.token, entry.replacements)
         }
       })
       sessionCache = {}
+      if (LOG_TRACE) devLog(`[page] closed: ${polls} polls stopped, ${logouts} sessions logged out, ${memoryUsage()}`)
       // Null-guarded: the custom toast is created lazily, so on a page that
       // never showed one these refs are still empty — deleteWidget(undefined)
       // would throw during teardown.
@@ -631,6 +758,26 @@ Page(
       if (layout.refs.customToastFillRect) deleteWidget(layout.refs.customToastFillRect)
       if (layout.refs.customToastText) deleteWidget(layout.refs.customToastText)
       if (typeof layout.hideImage === 'function') layout.hideImage()
+      this.clearImageSpinner()
+      this.pendingImageRun = null
     },
   })
 )
+
+// Files of the folder a received file landed in, for a trace line: tells
+// whether snapshots pile up on the watch
+function downloadFolderText(filePath) {
+  try {
+    const p = String(filePath || '')
+    const dir = p.lastIndexOf('/') > 0 ? p.slice(0, p.lastIndexOf('/')) : 'data://download'
+    const names = readdirSync({ path: dir }) || []
+    let bytes = 0
+    for (const n of names) {
+      const st = statSync({ path: dir + '/' + n })
+      if (st && st.size) bytes += st.size
+    }
+    return `${dir}: ${names.length} files, ${sizeText(bytes)}`
+  } catch (e) {
+    return `folder not read: ${errorText(e)}`
+  }
+}

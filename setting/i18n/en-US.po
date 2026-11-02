@@ -177,3 +177,18 @@ msgstr "📖 README on GitHub"
 
 msgid "made_with_love"
 msgstr "Made with ❤️ for Zepp OS"
+
+msgid "logs_title"
+msgstr "Logs"
+
+msgid "logs_hint"
+msgstr "The latest lines from the watch ([w]) and the phone. Tap the box, select all and copy it to paste into a bug report. Passwords, tokens and variable values are removed."
+
+msgid "logs_empty"
+msgstr "No log lines yet: open the app on the watch and press a button."
+
+msgid "logs_copy"
+msgstr "Log lines (tap to copy)"
+
+msgid "logs_clear"
+msgstr "Clear logs"
