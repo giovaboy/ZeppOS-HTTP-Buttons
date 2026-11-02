@@ -35,6 +35,10 @@ function currentSecrets() {
 
 // One write of the store for all of `msgs` (a batch of watch lines rewrote the
 // whole 200-line store once per line otherwise)
+// The watch marks the lines it saved at close and sends again at its next
+// start; the batch it was sending at close has usually arrived already
+const FROM_LAST_RUN = ' (from the last run)'
+
 function writeLines(msgs) {
   try {
     // Public releases (LOG_LEVEL 'off'): nothing is stored
@@ -44,7 +48,14 @@ function writeLines(msgs) {
     const s = currentSecrets()
     const raw = settingsLib.getItem(LOG_KEY)
     const lines = raw ? JSON.parse(raw) : []
+    // What is stored, without the phone's time, to skip a line from the last
+    // run that already arrived (no duplicates, no line lost)
+    let seen = null
     for (const msg of msgs) {
+      if (msg.endsWith(FROM_LAST_RUN)) {
+        if (!seen) seen = new Set(lines.map((l) => l.slice(l.indexOf(' ') + 1)))
+        if (seen.has(scrubLog(msg.slice(0, -FROM_LAST_RUN.length), s))) continue
+      }
       const line = `${ts} ${scrubLog(msg, s)}`
       if (logsPrivate()) console.log(line)
       lines.push(line)

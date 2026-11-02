@@ -19,8 +19,6 @@ const REMOTE_LOG_MAX = 100
 const REMOTE_LOG_LOST_MS = 90000
 // Lines still waiting when the app closes: sent at the next start
 const PENDING_LOG_FILE = 'pending_log.json'
-// A batch in flight longer than this at close is taken as lost and kept
-const PENDING_BATCH_LOST_MS = 5000
 // Before each request ZML shakes hands with the phone, 5 s by default: with
 // the phone busy (a burst of presses, a file transfer) requests failed with
 // "shake timeout after 5121ms". 20 s worked in zeppamp (field-notes.md,
@@ -106,15 +104,14 @@ App(
       )
     },
 
-    // The lines not confirmed by the phone go to a small file at close... A
-    // batch sent just now is left out: it nearly always arrived (the last
-    // "[page] closed" line showed twice, live and "from the last run");
-    // one unanswered for PENDING_BATCH_LOST_MS is kept
+    // The lines not confirmed by the phone (waiting, or in a batch still
+    // unanswered) go to a small file at close... Leaving the unanswered batch
+    // out lost the last "[page] closed" line twice on the device: it is kept,
+    // and the phone skips a line "from the last run" it already has.
     _savePendingLog() {
       try {
         const sending = this._remoteLogSending
-        const lost = sending && Date.now() - sending.at > PENDING_BATCH_LOST_MS
-        const lines = [].concat(lost ? sending.lines : [], this._remoteLog || [])
+        const lines = [].concat(sending ? sending.lines : [], this._remoteLog || [])
         if (!lines.length) return
         writeFileSync({
           path: PENDING_LOG_FILE,
