@@ -316,6 +316,7 @@ Page(
       this.pollsCancelled = false
       this.pollTimers = null
       this.pendingImageDone = null
+      this.imageQueue = []
       this.imageWaitTimer = null
       this.pressStates = {}
       this.pendingImagePage = 0
@@ -365,9 +366,28 @@ Page(
         }
       })
     },
-    // An image press holds its button (animation, queued taps) until the
-    // picture is shown or fails: the press queue's done() waits here
-    // (utils/press-queue.js), set by the layout's click handler.
+    // Images go one at a time, whatever the button: the phone downloads and
+    // converts into one fixed file, and its file transfer queue jammed when
+    // three images were asked at once (two converted the third's download,
+    // a transfer ended in error, and no file reached the watch afterwards).
+    // An image press holds its button (animation, queued taps) until its
+    // picture is shown or fails; one waiting for an earlier image keeps its
+    // animation running meanwhile.
+    pressImage(request, pageid, input, label, done) {
+      this.imageQueue = this.imageQueue || []
+      this.imageQueue.push({ request, pageid, input, label, done })
+      if (LOG_TRACE && this.pendingImageDone) devLog(`[btn] ${label}: image waits for the one before it (${this.imageQueue.length} waiting)`)
+      this.nextImage()
+    },
+    nextImage() {
+      if (this.pendingImageDone || !this.imageQueue || !this.imageQueue.length) return
+      const job = this.imageQueue.shift()
+      this.pendingImageDone = () => { job.done(); this.nextImage() }
+      this.executeButtonRequest(job.request, job.pageid, job.input, job.label)
+    },
+    // The image under way is over (shown, failed, or given up on): its button
+    // is released and the next image starts. Called from the transfer events,
+    // the FETCH_IMAGE answer and the guard timer.
     clearImageSpinner() {
       if (this.imageWaitTimer) {
         clearTimeout(this.imageWaitTimer)
@@ -812,6 +832,7 @@ Page(
       // queued tap fires after it, no tick outlives it
       this.pressStates = null
       this.pendingImageDone = null
+      this.imageQueue = null
       if (this.imageWaitTimer) { clearTimeout(this.imageWaitTimer); this.imageWaitTimer = null }
       if (typeof layout.stopLoaders === 'function') layout.stopLoaders()
       this.pendingImageRun = null

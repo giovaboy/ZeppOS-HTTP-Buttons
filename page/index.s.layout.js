@@ -245,12 +245,10 @@ export const layout = {
                   label,
                   start: (t, done) => {
                     if (button.request && button.request.response_style === SHOW_IMAGE) {
-                      // Done once the picture is shown or failed
-                      // (vm.clearImageSpinner); an earlier image still on
-                      // its way stops holding its own button.
-                      vm.clearImageSpinner()
-                      vm.pendingImageDone = done
-                      vm.executeButtonRequest(button.request, pi, t, label)
+                      // Images go one at a time, whatever the button
+                      // (vm.pressImage); done once the picture is shown or
+                      // failed.
+                      vm.pressImage(button.request, pi, t, label, done)
                     } else {
                       const p = vm.executeButtonRequest(button.request, pi, t, label)
                       if (p && p.then) p.then(done, done)

@@ -105,8 +105,9 @@ function buildImageAuthHeaders({ auth, user, pass, token }) {
 // push it to the watch — all via the zml side-service helpers (this.download /
 // this.convert / this.sendFile, registered by zml 0.0.41). convert accepts
 // common raster formats (PNG, JPEG, …); a genuinely unsupported/corrupt file
-// fails the .catch. `t0` is when the watch's request arrived, for the timings.
-function startImageDownload(ctx, url, reqHeaders, res, timeout, t0) {
+// fails the .catch. `t0` is when the watch's request arrived, for the timings;
+// `end` lets the next queued image start once this one's transfer is over.
+function startImageDownload(ctx, url, reqHeaders, res, timeout, t0, end) {
   const tDl = Date.now()
   // Let the downloader pick the destination and tell us where it landed, rather
   // than forcing a custom path (convert was reporting the forced path as "not
@@ -145,15 +146,36 @@ function startImageDownload(ctx, url, reqHeaders, res, timeout, t0) {
         // The image itself reaches the device over the transfer channel
         // (the page's onReceivedFile hook); here we just push it and ack.
         const tSend = Date.now()
-        const file = ctx.sendFile(target, { type: 'image', name: 'snapshot' })
+        let file
+        try {
+          file = ctx.sendFile(target, { type: 'image', name: 'snapshot' })
+        } catch (e) {
+          wlog(`[img] not sent to the watch: ${errorText(e)}`)
+          res(null, { ok: false, error: 'Image not sent' })
+          return
+        }
         if (file && typeof file.on === 'function') {
+          // A transfer that never ends must not hold the queue: after
+          // TRANSFER_GUARD_MS it is cancelled (a jammed transfer kept every
+          // later image from reaching the watch, app restarts included)
+          const guard = setTimeout(() => {
+            wlog(`[img] transfer not over after ${TRANSFER_GUARD_MS}ms (${file.readyState || '?'}), cancelling it`)
+            try { if (typeof file.cancel === 'function') file.cancel() } catch (e) { wlog(`[img] cancel failed: ${errorText(e)}`) }
+            end()
+          }, TRANSFER_GUARD_MS)
           // Only the start and the end of a transfer say something on the
           // phone (field-notes.md, "File transfer"); the watch logs its side
           file.on('change', (e) => {
             const state = e && e.data && e.data.readyState
             if (state === 'error' || state === 'canceled') wlog(`[img] transfer ${state} after ${Date.now() - tSend}ms`)
             else vlog(`[img] transfer ${state} at ${Date.now() - tSend}ms${file.fileSize ? `, ${sizeText(file.fileSize)}` : ''}`)
+            if (state === 'transferred' || state === 'error' || state === 'canceled') {
+              clearTimeout(guard)
+              end()
+            }
           })
+        } else {
+          end()
         }
         plog(`[img] ready in ${Date.now() - t0}ms (download ${dlMs}ms), sending it to the watch`)
         res(null, { ok: true })
@@ -177,7 +199,7 @@ function readHeader(headers, name) {
 
 // `timeout` arrives already resolved by the watch (button → global → default);
 // the fallback only covers a request from an older page version.
-function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, timeout = DEFAULT_REQUEST_TIMEOUT_MS }, res) {
+function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, timeout = DEFAULT_REQUEST_TIMEOUT_MS }, res, end) {
   const t0 = Date.now()
   const baseHeaders = { ...(headers || {}) }
   plog(`[img] asked: GET ${urlForLog(url)} auth=${authForLog(auth)} timeout=${timeout}ms`)
@@ -194,12 +216,12 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, 
           const challenge = parseChallenge(wa)
           const uri = requestUri(url)
           const authHeader = buildDigestAuth({ username: user, password: pass, method: 'GET', uri, challenge })
-          startImageDownload(ctx, url, { ...baseHeaders, Authorization: authHeader }, res, timeout, t0)
+          startImageDownload(ctx, url, { ...baseHeaders, Authorization: authHeader }, res, timeout, t0, end)
         } else {
           // No challenge surfaced (already open, or headers not exposed) — just
           // download; the downloader's statusCode reports the truth (e.g. 401).
           vlog(`[img] digest: no challenge from the probe (HTTP ${probe && probe.status}) in ${Date.now() - t0}ms`)
-          startImageDownload(ctx, url, baseHeaders, res, timeout, t0)
+          startImageDownload(ctx, url, baseHeaders, res, timeout, t0, end)
         }
       })
       .catch((e) => {
@@ -209,7 +231,31 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, 
     return
   }
 
-  startImageDownload(ctx, url, { ...baseHeaders, ...buildImageAuthHeaders({ auth, user, pass, token }) }, res, timeout, t0)
+  startImageDownload(ctx, url, { ...baseHeaders, ...buildImageAuthHeaders({ auth, user, pass, token }) }, res, timeout, t0, end)
+}
+
+// Images one at a time: each one downloads and converts into the same fixed
+// file, and the file transfer queue jammed with three at once (two converted
+// the third's download; after a transfer error no file reached the watch any
+// more). The next image starts when this one failed or its transfer is over.
+const TRANSFER_GUARD_MS = 60000
+let imageChain = Promise.resolve()
+let imageJobs = 0
+function queueImage(ctx, params, res) {
+  imageJobs++
+  if (imageJobs > 1) vlog(`[img] waits for the image before it (${imageJobs - 1} ahead)`)
+  imageChain = imageChain.then(() => new Promise((finish) => {
+    let finished = false
+    const end = () => { if (!finished) { finished = true; finish() } }
+    // A failure answer ends the job; a success waits for the transfer
+    const reply = (err, r) => { res(err, r); if (!r || !r.ok) end() }
+    try {
+      fetchConvertAndPush(ctx, params, reply, end)
+    } catch (e) {
+      wlog(`[img] failed: ${errorText(e)}`)
+      reply(null, { ok: false, error: 'Image failed on the phone' })
+    }
+  })).then(() => { imageJobs-- }, () => { imageJobs-- })
 }
 
 // One-time migration: earlier versions stored `data` as an array of configs;
@@ -258,7 +304,7 @@ AppSideService(
             result: data
           })
         } else if (method === 'FETCH_IMAGE') {
-          fetchConvertAndPush(this, req.params || {}, res)
+          queueImage(this, req.params || {}, res)
         } else if (method === 'LOAD_DEFAULT') {
           // Only used from the watch's "Load example" prompt, shown when there is
           // no config at all — safe to write since there is nothing to overwrite.
