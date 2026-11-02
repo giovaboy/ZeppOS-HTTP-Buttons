@@ -231,8 +231,12 @@ function migrateDataIfNeeded() {
 
 function getData() {
   // Test mode: load the hardcoded test suite instead of the user's config.
+  // The loading animation is a look, not part of the suite: the user's choice
+  // applies in test mode too.
   if (settingsLib.getItem('test_mode') === 'true') {
-    return JSON.stringify(TEST_DATA);
+    let style
+    try { style = JSON.parse(settingsLib.getItem('data') || '{}').loading_style } catch (e) { style = undefined }
+    return JSON.stringify(style ? { ...TEST_DATA, loading_style: style } : TEST_DATA);
   }
   return settingsLib.getItem('data');
 }

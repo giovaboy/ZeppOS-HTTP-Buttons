@@ -8,6 +8,8 @@ import { getText } from '@zos/i18n'
 import { getLogger } from '../utils/logger.js'
 import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE } from 'zosLoader:./keyboard.[pf].layout.js'
 import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard.js'
+import { pressButton } from '../utils/press-queue.js'
+import { stopAllLoaders } from '../utils/button-loader.js'
 import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_GRAY, COLOR_RED, COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE, KB_TYPE_CHAR, KB_TYPE_NUMERIC } from '../utils/constants.js';
 
 const { width: DEVICE_WIDTH, height: DEVICE_HEIGHT } = getDeviceInfo();
@@ -62,41 +64,6 @@ function getInitialKeyboard(keyboardType) {
     default:
       return kb_lowercase;
   }
-}
-
-const SPINNER_SIZE = 28 // px; matches the assets/spinner frame size
-const SPINNER_MARGIN = 4 // px of dark disc showing around the spinner on each side
-
-// Small self-animating loading spinner shown in a corner of the pressed button
-// while its request is in flight (assets/spinner/spin_*.png). The spinner PNGs
-// are near-white, so a translucent dark disc is drawn behind them — otherwise
-// the spinner is invisible on light buttons (yellow, gold, white, …).
-function startButtonSpinner(x, y) {
-  // A touch larger than the spinner (SPINNER_MARGIN per side) and centered on
-  // it, so it reads as a soft badge behind the spokes rather than a hard ring.
-  const bgSize = SPINNER_SIZE + SPINNER_MARGIN * 2
-  const bg = createWidget(widget.FILL_RECT, {
-    x: px(x - SPINNER_MARGIN), y: px(y - SPINNER_MARGIN),
-    w: px(bgSize), h: px(bgSize),
-    radius: px(bgSize / 2),
-    color: COLOR_BLACK, alpha: 140,
-  })
-  const anim = createWidget(widget.IMG_ANIM, {
-    anim_path: 'spinner',
-    anim_prefix: 'spin',
-    anim_ext: 'png',
-    anim_fps: 12,
-    anim_size: 10,
-    repeat_count: 0,
-    anim_status: anim_status.START,
-    x: px(x), y: px(y),
-  })
-  return { bg, anim }
-}
-function stopButtonSpinner(h) {
-  if (!h) return
-  if (h.anim) { deleteWidget(h.anim) }
-  if (h.bg) { deleteWidget(h.bg) }
 }
 
 export const layout = {
@@ -264,24 +231,31 @@ export const layout = {
               normal_color: button.back_color || COLOR_GRAY,
               press_color: btnPressColor(button.back_color || COLOR_GRAY, 1.3),
               click_func: () => {
-                const spinnerX = startXforThisBtn + widthOfTheButton - SPINNER_SIZE - 6
-                const spinnerY = startYforThisBtn + 6
                 // Names the button in the log lines (page, row, button, label)
                 const label = 'p' + pi + 'r' + ri + 'b' + bi + (button.text ? ' ' + String(button.text).slice(0, 20) : '')
-                const runRequest = (text) => {
-                  // Image requests keep their spinner until the picture is shown
-                  // (cleared in onReceivedFile); others stop it when the task settles.
-                  if (vm.pendingImageSpinner) { stopButtonSpinner(vm.pendingImageSpinner); vm.pendingImageSpinner = null }
-                  const sp = startButtonSpinner(spinnerX, spinnerY)
-                  if (button.request && button.request.response_style === SHOW_IMAGE) {
-                    vm.pendingImageSpinner = sp
-                    vm.executeButtonRequest(button.request, pi, text, label)
-                  } else {
-                    const p = vm.executeButtonRequest(button.request, pi, text, label)
-                    if (p && p.then) { p.then(() => stopButtonSpinner(sp), () => stopButtonSpinner(sp)) }
-                    else { stopButtonSpinner(sp) }
-                  }
-                }
+                // One press at a time per button (utils/press-queue.js): a tap
+                // on a busy button waits its turn; the loading animation
+                // (utils/button-loader.js, config loading_style) runs until
+                // the last one is done.
+                const runRequest = (text) => pressButton(vm, pi + '_' + ri + '_' + bi, {
+                  rect: { x: startXforThisBtn, y: startYforThisBtn, w: widthOfTheButton, h: heigthofthebutton, radius: button.radius || BTN_RADIUS },
+                  back: button.back_color || COLOR_GRAY,
+                  label,
+                  start: (t, done) => {
+                    if (button.request && button.request.response_style === SHOW_IMAGE) {
+                      // Done once the picture is shown or failed
+                      // (vm.clearImageSpinner); an earlier image still on
+                      // its way stops holding its own button.
+                      vm.clearImageSpinner()
+                      vm.pendingImageDone = done
+                      vm.executeButtonRequest(button.request, pi, t, label)
+                    } else {
+                      const p = vm.executeButtonRequest(button.request, pi, t, label)
+                      if (p && p.then) p.then(done, done)
+                      else done()
+                    }
+                  },
+                }, text)
                 if (button.input) {
                   // Prefer the native system keyboard (API_LEVEL 4.0+);
                   // fall back to the hand-drawn keyboard on older devices.
@@ -473,6 +447,10 @@ export const layout = {
     this.refs.imageViewBg = null;
     this.refs.imageViewImg = null;
 
+  },
+  // Page teardown: the loading animations and their shared tick
+  stopLoaders() {
+    stopAllLoaders()
   },
   hideImage() {
     if (this.refs.imageViewImg) { deleteWidget(this.refs.imageViewImg); this.refs.imageViewImg = null; }

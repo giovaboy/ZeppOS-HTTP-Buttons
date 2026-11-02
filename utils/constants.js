@@ -188,6 +188,16 @@ export const REQUEST_TIMEOUT_RPC_MARGIN_MS = 5000;
 // its layout. The full size is in the log line of the press.
 export const RESULT_TEXT_MAX = 1024;
 
+// The animation of a button while its request runs (config `loading_style`,
+// utils/button-loader.js)
+export const LOADING_STYLE_BORDER = 'border';  // dots running round the border (default)
+export const LOADING_STYLE_PULSE = 'pulse';    // the border breathing
+export const LOADING_STYLE_CORNER = 'corner';  // the spinner in the top-right corner
+
+// Presses waiting behind a running one, per button: later taps queue (none
+// lost) instead of piling up requests in flight (~10 KB each on the device)
+export const MAX_WAITING_PRESSES = 10;
+
 export const BTN_RADIUS = 12;
 export const BTN_PADDING = 12;
 export const ROW_PADDING = 12;

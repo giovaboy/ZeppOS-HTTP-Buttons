@@ -192,3 +192,18 @@ msgstr "Log lines (tap to copy)"
 
 msgid "logs_clear"
 msgstr "Clear logs"
+
+msgid "loading_style"
+msgstr "Loading animation"
+
+msgid "loading_border"
+msgstr "Running border"
+
+msgid "loading_pulse"
+msgstr "Pulsing border"
+
+msgid "loading_corner"
+msgstr "Corner spinner"
+
+msgid "loading_hint"
+msgstr "Shown on a button while its request runs. Taps on a busy button wait their turn (up to 10)."

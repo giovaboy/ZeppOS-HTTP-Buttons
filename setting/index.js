@@ -11,7 +11,8 @@ import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
   COLOR_BROWN, COLOR_TAN, COLOR_BEIGE,
   COLOR_LIGHT_GRAY, COLOR_DARK_GRAY, COLOR_SILVER,
   SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE,
-  KB_TYPE_CHAR, KB_TYPE_NUMERIC, DEFAULT_REQUEST_TIMEOUT_MS } from '../utils/constants.js'
+  KB_TYPE_CHAR, KB_TYPE_NUMERIC, DEFAULT_REQUEST_TIMEOUT_MS,
+  LOADING_STYLE_BORDER, LOADING_STYLE_PULSE, LOADING_STYLE_CORNER } from '../utils/constants.js'
 import { LOG_KEY } from '../app-side/log.js'
 
 // Shown in the footer link and next to the README links. Keep in sync with
@@ -672,6 +673,16 @@ AppSettingsPage({
   },
   // Global fetch timeout (data.timeout, ms). undefined = app default: delete
   // the key so the config doesn't carry a redundant value.
+  // The buttons' loading animation (utils/button-loader.js); the default
+  // (running border) is stored as no key at all
+  editLoadingStyle(style) {
+    if (style && style !== LOADING_STYLE_BORDER) {
+      this.state.data.loading_style = style;
+    } else {
+      delete this.state.data.loading_style;
+    }
+    this.setItem()
+  },
   editGlobalTimeout(ms) {
     if (ms) {
       this.state.data.timeout = ms;
@@ -984,6 +995,25 @@ AppSettingsPage({
       Link({ source: GITHUB_URL + '#async-jobs-polling', style: { fontSize: '12px', color: '#409EFF' }}, [gettext('open_readme')])
     ])
 
+    // The buttons' loading animation, for every button (config loading_style)
+    const loadingStyles = [
+      { name: gettext('loading_border'), value: LOADING_STYLE_BORDER },
+      { name: gettext('loading_pulse'), value: LOADING_STYLE_PULSE },
+      { name: gettext('loading_corner'), value: LOADING_STYLE_CORNER },
+    ]
+    const currentLoading = (this.state.data && this.state.data.loading_style) || LOADING_STYLE_BORDER
+    const currentLoadingName = (loadingStyles.find((o) => o.value === currentLoading) || loadingStyles[0]).name
+    const loadingCard = Section({ style: { marginTop: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }}, [
+      Text({ bold: true, align: 'left', style: { fontSize: '16px' }}, [gettext('loading_style')]),
+      Select({
+        title: gettext('loading_style') + ': ' + currentLoadingName,
+        value: currentLoading,
+        options: loadingStyles,
+        onChange: (value) => this.editLoadingStyle(value)
+      }),
+      Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#666', padding: '4px 2px' }}, [gettext('loading_hint')])
+    ])
+
     // Logs box (shared rule, ../_shared/zeppos-ai-doc/logging.md): the latest
     // watch ([w]) and phone lines, already scrubbed by the side service. A
     // multi-line TextInput because a Text can't be selected; its changes are
@@ -1172,6 +1202,7 @@ AppSettingsPage({
           [...contentVariables]),
         ...contentItems,
         timeoutCard,
+        loadingCard,
         confBTN,
         clearBTN,
         testModeSwitch,

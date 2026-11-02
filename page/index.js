@@ -33,6 +33,10 @@ function bodySize(res) {
   try { return JSON.stringify(b).length } catch (e) { return -1 }
 }
 
+// How long a pressed image button waits for the file once the phone has
+// the image (then it stops holding the button)
+const IMAGE_WAIT_MS = 90000
+
 // A watch-sized text: the toast shows 7 rows, a modal a few more. A longer
 // one only costs memory (the TEXT and its layout keep their own copies).
 function capText(txt) {
@@ -311,7 +315,9 @@ Page(
       this.state.loadingImgAnim = null
       this.pollsCancelled = false
       this.pollTimers = null
-      this.pendingImageSpinner = null
+      this.pendingImageDone = null
+      this.imageWaitTimer = null
+      this.pressStates = {}
       this.pendingImagePage = 0
       this.pendingImageRun = null
       this.globalTimeoutMs = undefined
@@ -359,15 +365,18 @@ Page(
         }
       })
     },
+    // An image press holds its button (animation, queued taps) until the
+    // picture is shown or fails: the press queue's done() waits here
+    // (utils/press-queue.js), set by the layout's click handler.
     clearImageSpinner() {
-      // The button spinner for an image request is kept until the image is shown
-      // or fails; it lives on the vm so this flow can dismiss it. The handle is
-      // compound ({ bg, anim }) — the disc backdrop plus the animation.
-      if (this.pendingImageSpinner) {
-        const h = this.pendingImageSpinner
-        if (h.anim) deleteWidget(h.anim)
-        if (h.bg) deleteWidget(h.bg)
-        this.pendingImageSpinner = null
+      if (this.imageWaitTimer) {
+        clearTimeout(this.imageWaitTimer)
+        this.imageWaitTimer = null
+      }
+      if (this.pendingImageDone) {
+        const done = this.pendingImageDone
+        this.pendingImageDone = null
+        done()
       }
     },
     getDataFromPhone() {
@@ -714,8 +723,17 @@ Page(
             warnLog(`${run.tag}: image failed on the phone after ${Date.now() - run.t0}ms: ${(resp && resp.error) || 'no answer'}`)
             this.clearImageSpinner()
             layout.notifyResult((resp && resp.error) || 'Image error', pageid, true, CUSTOM_TOAST)
-          } else if (LOG_TRACE) {
-            devLog(`${run.tag}: phone has the image, ${Date.now() - run.t0}ms after the press`)
+          } else {
+            if (LOG_TRACE) devLog(`${run.tag}: phone has the image, ${Date.now() - run.t0}ms after the press`)
+            // A file that never arrives must not hold the button (and its
+            // queued taps) for ever. ~25 s for a 1.8 MB image at ~70 KB/s
+            if (this.imageWaitTimer) clearTimeout(this.imageWaitTimer)
+            this.imageWaitTimer = setTimeout(() => {
+              this.imageWaitTimer = null
+              if (this.pendingImageRun !== run) return
+              warnLog(`${run.tag}: no image ${IMAGE_WAIT_MS}ms after the phone had it`)
+              this.clearImageSpinner()
+            }, IMAGE_WAIT_MS)
           }
         }).catch((error) => {
           warnLog(`${run.tag}: FETCH_IMAGE failed after ${Date.now() - run.t0}ms: ${errorText(error)}`)
@@ -790,7 +808,12 @@ Page(
       if (layout.refs.customToastFillRect) deleteWidget(layout.refs.customToastFillRect)
       if (layout.refs.customToastText) deleteWidget(layout.refs.customToastText)
       if (typeof layout.hideImage === 'function') layout.hideImage()
-      this.clearImageSpinner()
+      // The press queues and the loading animations go with the page: no
+      // queued tap fires after it, no tick outlives it
+      this.pressStates = null
+      this.pendingImageDone = null
+      if (this.imageWaitTimer) { clearTimeout(this.imageWaitTimer); this.imageWaitTimer = null }
+      if (typeof layout.stopLoaders === 'function') layout.stopLoaders()
       this.pendingImageRun = null
     },
   })

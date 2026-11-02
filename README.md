@@ -26,6 +26,8 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 - **Image Display** — Fetch a remote image (PNG/JPEG) and show it fullscreen on the watch
 - **JSON Parsing** — Extract specific fields from API responses, with path expressions like `choices[0].message.content`, `[*]` wildcards and `[?field==value]` filters
 - **Timeouts** — Global and per-button request timeouts (5–60 s) for slow endpoints
+- **Loading feedback** — A pressed button shows an animation until its request is done; taps on a busy button wait their turn
+- **Logs box** — The settings page shows the latest watch and phone log lines, ready to copy into a bug report (passwords, tokens and variable values removed)
 
 ## Installation
 
@@ -105,6 +107,18 @@ In the JSON config the value is in milliseconds: `"timeout"` at the top level se
   }
 }
 ```
+
+### Loading Animation
+
+While a button's request runs, the button shows an animation. Choose it in the settings ("Loading animation"), or with `"loading_style"` at the top level of the JSON config:
+
+| Value | Animation |
+|-------|-----------|
+| `"border"` (default) | A short white trail running round the button's border (black on light buttons) |
+| `"pulse"` | The button's border breathing |
+| `"corner"` | A small spinner in the button's top-right corner |
+
+One request runs at a time per button: tapping a button that is still busy queues the tap (up to 10), and it fires as soon as the previous one is done. With an image button, the button stays busy until the picture is on screen.
 
 ### Image Display
 
