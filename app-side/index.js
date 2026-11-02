@@ -146,6 +146,11 @@ function startImageDownload(ctx, url, reqHeaders, res, timeout, t0, end) {
         // The image itself reaches the device over the transfer channel
         // (the page's onReceivedFile hook); here we just push it and ack.
         const tSend = Date.now()
+        // Each send numbered, its start saying how the previous one ended:
+        // transfers failing at once after a cancel or an error were seen in
+        // zeppamp (field-notes.md, "File transfer")
+        const seq = ++sendSeq
+        vlog(`[img] #${seq} sending${lastSend ? `, previous #${lastSend.seq} ${lastSend.state} ${Date.now() - lastSend.at}ms ago` : ''}`)
         let file
         try {
           file = ctx.sendFile(target, { type: 'image', name: 'snapshot' })
@@ -159,7 +164,8 @@ function startImageDownload(ctx, url, reqHeaders, res, timeout, t0, end) {
           // TRANSFER_GUARD_MS it is cancelled (a jammed transfer kept every
           // later image from reaching the watch, app restarts included)
           const guard = setTimeout(() => {
-            wlog(`[img] transfer not over after ${TRANSFER_GUARD_MS}ms (${file.readyState || '?'}), cancelling it`)
+            wlog(`[img] #${seq} transfer not over after ${TRANSFER_GUARD_MS}ms (${file.readyState || '?'}), cancelling it`)
+            lastSend = { seq, state: 'cancelled by the guard', at: Date.now() }
             try { if (typeof file.cancel === 'function') file.cancel() } catch (e) { wlog(`[img] cancel failed: ${errorText(e)}`) }
             end()
           }, TRANSFER_GUARD_MS)
@@ -167,9 +173,10 @@ function startImageDownload(ctx, url, reqHeaders, res, timeout, t0, end) {
           // phone (field-notes.md, "File transfer"); the watch logs its side
           file.on('change', (e) => {
             const state = e && e.data && e.data.readyState
-            if (state === 'error' || state === 'canceled') wlog(`[img] transfer ${state} after ${Date.now() - tSend}ms`)
-            else vlog(`[img] transfer ${state} at ${Date.now() - tSend}ms${file.fileSize ? `, ${sizeText(file.fileSize)}` : ''}`)
+            if (state === 'error' || state === 'canceled') wlog(`[img] #${seq} transfer ${state} after ${Date.now() - tSend}ms`)
+            else vlog(`[img] #${seq} transfer ${state} at ${Date.now() - tSend}ms${file.fileSize ? `, ${sizeText(file.fileSize)}` : ''}`)
             if (state === 'transferred' || state === 'error' || state === 'canceled') {
+              lastSend = { seq, state, at: Date.now() }
               clearTimeout(guard)
               end()
             }
@@ -239,6 +246,9 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, 
 // the third's download; after a transfer error no file reached the watch any
 // more). The next image starts when this one failed or its transfer is over.
 const TRANSFER_GUARD_MS = 60000
+// The sends to the watch, numbered, and how the last one ended
+let sendSeq = 0
+let lastSend = null
 let imageChain = Promise.resolve()
 let imageJobs = 0
 function queueImage(ctx, params, res) {

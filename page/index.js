@@ -1,6 +1,6 @@
 import { BasePage } from '@zeppos/zml/base-page'
 import { createWidget, deleteWidget, widget, prop, anim_status } from '@zos/ui'
-import { readdirSync, statSync } from '@zos/fs'
+import { readdirSync, statSync, rmSync } from '@zos/fs'
 import { layout, LOADING_TEXT_WIDGET, LOADING_IMG_ANIM_WIDGET } from 'zosLoader:./index.[pf].layout.js'
 import { digestRequest, basicRequest, bearerRequest } from '../utils/auth-request.js'
 import { CUSTOM_TOAST, SHOW_IMAGE, DEFAULT_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS, MAX_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_RPC_MARGIN_MS, RESULT_TEXT_MAX } from '../utils/constants.js'
@@ -319,6 +319,9 @@ Page(
       this.imageQueue = []
       this.imageWaitTimer = null
       this.pressStates = {}
+      // The app's file inbox hands the files to this page (handleIncomingFile)
+      this.fileHandler = (file) => this.handleIncomingFile(file)
+      if (this.globalData) this.globalData.onIncomingFile = this.fileHandler
       this.pendingImagePage = 0
       this.pendingImageRun = null
       this.globalTimeoutMs = undefined
@@ -330,8 +333,14 @@ Page(
       this.showLoading()
       this.getDataFromPhone()
     },
-    onReceivedFile(file) {
-      // zml calls this when the side service STARTS pushing a file — the bytes
+    // Not ZML's page onReceivedFile: a page defining it gets offFile() in its
+    // onDestroy, which detaches the file inbox for the whole app (a replace
+    // to this page, as "Load example" does, would have left images dead until
+    // a restart; field-notes.md "Messaging", as in zeppamp). The app receives
+    // the files (app.js onReceivedFile) and hands them to the page that
+    // registered in onInit.
+    handleIncomingFile(file) {
+      // Called when the side service STARTS pushing a file — the bytes
       // aren't written yet. We must wait for the 'change'→'transferred' event
       // before reading filePath, otherwise we'd show an empty (black) file.
       if (!file) return
@@ -360,6 +369,8 @@ Page(
         } else if (state === 'error' || state === 'canceled') {
           this.clearImageSpinner()
           warnLog(`${tag}: image transfer ${state} after ${Date.now() - tIn}ms`)
+          // A part left behind would only take room (zeppamp removes them too)
+          try { if (file.filePath) rmSync({ path: file.filePath }) } catch (e) { /* not there */ }
           layout.notifyResult('Image transfer failed', this.pendingImagePage || 0, true, CUSTOM_TOAST)
         } else if (LOG_TRACE) {
           devLog(`${tag}: transfer ${state} at ${Date.now() - tIn}ms`)
@@ -831,6 +842,8 @@ Page(
       // The press queues and the loading animations go with the page: no
       // queued tap fires after it, no tick outlives it
       this.pressStates = null
+      // Only our own handler: a next instance may already have set its own
+      if (this.globalData && this.globalData.onIncomingFile === this.fileHandler) this.globalData.onIncomingFile = null
       this.pendingImageDone = null
       this.imageQueue = null
       if (this.imageWaitTimer) { clearTimeout(this.imageWaitTimer); this.imageWaitTimer = null }

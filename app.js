@@ -38,6 +38,17 @@ App(
       this._savePendingLog()
     },
 
+    // Files pushed by the phone (the snapshots of image buttons). ZML
+    // registers this app-level handler at start; it stays for the app's life,
+    // unlike a page's onReceivedFile, whose offFile() in the page's onDestroy
+    // detaches the inbox for the whole app. The page showing the buttons
+    // registers itself in globalData.onIncomingFile.
+    onReceivedFile(file) {
+      const handler = this.globalData && this.globalData.onIncomingFile
+      if (typeof handler === 'function') handler(file)
+      else this.devLog(`file ${file && file.fileName} arrived with no page to show it`)
+    },
+
     // ── Remote log ───────────────────────────────────────────
     // Watch lines sent to the phone's Logs box (settings page, [w] prefix):
     // shared rule ../_shared/zeppos-ai-doc/logging.md. Three levels: devLog
