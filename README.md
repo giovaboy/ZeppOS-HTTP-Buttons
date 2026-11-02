@@ -26,6 +26,7 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 - **Image Display** — Fetch a remote image (PNG/JPEG) and show it fullscreen on the watch
 - **JSON Parsing** — Extract specific fields from API responses, with path expressions like `choices[0].message.content`, `[*]` wildcards and `[?field==value]` filters
 - **Timeouts** — Global and per-button request timeouts (5–60 s) for slow endpoints
+- **Fast start** — The watch keeps a copy of the config and shows the buttons at once, then checks with the phone whether it changed (the copy, credentials included, stays in the app's own storage on the watch)
 - **Loading feedback** — A pressed button shows an animation until its request is done; taps on a busy button wait their turn
 - **Logs box (test builds)** — The settings page shows the latest watch and phone log lines, ready to copy into a bug report (passwords, tokens and variable values removed). Release builds log nothing and have no Logs box: if something doesn't work, open an issue and we can send you a test build with the logs on
 

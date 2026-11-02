@@ -1,6 +1,6 @@
 import { BasePage } from '@zeppos/zml/base-page'
 import { createWidget, deleteWidget, widget, prop, anim_status } from '@zos/ui'
-import { readdirSync, statSync, rmSync } from '@zos/fs'
+import { readdirSync, statSync, rmSync, readFileSync, writeFileSync } from '@zos/fs'
 import { layout, LOADING_TEXT_WIDGET, LOADING_IMG_ANIM_WIDGET } from 'zosLoader:./index.[pf].layout.js'
 import { digestRequest, basicRequest, bearerRequest } from '../utils/auth-request.js'
 import { CUSTOM_TOAST, SHOW_IMAGE, DEFAULT_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS, MAX_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_RPC_MARGIN_MS, RESULT_TEXT_MAX } from '../utils/constants.js'
@@ -31,6 +31,38 @@ function bodySize(res) {
   if (b == null) return 0
   if (typeof b === 'string') return b.length
   try { return JSON.stringify(b).length } catch (e) { return -1 }
+}
+
+// The watch's copy of the config (the JSON text the phone sent last): the
+// buttons are drawn from it at once, while the phone is asked whether the
+// config changed (asking took 1.8–3.5 s at every start). It holds what the
+// config holds, credentials included, in the app's own data folder.
+const CONFIG_COPY_FILE = 'config_copy.json'
+// While a press runs, a changed config waits this long between checks before
+// redrawing (a redraw would cut the press short)
+const RELOAD_RETRY_MS = 500
+
+function readConfigCopy() {
+  try {
+    if (!statSync({ path: CONFIG_COPY_FILE })) return null
+    return readFileSync({ path: CONFIG_COPY_FILE, options: { encoding: 'utf8' } }) || null
+  } catch (e) {
+    return null
+  }
+}
+
+function writeConfigCopy(text) {
+  try {
+    writeFileSync({ path: CONFIG_COPY_FILE, data: text, options: { encoding: 'utf8' } })
+    return true
+  } catch (e) {
+    warnLog(`[cfg] the watch's copy of the config not written: ${errorText(e)}`)
+    return false
+  }
+}
+
+function removeConfigCopy() {
+  try { if (statSync({ path: CONFIG_COPY_FILE })) rmSync({ path: CONFIG_COPY_FILE }) } catch (e) { /* not there */ }
 }
 
 // How long a pressed image button waits for the file once the phone has
@@ -302,7 +334,13 @@ Page(
       config: null,
       isError: false
     },
-    onInit() {
+    onInit(params) {
+      // Redrawn after the phone's config changed (replace with 'refreshed'):
+      // the watch's copy is the phone's, no need to ask again
+      this.refreshed = String(params || '').indexOf('refreshed') !== -1
+      this.cachedConfigText = null
+      this.reloadTimer = null
+      this.reloadWaiting = false
       // ZML BasePage shares `state` between instances of this page (a replace
       // to page/index, as "Load example" does, sees the old one's), and the
       // vm fields below may outlive a run: reset what a run needs here
@@ -330,8 +368,76 @@ Page(
     build() {
       this.buildAt = Date.now()
       if (LOG_TRACE) devLog(`[page] build: ${memoryUsage()}`)
+      // The buttons from the watch's copy of the config, at once; the phone
+      // is asked meanwhile (checkPhoneConfig). Without a usable copy (first
+      // start, or none kept): the loading screen while the phone answers.
+      const copy = readConfigCopy()
+      if (copy) {
+        const cfg = parseJSON(copy)
+        if (cfg && cfg.pages) {
+          this.state.config = cfg
+          layout.render(this)
+          infoLog(`[cfg] drawn from the watch's copy (${sizeText(copy.length)}) in ${Date.now() - this.buildAt}ms: ${configCounts(cfg)}` +
+            `${this.refreshed ? ', just refreshed' : ''}${LOG_TRACE ? `; ${memoryUsage()}` : ''}`)
+          if (this.refreshed) return
+          this.cachedConfigText = copy
+          this.checkPhoneConfig()
+          return
+        }
+        warnLog(`[cfg] the watch's copy of the config is not usable (${sizeText(copy.length)}): asking the phone`)
+        removeConfigCopy()
+      }
       this.showLoading()
       this.getDataFromPhone()
+    },
+    // The phone's config compared with the copy the buttons were drawn from:
+    // the same, nothing to do; changed (or removed), the copy is replaced and
+    // the page drawn again from it, once no press is running.
+    checkPhoneConfig() {
+      const t0 = Date.now()
+      this.request({ method: 'GET_DATA' })
+        .then(({ result }) => {
+          const ms = Date.now() - t0
+          const same = result === this.cachedConfigText
+          this.cachedConfigText = null
+          if (same) {
+            if (LOG_TRACE) devLog(`[cfg] the phone's config is the same (${ms}ms)`)
+            return
+          }
+          const cfg = result ? parseJSON(result) : undefined
+          if (cfg && cfg.pages) {
+            if (!writeConfigCopy(result)) return
+          } else {
+            // Removed or not usable: drawn from the phone's answer, as with no copy
+            removeConfigCopy()
+          }
+          infoLog(`[cfg] the phone's config changed (${result ? sizeText(result.length) : 'none'}, ${ms}ms): drawing it`)
+          this.reloadWhenIdle()
+        })
+        .catch((error) => {
+          warnLog(`[cfg] GET_DATA failed after ${Date.now() - t0}ms: ${errorText(error)}; the watch's copy stays`)
+        })
+    },
+    // A press, an image or a poll still running would be cut short by the
+    // redraw: wait for them to end
+    pressesRunning() {
+      if (this.inFlight > 0 || this.pendingImageDone || (this.imageQueue && this.imageQueue.length)) return true
+      const states = this.pressStates || {}
+      return Object.keys(states).some((k) => states[k] && states[k].busy)
+    },
+    reloadWhenIdle() {
+      if (this.pressesRunning()) {
+        if (!this.reloadWaiting) {
+          this.reloadWaiting = true
+          if (LOG_TRACE) devLog('[cfg] redraw waits for the presses running')
+        }
+        this.reloadTimer = setTimeout(() => {
+          this.reloadTimer = null
+          this.reloadWhenIdle()
+        }, RELOAD_RETRY_MS)
+        return
+      }
+      replace({ url: 'page/index', params: 'refreshed=1' })
     },
     // Not ZML's page onReceivedFile: a page defining it gets offFile() in its
     // onDestroy, which detaches the file inbox for the whole app (a replace
@@ -431,6 +537,9 @@ Page(
             if (this.state.config) infoLog(`[cfg] config ${sizeText(result.length)} in ${askMs}ms: ${configCounts(this.state.config)}`)
             else if (this.state.configError) warnLog(`[cfg] config not usable (${sizeText(result.length)}): not JSON or no pages`)
             else infoLog(`[cfg] no config on the phone (${askMs}ms)`)
+            // Kept for the next start (drawn from it at once)
+            if (this.state.config) writeConfigCopy(result)
+            else removeConfigCopy()
             const tRender = Date.now()
             layout.render(this)
             this.hideLoading()
@@ -471,9 +580,12 @@ Page(
     loadExampleConfig() {
       this.showLoading()
       this.request({ method: 'LOAD_DEFAULT' })
-        .then(() => {
+        .then((resp) => {
           infoLog('[cfg] example config loaded, reloading the page')
-          replace({ url: 'page/index' })
+          // The phone answered with it: kept, and drawn from the copy at once
+          const text = resp && resp.result
+          const kept = !!text && writeConfigCopy(text)
+          replace({ url: 'page/index', params: kept ? 'refreshed=1' : undefined })
         })
         .catch((error) => {
           warnLog(`[cfg] LOAD_DEFAULT failed: ${errorText(error)}`)
@@ -842,6 +954,7 @@ Page(
       // The press queues and the loading animations go with the page: no
       // queued tap fires after it, no tick outlives it
       this.pressStates = null
+      if (this.reloadTimer) { clearTimeout(this.reloadTimer); this.reloadTimer = null }
       // Only our own handler: a next instance may already have set its own
       if (this.globalData && this.globalData.onIncomingFile === this.fileHandler) this.globalData.onIncomingFile = null
       this.pendingImageDone = null
