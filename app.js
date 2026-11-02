@@ -17,13 +17,21 @@ const REMOTE_LOG_MAX = 100
 const REMOTE_LOG_LOST_MS = 90000
 // Lines still waiting when the app closes: sent at the next start
 const PENDING_LOG_FILE = 'pending_log.json'
+// Before each request ZML shakes hands with the phone, 5 s by default: with
+// the phone busy (a burst of presses, a file transfer) requests failed with
+// "shake timeout after 5121ms". 20 s worked in zeppamp (field-notes.md,
+// "Messaging")
+const SHAKE_TIMEOUT_MS = 20000
 
 App(
   BaseApp({
     globalData: {},
     onCreate(options) {
+      // On the app's messaging object, beside ZML's requestTimeout (60 s);
+      // the pages' requests go through it too
+      if (this.messaging) this.messaging.shakeTimeout = SHAKE_TIMEOUT_MS
       this._loadPendingLog()
-      this.remoteLog('app started')
+      this.remoteLog(`app started${this.messaging ? '' : ' (no messaging object: shake timeout left at 5 s)'}`)
     },
 
     onDestroy(options) {

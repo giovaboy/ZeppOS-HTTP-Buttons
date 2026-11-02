@@ -315,6 +315,7 @@ Page(
       this.pendingImagePage = 0
       this.pendingImageRun = null
       this.globalTimeoutMs = undefined
+      this.inFlight = 0
     },
     build() {
       this.buildAt = Date.now()
@@ -539,7 +540,7 @@ Page(
       // the result is on screen (the style tells which notification it took)
       if (run) {
         infoLog(`${run.tag}: HTTP ${result && result.status} in ${Date.now() - run.t0}ms, ${sizeText(fullLength)} result${fullLength > RESULT_TEXT_MAX ? ` (cut to ${RESULT_TEXT_MAX})` : ''}` +
-          `${LOG_TRACE ? `, ${styleForLog(request.response_style)}; ${memoryUsage()}` : ''}`)
+          `${LOG_TRACE ? `, ${styleForLog(request.response_style)}, ${this.inFlight || 0} in flight; ${memoryUsage()}` : ''}`)
       }
     },
     // Show an error. Without a phase prefix this matches the old single-request
@@ -549,7 +550,7 @@ Page(
       const msg = prefix ? (prefix + ': ' + shortError(error)) : rawError(error)
       layout.notifyResult(capText(msg), pageid, true, request.response_style)
       warnLog(`${run ? run.tag : '[req]'}: ${prefix ? prefix + ': ' : ''}${errorText(error)}${run ? ` after ${Date.now() - run.t0}ms` : ''}` +
-        `${LOG_TRACE ? `, ${styleForLog(request.response_style)}; ${memoryUsage()}` : ''}`)
+        `${LOG_TRACE ? `, ${styleForLog(request.response_style)}, ${this.inFlight || 0} in flight; ${memoryUsage()}` : ''}`)
     },
     // Fire the optional logout sub-request for a session, substituting the token.
     // Fire-and-forget: failures are logged, never surfaced, and never touch the
@@ -630,10 +631,26 @@ Page(
       return promise
     },
     // `label` names the button in the log lines ("p0r1b2 Lamp"), given by the
-    // layout's click handler.
+    // layout's click handler. Counts the presses in flight for the log lines:
+    // each one held ~10 KB until it settled (a burst of 13 took the app from
+    // ~400 to 527 KB, back down as they answered).
     executeButtonRequest(request, pageid, input = null, label = null) {
-      const dt = this.state.config || {}
       const run = { tag: '[btn] ' + (label || ('p' + pageid)), t0: Date.now() }
+      this.inFlight = (this.inFlight || 0) + 1
+      const done = () => { this.inFlight = Math.max(0, (this.inFlight || 1) - 1) }
+      let p
+      try {
+        p = this.runButtonRequest(request, pageid, input, run)
+      } catch (e) {
+        done()
+        throw e
+      }
+      if (p && typeof p.then === 'function') p.then(done, done)
+      else done()
+      return p
+    },
+    runButtonRequest(request, pageid, input, run) {
+      const dt = this.state.config || {}
 
       // Global timeout (data.timeout), resolved once per press; per-button
       // overrides ride the descriptor (request.timeout, via pickDescriptor) and
@@ -666,7 +683,7 @@ Page(
           : main.url
         devLog(`${run.tag}: ${String(main.method || 'GET').trim()} ${urlForLog(shownUrl)} auth=${authForLog(main.auth)} timeout=${timeout}ms` +
           `${request.response_style === SHOW_IMAGE ? ' image' : ''}${request.session ? ' session' : ''}${request.poll ? ' poll' : ''}` +
-          `${input != null ? `, input of ${String(input).length} chars` : ''}`)
+          `${input != null ? `, input of ${String(input).length} chars` : ''}, ${this.inFlight} in flight`)
       }
 
       if (request.response_style === SHOW_IMAGE) {
