@@ -14,6 +14,7 @@ import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
   KB_TYPE_CHAR, KB_TYPE_NUMERIC, DEFAULT_REQUEST_TIMEOUT_MS,
   LOADING_STYLE_BORDER, LOADING_STYLE_PULSE, LOADING_STYLE_CORNER } from '../utils/constants.js'
 import { LOG_KEY } from '../app-side/log.js'
+import { logsEnabled } from '../config.js'
 
 // Shown in the footer link and next to the README links. Keep in sync with
 // package.json / app.json when bumping the app version.
@@ -1192,7 +1193,7 @@ AppSettingsPage({
     // === FINAL RENDERING ===
 
     if (this.state.is_conf_error === true) {
-      return View({ style: { padding: '12px 20px' }}, [conf_error, logsCard])
+      return View({ style: { padding: '12px 20px' }}, [conf_error, logsEnabled() && logsCard])
     } else {
       return View({ style: { padding: '12px 5px' }}, [
         welcomeText,
@@ -1206,7 +1207,8 @@ AppSettingsPage({
         confBTN,
         clearBTN,
         testModeSwitch,
-        logsCard,
+        // Not in public releases (config.js LOG_LEVEL 'off')
+        logsEnabled() && logsCard,
         footer,
         // Rendered here (not returned from the editor's onChange, where it would
         // be ignored); shown when the JSON editor rejects invalid input.

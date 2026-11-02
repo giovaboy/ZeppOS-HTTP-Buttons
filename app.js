@@ -10,6 +10,8 @@ const logger = log.getLogger("http-buttons-app")
 // (field-notes.md, "app.js and undefined names")
 const LOG_TRACE = logs('trace')
 const LOG_INFO = logs('info')
+// false only with LOG_LEVEL 'off' (public releases): no line leaves the watch
+const LOG_WARN = logs('warn')
 
 // Watch lines waiting at most for the phone (the oldest are dropped)
 const REMOTE_LOG_MAX = 100
@@ -59,16 +61,17 @@ App(
 
     remoteLog(msg) {
       if (LOG_INFO) this._sendLog(msg)
-      else logger.log(msg)
+      else if (LOG_WARN) logger.log(msg)
     },
 
     warnLog(msg) {
-      this._sendLog(msg)
+      if (LOG_WARN) this._sendLog(msg)
+      else if (LOG_WARN) logger.log(msg)
     },
 
     devLog(msg) {
       if (LOG_TRACE) this._sendLog(msg)
-      else logger.log(msg)
+      else if (LOG_WARN) logger.log(msg)
     },
 
     // Lines carry the watch time (its clock runs ~2 s behind the phone's).
@@ -125,6 +128,8 @@ App(
     _loadPendingLog() {
       try {
         if (!statSync({ path: PENDING_LOG_FILE })) return
+        // A release build after a test one: the lines it left are dropped
+        if (!LOG_WARN) { rmSync({ path: PENDING_LOG_FILE }); return }
         const text = readFileSync({ path: PENDING_LOG_FILE, options: { encoding: 'utf8' } })
         rmSync({ path: PENDING_LOG_FILE })
         const lines = JSON.parse(text || '[]')

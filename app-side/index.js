@@ -1,7 +1,7 @@
 import { BaseSideService, settingsLib } from '@zeppos/zml/base-side'
 import { DEFAULT_DATA, TEST_DATA, DEFAULT_REQUEST_TIMEOUT_MS } from '../utils/constants.js'
 import { parseChallenge, buildDigestAuth, requestUri } from '../utils/digest.js'
-import { logs, logsPrivate } from '../config.js'
+import { logs, logsPrivate, logsEnabled } from '../config.js'
 import { LOG_KEY, LOG_MAX, scrubLog, configSecrets, sizeText } from './log.js'
 import { urlForLog, authForLog } from '../utils/log-text.js'
 
@@ -37,7 +37,8 @@ function currentSecrets() {
 // whole 200-line store once per line otherwise)
 function writeLines(msgs) {
   try {
-    if (!msgs.length) return
+    // Public releases (LOG_LEVEL 'off'): nothing is stored
+    if (!msgs.length || !logsEnabled()) return
     const now = new Date()
     const ts = `${now.toTimeString().slice(0, 8)}.${String(now.getMilliseconds()).padStart(3, '0')}`
     const s = currentSecrets()
@@ -54,7 +55,7 @@ function writeLines(msgs) {
 }
 const writeLog = (msg) => writeLines([msg])
 const plog = (msg) => { if (logs('info')) writeLog(msg) }
-const wlog = (msg) => writeLog(msg)
+const wlog = (msg) => { if (logs('warn')) writeLog(msg) }
 const vlog = (msg) => { if (logs('trace')) writeLog(msg) }
 
 function errorText(e) {
@@ -300,6 +301,9 @@ function getData() {
 AppSideService(
   BaseSideService({
     onInit() {
+      // A release build after a test one: the lines it left are dropped (the
+      // settings page has no box to show or clear them)
+      if (!logsEnabled() && settingsLib.getItem(LOG_KEY)) settingsLib.removeItem(LOG_KEY)
       plog('phone service started')
       migrateDataIfNeeded()
     },

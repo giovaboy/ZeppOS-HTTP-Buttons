@@ -27,7 +27,7 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 - **JSON Parsing** — Extract specific fields from API responses, with path expressions like `choices[0].message.content`, `[*]` wildcards and `[?field==value]` filters
 - **Timeouts** — Global and per-button request timeouts (5–60 s) for slow endpoints
 - **Loading feedback** — A pressed button shows an animation until its request is done; taps on a busy button wait their turn
-- **Logs box** — The settings page shows the latest watch and phone log lines, ready to copy into a bug report (passwords, tokens and variable values removed)
+- **Logs box (test builds)** — The settings page shows the latest watch and phone log lines, ready to copy into a bug report (passwords, tokens and variable values removed). Release builds log nothing and have no Logs box: if something doesn't work, open an issue and we can send you a test build with the logs on
 
 ## Installation
 

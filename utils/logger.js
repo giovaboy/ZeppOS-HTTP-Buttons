@@ -13,7 +13,8 @@ const levels = {
   error: 4
 };
 
-const CONSOLE_LEVEL = { trace: levels.debug, info: levels.info, warn: levels.warn };
+// 'off' (public releases): nothing, not even errors
+const CONSOLE_LEVEL = { trace: levels.debug, info: levels.info, warn: levels.warn, off: levels.error + 1 };
 const currentLevel = CONSOLE_LEVEL[LOG_LEVEL] !== undefined ? CONSOLE_LEVEL[LOG_LEVEL] : levels.warn;
 
 export const getLogger = (name) => {
