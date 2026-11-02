@@ -3,6 +3,7 @@ import { DEFAULT_DATA, TEST_DATA, DEFAULT_REQUEST_TIMEOUT_MS } from '../utils/co
 import { parseChallenge, buildDigestAuth, requestUri } from '../utils/digest.js'
 import { logs, logsPrivate } from '../config.js'
 import { LOG_KEY, LOG_MAX, scrubLog, configSecrets, sizeText } from './log.js'
+import { urlForLog, authForLog } from '../utils/log-text.js'
 
 // Where the downloaded snapshot is stored on the phone side before conversion.
 // One fixed name is enough: requests are one-shot and never run in parallel.
@@ -169,7 +170,7 @@ function readHeader(headers, name) {
 function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, timeout = DEFAULT_REQUEST_TIMEOUT_MS }, res) {
   const t0 = Date.now()
   const baseHeaders = { ...(headers || {}) }
-  plog(`[img] asked: GET ${url} auth=${auth || 'none'} timeout=${timeout}ms`)
+  plog(`[img] asked: GET ${urlForLog(url)} auth=${authForLog(auth)} timeout=${timeout}ms`)
 
   if (auth === 'Digest') {
     // The downloader can't do the 401 challenge round-trip itself, so we do it:

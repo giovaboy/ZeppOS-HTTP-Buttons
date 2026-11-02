@@ -7,6 +7,7 @@ import { CUSTOM_TOAST, SHOW_IMAGE, DEFAULT_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEO
 import { replace } from '@zos/router'
 import { devLog, infoLog, warnLog, LOG_TRACE } from '../utils/remote-log.js'
 import { memoryUsage, errorText, sizeText } from '../utils/memory.js'
+import { urlForLog, authForLog, styleForLog } from '../utils/log-text.js'
 
 // Log lines (utils/remote-log.js): one per event, facts with numbers. A press
 // is tagged by its button ("p0r1b2 Lamp"). Never the session token, the typed
@@ -533,19 +534,22 @@ Page(
       }
       const fullLength = txtToReturn ? txtToReturn.length : 0
       txtToReturn = capText(txtToReturn)
-      if (run) {
-        infoLog(`${run.tag}: HTTP ${result && result.status} in ${Date.now() - run.t0}ms, ${sizeText(fullLength)} result${fullLength > RESULT_TEXT_MAX ? ` (cut to ${RESULT_TEXT_MAX})` : ''}`)
-        if (LOG_TRACE) devLog(`${run.tag}: shown: ${memoryUsage()}`)
-      }
       layout.notifyResult(txtToReturn, pageid, false, request.response_style)
+      // One line per press: the outcome, and in trace builds the memory once
+      // the result is on screen (the style tells which notification it took)
+      if (run) {
+        infoLog(`${run.tag}: HTTP ${result && result.status} in ${Date.now() - run.t0}ms, ${sizeText(fullLength)} result${fullLength > RESULT_TEXT_MAX ? ` (cut to ${RESULT_TEXT_MAX})` : ''}` +
+          `${LOG_TRACE ? `, ${styleForLog(request.response_style)}; ${memoryUsage()}` : ''}`)
+      }
     },
     // Show an error. Without a phase prefix this matches the old single-request
     // behavior (raw JSON). With a prefix (Auth/Req/…) it's a short, watch-sized
     // message so the wearer can tell which step of a two-step flow failed.
     reportError(error, request, pageid, prefix, run) {
       const msg = prefix ? (prefix + ': ' + shortError(error)) : rawError(error)
-      warnLog(`${run ? run.tag : '[req]'}: ${prefix ? prefix + ': ' : ''}${errorText(error)}${run ? ` after ${Date.now() - run.t0}ms` : ''}`)
       layout.notifyResult(capText(msg), pageid, true, request.response_style)
+      warnLog(`${run ? run.tag : '[req]'}: ${prefix ? prefix + ': ' : ''}${errorText(error)}${run ? ` after ${Date.now() - run.t0}ms` : ''}` +
+        `${LOG_TRACE ? `, ${styleForLog(request.response_style)}; ${memoryUsage()}` : ''}`)
     },
     // Fire the optional logout sub-request for a session, substituting the token.
     // Fire-and-forget: failures are logged, never surfaced, and never touch the
@@ -655,7 +659,7 @@ Page(
       // scrubs the rest: secrets, query values, and the address unless DEV)
       if (LOG_TRACE) {
         const shownUrl = (input && typeof main.url === 'string') ? main.url.split(input).join('{input}') : main.url
-        devLog(`${run.tag}: ${main.method || 'GET'} ${shownUrl} auth=${main.auth || 'none'} timeout=${timeout}ms` +
+        devLog(`${run.tag}: ${String(main.method || 'GET').trim()} ${urlForLog(shownUrl)} auth=${authForLog(main.auth)} timeout=${timeout}ms` +
           `${request.response_style === SHOW_IMAGE ? ' image' : ''}${request.session ? ' session' : ''}${request.poll ? ' poll' : ''}` +
           `${input != null ? `, input of ${String(input).length} chars` : ''}`)
       }
@@ -700,8 +704,14 @@ Page(
 
       // Single-request path (no session block) — unchanged behavior unless a
       // poll block turns the response into the start of an async job.
+      // A plain press gets no request line of its own: its outcome line (or
+      // error line) already says status and time. With a poll block the start
+      // request is traced, to tell it from the attempts.
       if (!request.session) {
-        return performRequestLogged(this, main, run.tag)
+        const started = request.poll
+          ? performRequestLogged(this, main, run.tag + ' start')
+          : Promise.resolve().then(() => performRequest(this, main))
+        return started
           .then((result) => this.finishOrPoll(result, request, pageid, replacements, run))
           .catch((error) => this.reportError(error, request, pageid, undefined, run))
       }
