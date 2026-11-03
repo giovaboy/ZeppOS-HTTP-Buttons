@@ -40,12 +40,59 @@ function tryParseJSON(json) {
   return null;
 }
 
-function validateURL(str) {
-  if (str == gettext('**URL**')) {
-    return false;
-  }
-  return true;
+// An empty field shows a marker as its value ("**USER**", "**NO TEXT**"…).
+// Confirming the field unchanged handed the marker back to onChange, and it
+// was saved as the real value (a user name "**USER**" sent to the server):
+// a marker means empty. A config that already holds one shows the same marker,
+// so the user sees an empty field and can fill it.
+const unmark = (value, ...markers) => {
+  const v = value == null ? '' : String(value);
+  return markers.some((m) => v === gettext(m)) ? '' : v;
 }
+
+// The open pages and rows (keys ui_page_<p> / ui_row_<p>_<r> = 'true', by
+// position). When pages or rows are deleted or moved, their state moves with
+// them: by position alone the next page inherited a deleted page's state, and
+// keys of deleted pages lingered.
+function openUiKeys(storage, pages) {
+  const open = new Set();
+  (pages || []).forEach((pg, p) => {
+    if (storage.getItem('ui_page_' + p) === 'true') open.add('ui_page_' + p);
+    ((pg && pg.rows) || []).forEach((_, r) => {
+      if (storage.getItem('ui_row_' + p + '_' + r) === 'true') open.add('ui_row_' + p + '_' + r);
+    });
+  });
+  return open;
+}
+// Write only what changes (each write rebuilds the page)
+function applyUiKeys(storage, before, after) {
+  before.forEach((k) => { if (!after.has(k)) storage.removeItem(k); });
+  after.forEach((k) => { if (!before.has(k)) storage.setItem(k, 'true'); });
+}
+// order: for each new position, the old index that goes there
+function pagesUiAfter(before, pages, order) {
+  const after = new Set();
+  order.forEach((oldP, newP) => {
+    if (before.has('ui_page_' + oldP)) after.add('ui_page_' + newP);
+    ((pages[oldP] && pages[oldP].rows) || []).forEach((_, r) => {
+      if (before.has('ui_row_' + oldP + '_' + r)) after.add('ui_row_' + newP + '_' + r);
+    });
+  });
+  return after;
+}
+function rowsUiAfter(before, pindex, order) {
+  const prefix = 'ui_row_' + pindex + '_';
+  const after = new Set([...before].filter((k) => !k.startsWith(prefix)));
+  order.forEach((oldR, newR) => { if (before.has(prefix + oldR)) after.add(prefix + newR); });
+  return after;
+}
+// [0..n-1] without one index, or with one index moved to another
+const withoutIndex = (n, index) => [...Array(n).keys()].filter((i) => i !== index);
+const movedIndex = (n, from, to) => {
+  const order = [...Array(n).keys()];
+  order.splice(to, 0, order.splice(from, 1)[0]);
+  return order;
+};
 
 function toColor(num) {
   let colorString = undefined;
@@ -254,22 +301,23 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
             },
             maxLength: 200,
             onChange: (text) => {
-              if (text.length <= 200 || text != gettext('**NO TEXT**') || text != gettext('**SPACER**')) {
-                context.editButton('text', text, pindex, rindex, bindex);
-              }
+              const t = unmark(text, '**NO TEXT**', '**SPACER**');
+              if (t.length <= 200) context.editButton('text', t, pindex, rindex, bindex);
             }
           })
         ]),
-        ...(buttonsInRow > 1 ? [
-          View({ style: { width: '28%', marginLeft: '4px' } }, [
-            Select({
-              options: indexRange(bindex, buttonsInRow - 1),
-              onChange: (value) => { if (value < 999) { context.moveButton(pindex, rindex, bindex, value); } }
-            })
-          ])
-        ] : []),
-        deleteConfirm(gettext('delete_button'), '#db2c2c', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || ''), icon: '×', style: { marginLeft: '4px' } })
+        deleteConfirm(gettext('delete_button'), '#db2c2c', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || ''), icon: '×', style: { marginLeft: '4px', flexShrink: 0 } })
       ]),
+      // Position in the row, on its own line: beside the preview it slid under
+      // the delete × (seen on the phone), and with no title it read as an
+      // empty field. Its title says where the button is.
+      ...(buttonsInRow > 1 ? [
+        Select({
+          title: gettext('position') + (bindex + 1) + '/' + buttonsInRow,
+          options: indexRange(bindex, buttonsInRow - 1),
+          onChange: (value) => { if (value < 999) { context.moveButton(pindex, rindex, bindex, value); } }
+        })
+      ] : []),
       // Spacer toggle + width on one line (so the spacer switch isn't full-width).
       View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
         View({ style: { flex: 1 } }, [
@@ -359,12 +407,9 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
               subStyle: { color: COLOR_BLACK, fontSize: '14px' },
               maxLength: 200,
               onChange: (value) => {
-                if (validateURL(value)) {
-                  context.editButton('url', value, pindex, rindex, bindex);
-                } else {
-                  context.editButton('url', null, pindex, rindex, bindex);
-                  return Toast({ message: gettext('insert_valid_url') });
-                }
+                // Empty (or the marker confirmed unchanged): no URL
+                const v = unmark(value, '**URL**').trim();
+                context.editButton('url', v || null, pindex, rindex, bindex);
               }
             }),
             TextInput({
@@ -374,9 +419,8 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
               subStyle: { color: COLOR_BLACK, fontSize: '14px' },
               maxLength: 200,
               onChange: (value) => {
-                if (value.length > 0 && value.length <= 200 || value != gettext('**HEADERS**')) {
-                  context.editButton('headers', value, pindex, rindex, bindex);
-                }
+                const v = unmark(value, '**HEADERS**');
+                if (v.length <= 200) context.editButton('headers', v, pindex, rindex, bindex);
               }
             }),
             TextInput({
@@ -386,9 +430,8 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
               subStyle: { color: COLOR_BLACK, fontSize: '14px' },
               maxLength: 200,
               onChange: (value) => {
-                if (value.length > 0 && value.length <= 200 || value != gettext('**BODY**')) {
-                  context.editButton('body', value, pindex, rindex, bindex);
-                }
+                const v = unmark(value, '**BODY**');
+                if (v.length <= 200) context.editButton('body', v, pindex, rindex, bindex);
               }
             }),
             TextInput({
@@ -398,9 +441,8 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
               subStyle: { color: COLOR_BLACK, fontSize: '14px' },
               maxLength: 200,
               onChange: (value) => {
-                if (value.length > 0 && value.length <= 200 || value != gettext('**parse_result**')) {
-                  context.editButton('parse_result', value, pindex, rindex, bindex);
-                }
+                const v = unmark(value, '**parse_result**');
+                if (v.length <= 200) context.editButton('parse_result', v, pindex, rindex, bindex);
               }
             }),
             Select({
@@ -447,9 +489,8 @@ const buildAuthFields = (button, pindex, rindex, bindex, context) => {
         subStyle: { color: COLOR_BLACK, fontSize: '14px' },
         maxLength: 200,
         onChange: (value) => {
-          if (value.length > 0 && value.length <= 200 || value != gettext('**USER**')) {
-            context.editButton('user', value, pindex, rindex, bindex);
-          }
+          const v = unmark(value, '**USER**');
+          if (v.length <= 200) context.editButton('user', v, pindex, rindex, bindex);
         }
       }),
       TextInput({
@@ -459,9 +500,8 @@ const buildAuthFields = (button, pindex, rindex, bindex, context) => {
         subStyle: { color: COLOR_BLACK, fontSize: '14px' },
         maxLength: 400,
         onChange: (value) => {
-          if (value.length > 0 && value.length <= 400 || value != gettext('**PASS**')) {
-            context.editButton('pass', value, pindex, rindex, bindex);
-          }
+          const v = unmark(value, '**PASS**');
+          if (v.length <= 400) context.editButton('pass', v, pindex, rindex, bindex);
         }
       })
     );
@@ -477,9 +517,8 @@ const buildAuthFields = (button, pindex, rindex, bindex, context) => {
         subStyle: { color: COLOR_BLACK, fontSize: '14px' },
         maxLength: 512,
         onChange: (value) => {
-          if (value.length > 0 && value.length <= 512 || value != gettext('**TOKEN**')) {
-            context.editButton('token', value, pindex, rindex, bindex);
-          }
+          const v = unmark(value, '**TOKEN**');
+          if (v.length <= 512) context.editButton('token', v, pindex, rindex, bindex);
         }
       })
     );
@@ -520,6 +559,7 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
         Text({ bold: true, align: 'center', style: { fontSize: '18px' } }, [gettext('row') + (rindex + 1)]),
         ...(page.rows.length > 1 ? [
           Select({
+            title: gettext('move_title'),
             options: indexRange(rindex, page.rows.length - 1),
             onChange: (value) => {
               if (value < 999) {
@@ -601,13 +641,13 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
             },
             maxLength: 200,
             onChange: (title) => {
-              if (title.length <= 200 || title != gettext('**NO TEXT**')) {
-                context.editPage('title', title, pindex);
-              }
+              const t = unmark(title, '**NO TEXT**');
+              if (t.length <= 200) context.editPage('title', t, pindex);
             }
           }),
           ...(pageCount > 1 ? [
             Select({
+              title: gettext('move_title'),
               value: undefined,
               options: indexRange(pindex, pageCount - 1),
               onChange: (value) => {
@@ -662,11 +702,23 @@ AppSettingsPage({
     this.state.data.variables[key] = val;
     this.setItem();
   },
+  // A rename onto an existing name replaced that variable silently: refused,
+  // like an empty name or one with braces (it is written {name} in requests).
+  // The buttons using {oldkey} are not changed.
   editGlobalVariableKey(oldkey, newkey) {
+    const name = String(newkey == null ? '' : newkey).trim();
+    if (!name || name === oldkey) return;
+    if (/[{}]/.test(name)) return this.notify('var_bad_name');
+    if (Object.prototype.hasOwnProperty.call(this.state.data.variables, name)) return this.notify('var_exists');
     let temp = this.state.data.variables[oldkey];
-    this.state.data.variables[newkey] = temp;
+    this.state.data.variables[name] = temp;
     delete this.state.data.variables[oldkey];
     this.setItem()
+  },
+  // A message for the user (an i18n key), shown by the Toast at the bottom of
+  // the page: a Toast returned from an onChange is not drawn
+  notify(key) {
+    this.state.props.settingsStorage.setItem('ui_notice', key);
   },
   deleteGlobalVariable(key) {
     delete this.state.data.variables[key]
@@ -718,14 +770,32 @@ AppSettingsPage({
     this.setItem()
   },
   deletePage(index) {
-    this.state.data.pages = this.state.data.pages.filter((_, ind) => ind !== index)
+    this.reorderPages(withoutIndex(this.state.data.pages.length, index))
+  },
+  // Moves the page (it used to swap it with the target, unlike rows and buttons)
+  movePage(pindex, toindex) {
+    const pages = this.state.data.pages;
+    const to = Number(toindex);
+    if (pindex < 0 || pindex >= pages.length || !(to >= 0) || to >= pages.length || pindex === to) return;
+    this.reorderPages(movedIndex(pages.length, pindex, to))
+  },
+  // The pages in `order` (old indexes), their open state with them
+  reorderPages(order) {
+    const st = this.state.props.settingsStorage;
+    const pages = this.state.data.pages;
+    const before = openUiKeys(st, pages);
+    applyUiKeys(st, before, pagesUiAfter(before, pages, order));
+    this.state.data.pages = order.map((i) => pages[i]);
     this.setItem()
   },
-  movePage(pindex, toindex) {
-    let temp = this.state.data.pages[pindex];
-    this.state.data.pages[pindex] = this.state.data.pages[toindex];
-    this.state.data.pages[toindex] = temp;
-    this.setItem();
+  // The rows of a page in `order` (old indexes), their open state with them
+  reorderRows(pindex, order) {
+    const st = this.state.props.settingsStorage;
+    const page = this.state.data.pages[pindex];
+    const before = openUiKeys(st, this.state.data.pages);
+    applyUiKeys(st, before, rowsUiAfter(before, pindex, order));
+    page.rows = order.map((i) => page.rows[i]);
+    this.setItem()
   },
   addRow(pageindex) {
     let row = clone(DEFAULT_ROW);
@@ -741,8 +811,7 @@ AppSettingsPage({
     this.setItem()
   },
   deleteRow(pindex, rindex) {
-    this.state.data.pages[pindex].rows = this.state.data.pages[pindex].rows.filter((_, ind) => ind !== rindex)
-    this.setItem()
+    this.reorderRows(pindex, withoutIndex(this.state.data.pages[pindex].rows.length, rindex))
   },
   swapRows(pindex, rindex, toindex) {
     const rows = this.state.data.pages[pindex].rows;
@@ -756,12 +825,11 @@ AppSettingsPage({
   },
   moveRow(pindex, fromIndex, toIndex) {
     const rows = this.state.data.pages[pindex].rows;
-    if (fromIndex >= rows.length || toIndex >= rows.length || fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
+    const to = Number(toIndex);
+    if (fromIndex >= rows.length || !(to >= 0) || to >= rows.length || fromIndex < 0 || fromIndex === to) {
       return;
     }
-    const rowToMove = rows.splice(fromIndex, 1)[0];
-    rows.splice(toIndex, 0, rowToMove);
-    this.setItem();
+    this.reorderRows(pindex, movedIndex(rows.length, fromIndex, to))
   },
   addButton(pageindex, rowindex) {
     let button = clone(DEFAULT_BUTTON);
@@ -935,14 +1003,14 @@ AppSettingsPage({
           // preview (default white-space:normal collapsed them onto one line).
           subStyle: { fontSize: '12px', color: COLOR_BLACK, whiteSpace: 'pre-wrap' },
           onChange: (value) => {
+            // Saved only as the watch can use it: an object with a "pages"
+            // list (the watch's own check). Anything else stays unsaved, with a
+            // message (notify: a Toast returned from here isn't drawn)
             const parsed = tryParseJSON(value);
-            if (parsed && typeof parsed === 'object') {
-              this.state.props.settingsStorage.setItem('ui_json_error', 'false');
+            if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.pages)) {
               this.state.props.settingsStorage.setItem('data', JSON.stringify(parsed));
             } else if (value && value.trim()) {
-              // A Toast returned from onChange isn't rendered; flip a flag so the
-              // Toast in build()'s tree becomes visible on the re-render.
-              this.state.props.settingsStorage.setItem('ui_json_error', 'true');
+              this.notify(parsed ? 'json_no_pages' : 'invalid_json');
             }
           }
         })
@@ -1210,12 +1278,12 @@ AppSettingsPage({
         // Not in public releases (config.js LOG_LEVEL 'off')
         logsEnabled() && logsCard,
         footer,
-        // Rendered here (not returned from the editor's onChange, where it would
-        // be ignored); shown when the JSON editor rejects invalid input.
+        // Rendered here (a Toast returned from an onChange is ignored): the
+        // message set by notify() (JSON editor, variable rename)
         Toast({
-          message: gettext('invalid_json'),
-          visible: props.settingsStorage.getItem('ui_json_error') === 'true',
-          onClose: () => this.state.props.settingsStorage.setItem('ui_json_error', 'false')
+          message: gettext(props.settingsStorage.getItem('ui_notice') || 'invalid_json'),
+          visible: !!props.settingsStorage.getItem('ui_notice'),
+          onClose: () => this.state.props.settingsStorage.removeItem('ui_notice')
         })
       ])
     }

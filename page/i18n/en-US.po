@@ -12,3 +12,5 @@ msgstr "Configuration error: the settings are not valid JSON. Please fix them in
 
 msgid "load_example"
 msgstr "Load example"
+msgid "no_pages"
+msgstr "No pages to show. Add one in the app on your phone."

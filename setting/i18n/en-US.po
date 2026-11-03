@@ -207,3 +207,18 @@ msgstr "Corner spinner"
 
 msgid "loading_hint"
 msgstr "Shown on a button while its request runs. Taps on a busy button wait their turn (up to 10)."
+
+msgid "position"
+msgstr "Position: "
+
+msgid "move_title"
+msgstr "Move to…"
+
+msgid "json_no_pages"
+msgstr "Not saved: the config needs a \"pages\" list"
+
+msgid "var_exists"
+msgstr "Not renamed: a variable with that name already exists"
+
+msgid "var_bad_name"
+msgstr "Not renamed: a variable name can't contain { or }"

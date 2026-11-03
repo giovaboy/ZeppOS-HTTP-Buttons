@@ -109,6 +109,12 @@ export const layout = {
       this.renderMessage(vm, getText('no_config'), true)
       return;
     }
+    // A config with no pages (all deleted in the settings) drew nothing at
+    // all: a black screen
+    if (!vm.state.config.pages.length) {
+      this.renderMessage(vm, getText('no_pages'), false)
+      return;
+    }
     /* BUILD UI */
     let inputText = '';
     let currentKeyboard = null;
