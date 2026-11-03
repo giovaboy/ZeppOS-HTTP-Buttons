@@ -17,8 +17,10 @@ import { LOG_KEY } from '../app-side/log.js'
 import { logsEnabled } from '../config.js'
 
 // Shown in the footer link and next to the README links. Keep in sync with
-// package.json / app.json when bumping the app version.
-const APP_VERSION = '1.6.0';
+// package.json / app.json when bumping the app version. Calendar versions
+// (since 2026.11.0, after 1.6.0): YEAR.MONTH.N, N from 0 within the month;
+// app.json version.code goes up by one at every release.
+const APP_VERSION = '2026.11.0';
 const GITHUB_URL = 'https://github.com/giovaboy/ZeppOS-HTTP-Buttons';
 
 // === UTILITY FUNCTIONS ===
