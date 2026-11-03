@@ -842,7 +842,7 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
 // (assets/*/icon.png: "HT" and "TP" round, "Buttons" orange, in the palette's
 // green, dark red and orange) in a line, without the icon's dark disc. Drawn,
 // not an image: sharp at any size, nothing to load.
-const LOGO_H = 48;   // px, the height of the three buttons
+const LOGO_H = 64;   // px, the height of the three buttons (~325 px wide in all)
 const appLogo = () => {
   const h = LOGO_H, gap = Math.round(h * 0.22) + "px";
   const label = (text) => Text({ style: { color: "white", fontSize: Math.round(h * 0.42) + "px", fontWeight: "500", lineHeight: "1" } }, [text]);
