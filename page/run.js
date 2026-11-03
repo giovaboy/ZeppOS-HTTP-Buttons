@@ -2,8 +2,9 @@
 // shows the button, runs its request like the buttons page does
 // (utils/button-request.js), shows the result and goes back to the card by
 // itself (a tap goes back at once). The button is read from the watch's copy
-// of the config: nothing to wait for before the press. Meanwhile the phone is
-// asked for its config, to keep the copy (and so the card) up to date.
+// of the config: nothing to wait for before the press. Once the result is
+// shown the phone is asked for its config, to keep the copy (and so the card)
+// up to date; asked before, it held up the press in the queue.
 // An image button: the phone sends the picture as a file, which the app hands
 // to the page registered in globalData.onIncomingFile (this one while it is
 // open, the buttons page's handler put back after); it shows full screen until
@@ -73,6 +74,7 @@ Page(
       this.pollTimers = null
       this.inFlight = 0
       this.shown = null
+      this.refreshed = false
       this.state.config = null
       this.isImage = false
       this.imageShown = false
@@ -108,7 +110,6 @@ Page(
       const page = config && config.pages && w && config.pages[w.p]
       const row = page && page.rows && page.rows[w.r]
       const button = row && row.buttons && row.buttons[w.b]
-      this.refreshCopy()
       if (!button) {
         warnLog(`[card] button ${w ? `p${w.p}r${w.r}b${w.b}` : '(no params)'} not in the watch's copy of the config`)
         return this.message(getText('run_missing'), true)
@@ -184,6 +185,8 @@ Page(
       // after (handleIncomingFile), or its failure (clearImageSpinner)
       if (this.isImage && !this.shown && !this.imageShown) return
       stopAllLoaders()
+      // Now that the press is over (asking before held it up in the queue)
+      this.refreshCopy()
       if (this.imageShown) return
       const s = this.shown
       if (LOG_TRACE) devLog(`[card] ${this.label}: done in ${Date.now() - t0}ms`)
@@ -209,6 +212,7 @@ Page(
             warnLog(`[card] ${this.label}: image not shown: ${errorText(err)}`)
           }
           this.closeAfter(IMAGE_STAY_MS)
+          this.refreshCopy()
         } else if (state === 'error' || state === 'canceled') {
           warnLog(`[card] ${this.label}: image transfer ${state} after ${Date.now() - tIn}ms`)
           try { if (file.filePath) rmSync({ path: file.filePath }) } catch (err) { /* not there */ }
@@ -249,6 +253,7 @@ Page(
     // A message instead of a run (button missing, no keyboard)
     message(text, isError) {
       this.showResult(text, 0, isError)
+      this.refreshCopy()
       this.closeAfter(closeDelay(text, isError))
     },
 
@@ -266,6 +271,8 @@ Page(
     // The phone's config, to keep the watch's copy (hence the card) up to
     // date; nothing is redrawn here
     refreshCopy() {
+      if (this.refreshed) return
+      this.refreshed = true
       const copy = readConfigCopy()
       this.request({ method: 'GET_DATA' })
         .then(({ result }) => {
