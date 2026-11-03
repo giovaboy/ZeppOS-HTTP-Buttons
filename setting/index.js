@@ -234,6 +234,31 @@ const colorSelect = (title, current, onColor) => {
   });
 }
 
+// A choice among a few options, as in zeppamp's and zhue's settings pages: one
+// button per option, the chosen one in the accent. A Select doesn't show its
+// value in its closed state (the title had to carry it) and takes two lines.
+// perRow buttons per line, sharing the width.
+const CHOICE_ACCENT = '#409EFF';  // the page's blue (Add Page, links)
+const choice = (options, chosen, onPick, perRow = options.length) => {
+  const lines = [];
+  for (let i = 0; i < options.length; i += perRow) lines.push(options.slice(i, i + perRow));
+  return View({ style: { display: 'flex', flexDirection: 'column', marginTop: '4px' } }, lines.map((line) =>
+    View({ style: { display: 'flex', flexDirection: 'row', marginTop: '6px' } }, line.map((o, i) =>
+      View({ style: { flex: 1, marginLeft: i ? '6px' : '0' } }, [
+        Button({
+          label: o.name,
+          onClick: () => { if (o.value !== chosen) onPick(o.value) },
+          style: {
+            width: '100%', fontSize: '13px', fontWeight: '500', borderRadius: '24px', padding: '6px 4px',
+            background: o.value === chosen ? CHOICE_ACCENT : '#e0e0e0',
+            color: o.value === chosen ? 'white' : '#333'
+          }
+        })
+      ])
+    ))
+  ));
+}
+
 // === LAYOUT BUILDER FUNCTIONS ===
 
 // A destructive-action control that looks like a button but is backed by a
@@ -1054,12 +1079,18 @@ AppSettingsPage({
     const globalTimeoutMs = this.state.data && this.state.data.timeout;
     const timeoutCard = Section({ style: { marginTop: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }}, [
       Text({ bold: true, align: 'left', style: { fontSize: '16px' }}, [gettext('timeout_global')]),
-      Select({
-        title: gettext('timeout') + ': ' + (globalTimeoutMs ? timeoutLabel(globalTimeoutMs) : gettext('timeout_default') + ' (' + timeoutLabel(DEFAULT_REQUEST_TIMEOUT_MS) + ')'),
-        value: globalTimeoutMs,
-        options: timeoutRange(),
-        onChange: (value) => this.editGlobalTimeout(value)
-      }),
+      // 8 choices, 4 per line ("default" is 10 s: the hint below says so;
+      // longer, it would wrap in a quarter of the width)
+      choice(
+        timeoutRange(),
+        globalTimeoutMs || undefined,
+        (value) => this.editGlobalTimeout(value),
+        4
+      ),
+      // A value set in the JSON that no button stands for
+      ...(globalTimeoutMs && !timeoutRange().some((o) => o.value === globalTimeoutMs) ? [
+        Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#333', padding: '6px 2px 0' }}, [gettext('timeout') + ': ' + timeoutLabel(globalTimeoutMs)])
+      ] : []),
       Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#666', padding: '4px 2px' }}, [gettext('timeout_hint')]),
       Link({ source: GITHUB_URL + '#async-jobs-polling', style: { fontSize: '12px', color: '#409EFF' }}, [gettext('open_readme')])
     ])
@@ -1071,15 +1102,9 @@ AppSettingsPage({
       { name: gettext('loading_corner'), value: LOADING_STYLE_CORNER },
     ]
     const currentLoading = (this.state.data && this.state.data.loading_style) || LOADING_STYLE_PULSE
-    const currentLoadingName = (loadingStyles.find((o) => o.value === currentLoading) || loadingStyles[0]).name
     const loadingCard = Section({ style: { marginTop: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }}, [
       Text({ bold: true, align: 'left', style: { fontSize: '16px' }}, [gettext('loading_style')]),
-      Select({
-        title: gettext('loading_style') + ': ' + currentLoadingName,
-        value: currentLoading,
-        options: loadingStyles,
-        onChange: (value) => this.editLoadingStyle(value)
-      }),
+      choice(loadingStyles, currentLoading, (value) => this.editLoadingStyle(value)),
       Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#666', padding: '4px 2px' }}, [gettext('loading_hint')])
     ])
 
