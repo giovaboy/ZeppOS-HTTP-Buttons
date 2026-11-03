@@ -297,6 +297,22 @@ function migrateDataIfNeeded() {
   }
 }
 
+// The watch's screen (shape, size), for the settings page's page miniatures.
+// Written only when it changes: each write rebuilds an open settings page.
+const WATCH_SCREEN_KEY = 'watch_screen'
+function saveWatchScreen(screen) {
+  try {
+    if (!screen || (screen.shape !== 'round' && screen.shape !== 'square')) return
+    const w = Math.round(Number(screen.width)), h = Math.round(Number(screen.height))
+    if (!(w >= 100 && w <= 2000 && h >= 100 && h <= 2000)) return
+    const text = JSON.stringify({ shape: screen.shape, width: w, height: h })
+    if (settingsLib.getItem(WATCH_SCREEN_KEY) !== text) {
+      settingsLib.setItem(WATCH_SCREEN_KEY, text)
+      vlog(`[cfg] watch screen: ${screen.shape} ${w}x${h}`)
+    }
+  } catch (e) { /* the miniatures keep their default */ }
+}
+
 function getData() {
   // Test mode: load the hardcoded test suite instead of the user's config.
   // The loading animation is a look, not part of the suite: the user's choice
@@ -322,6 +338,7 @@ AppSideService(
       const method = req && req.method
       try {
         if (method === 'GET_DATA') {
+          saveWatchScreen(req.params && req.params.screen)
           const data = getData()
           const what = settingsLib.getItem('test_mode') === 'true' ? 'the test suite' : (data ? 'the config' : 'no config')
           vlog(`[cfg] GET_DATA: ${what}${data ? `, ${sizeText(data.length)}` : ''}`)

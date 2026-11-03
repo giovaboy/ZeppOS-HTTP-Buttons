@@ -5,6 +5,7 @@ import { layout, LOADING_TEXT_WIDGET, LOADING_IMG_ANIM_WIDGET } from 'zosLoader:
 import { digestRequest, basicRequest, bearerRequest } from '../utils/auth-request.js'
 import { CUSTOM_TOAST, SHOW_IMAGE, DEFAULT_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS, MAX_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_RPC_MARGIN_MS, RESULT_TEXT_MAX } from '../utils/constants.js'
 import { replace } from '@zos/router'
+import { getDeviceInfo, SCREEN_SHAPE_ROUND } from '@zos/device'
 import { devLog, infoLog, warnLog, LOG_TRACE } from '../utils/remote-log.js'
 import { memoryUsage, errorText, sizeText } from '../utils/memory.js'
 import { urlForLog, authForLog, styleForLog } from '../utils/log-text.js'
@@ -63,6 +64,17 @@ function writeConfigCopy(text) {
 
 function removeConfigCopy() {
   try { if (statSync({ path: CONFIG_COPY_FILE })) rmSync({ path: CONFIG_COPY_FILE }) } catch (e) { /* not there */ }
+}
+
+// The watch's screen, sent with each GET_DATA: the settings page draws its
+// page miniatures with this shape and these proportions
+function screenInfo() {
+  try {
+    const { width, height, screenShape } = getDeviceInfo()
+    return { shape: screenShape === SCREEN_SHAPE_ROUND ? 'round' : 'square', width, height }
+  } catch (e) {
+    return undefined
+  }
 }
 
 // How long a pressed image button waits for the file once the phone has
@@ -395,7 +407,7 @@ Page(
     // the page drawn again from it, once no press is running.
     checkPhoneConfig() {
       const t0 = Date.now()
-      this.request({ method: 'GET_DATA' })
+      this.request({ method: 'GET_DATA', params: { screen: screenInfo() } })
         .then(({ result }) => {
           const ms = Date.now() - t0
           const same = result === this.cachedConfigText
@@ -519,7 +531,8 @@ Page(
     getDataFromPhone() {
       const t0 = Date.now()
       this.request({
-        method: 'GET_DATA'
+        method: 'GET_DATA',
+        params: { screen: screenInfo() }
       })
         .then(
           ({ result }) => {

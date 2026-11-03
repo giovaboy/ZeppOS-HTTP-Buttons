@@ -656,15 +656,23 @@ const buildAuthFields = (button, pindex, rindex, bindex, context) => {
 // 100 are split evenly, as the watch does), each button with its colors, text
 // and radius; a spacer is an empty slot. The names alone said nothing of the
 // sizes.
-const MINI_SCREEN = 180;              // px, the page miniature (a 480 px watch at ~0.375)
-const MINI_SCALE = MINI_SCREEN / 480;
+const MINI_SCREEN = 180;              // px, the page miniature's height
+const MINI_SCALE = MINI_SCREEN / 480; // the default: a 480 px watch
+// The watch's screen as the side service saved it (shape, width, height), or
+// null before the watch ever asked for its config
+const watchScreen = (storage) => {
+  try {
+    const s = JSON.parse(storage.getItem('watch_screen') || 'null');
+    return s && (s.shape === 'round' || s.shape === 'square') && s.width > 0 && s.height > 0 ? s : null;
+  } catch (e) { return null; }
+};
 const MINI_ROW_H = 34;                // px, the strip of a collapsed row
 const evenOver100 = (values) => {
   const nums = values.map((v) => Number(v) || 0);
   return nums.reduce((a, b) => a + b, 0) > 100 ? nums.map(() => 100 / nums.length) : nums;
 };
 const colorOr = (c, fallback) => toColor(c !== undefined && c !== null && c !== '' ? Number(c) : fallback);
-const miniButtons = (row) => {
+const miniButtons = (row, scale = MINI_SCALE) => {
   const buttons = (row && row.buttons) || [];
   const widths = evenOver100(buttons.map((b) => b.w));
   return buttons.map((b, i) => View({ style: { width: widths[i] + '%', flex: '0 0 ' + widths[i] + '%', height: '100%', padding: '1px', boxSizing: 'border-box' } },
@@ -673,7 +681,7 @@ const miniButtons = (row) => {
         width: '100%', height: '100%', boxSizing: 'border-box', overflow: 'hidden',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: colorOr(b.back_color, COLOR_GRAY),
-        borderRadius: Math.round((b.radius != null ? Number(b.radius) : BTN_RADIUS) * MINI_SCALE) + 'px'
+        borderRadius: Math.round((b.radius != null ? Number(b.radius) : BTN_RADIUS) * scale) + 'px'
       } }, [
         Text({ style: { fontSize: '9px', lineHeight: '11px', color: colorOr(b.text_color, COLOR_WHITE), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 2px' } }, [b.text || ''])
       ])
@@ -746,21 +754,27 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
 };
 
 // A collapsed page: a small screen with its title and rows (the title takes
-// 50 of 480 px on the watch)
-const buildPageSummary = (page) => {
+// 50 px on the watch). With the watch's screen known: a circle for a round
+// one (the corners cut, as on the watch), its proportions for a square one
+// (e.g. 390x450); else a rounded square.
+const buildPageSummary = (page, screen) => {
   const rows = page.rows || [];
   const heights = evenOver100(rows.map((r) => r.h));
-  const titleH = page.title ? Math.round(50 * MINI_SCALE) : 0;
+  const H = MINI_SCREEN;
+  const W = screen ? Math.round(MINI_SCREEN * screen.width / screen.height) : MINI_SCREEN;
+  const scale = screen ? H / screen.height : MINI_SCALE;
+  const round = !!screen && screen.shape === 'round';
+  const titleH = page.title ? Math.round(50 * scale) : 0;
   return View({ style: { display: 'flex', justifyContent: 'center', padding: '6px 0 2px' } }, [
     View({ style: {
-      width: MINI_SCREEN + 'px', height: MINI_SCREEN + 'px', borderRadius: '12px', overflow: 'hidden',
+      width: W + 'px', height: H + 'px', borderRadius: round ? '50%' : (screen ? '16px' : '12px'), overflow: 'hidden',
       display: 'flex', flexDirection: 'column', background: colorOr(page.back_color, COLOR_BLACK), border: '1px solid #bbb'
     } }, [
       ...(page.title ? [
         Text({ align: 'center', style: { height: titleH + 'px', lineHeight: titleH + 'px', fontSize: '11px', fontWeight: '600', color: colorOr(page.text_color, COLOR_WHITE), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 4px', flex: '0 0 ' + titleH + 'px' } }, [page.title])
       ] : []),
       View({ style: { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 } },
-        rows.map((row, i) => View({ style: { height: heights[i] + '%', flex: '0 0 ' + heights[i] + '%', display: 'flex', flexDirection: 'row', padding: '0 2px', boxSizing: 'border-box' } }, miniButtons(row))))
+        rows.map((row, i) => View({ style: { height: heights[i] + '%', flex: '0 0 ' + heights[i] + '%', display: 'flex', flexDirection: 'row', padding: '0 2px', boxSizing: 'border-box' } }, miniButtons(row, scale))))
     ])
   ]);
 };
@@ -1438,7 +1452,7 @@ AppSettingsPage({
             ])
           );
         } else {
-          pageChildren.push(buildPageSummary(page));
+          pageChildren.push(buildPageSummary(page, watchScreen(props.settingsStorage)));
         }
         contentItems.push(
           Section({ style: { marginBottom: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }}, pageChildren)
