@@ -1,14 +1,13 @@
 // The shortcut card's buttons: the ones marked "card": true in the config
 // (settings: "Show on card"), in the config's order, at most CARD_MAX. Spacers
-// and image buttons can't go on it (an image's file transfer belongs to the
-// buttons page). Plain JS, no @zos imports: the settings page uses it too.
-import { SHOW_IMAGE } from './constants.js'
+// can't go on it (nothing to press). Image buttons can: page/run receives the
+// picture. Plain JS, no @zos imports: the settings page uses it too.
 
 export const CARD_MAX = 6
 
 // A button that may go on the card
 export function cardAllowed(button) {
-  return !!button && !button.spacer && Number(button.request && button.request.response_style) !== SHOW_IMAGE
+  return !!button && !button.spacer
 }
 
 // [{ p, r, b, button }] of the card's buttons

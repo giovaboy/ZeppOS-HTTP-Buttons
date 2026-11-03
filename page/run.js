@@ -4,8 +4,13 @@
 // itself (a tap goes back at once). The button is read from the watch's copy
 // of the config: nothing to wait for before the press. Meanwhile the phone is
 // asked for its config, to keep the copy (and so the card) up to date.
+// An image button: the phone sends the picture as a file, which the app hands
+// to the page registered in globalData.onIncomingFile (this one while it is
+// open, the buttons page's handler put back after); it shows full screen until
+// a tap, or IMAGE_STAY_MS.
 import { BasePage } from '@zeppos/zml/base-page'
-import { createWidget, widget, align, text_style, prop } from '@zos/ui'
+import { createWidget, widget, align, text_style, prop, event } from '@zos/ui'
+import { rmSync } from '@zos/fs'
 import { getDeviceInfo, SCREEN_SHAPE_ROUND } from '@zos/device'
 import { back } from '@zos/router'
 import { getText } from '@zos/i18n'
@@ -14,7 +19,7 @@ import { readConfigCopy, writeConfigCopy } from '../utils/config-copy.js'
 import { startLoader, stopAllLoaders, loadingStyle } from '../utils/button-loader.js'
 import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard.js'
 import { cardAllowed } from '../utils/card.js'
-import { BTN_RADIUS, COLOR_BLACK, COLOR_GRAY, COLOR_WHITE, NO_NOTIFICATION } from '../utils/constants.js'
+import { BTN_RADIUS, COLOR_BLACK, COLOR_GRAY, COLOR_WHITE, NO_NOTIFICATION, SHOW_IMAGE } from '../utils/constants.js'
 import { infoLog, warnLog, devLog, LOG_TRACE } from '../utils/remote-log.js'
 import { errorText } from '../utils/memory.js'
 
@@ -39,6 +44,8 @@ const COLOR_DIM = 0x9e9e9e
 // How long the result stays before going back: a short "done", or a time
 // that grows with the text (a tap goes back at once)
 const DONE_MS = 1000
+// A picture is looked at: it stays until a tap, at most this long
+const IMAGE_STAY_MS = 30000
 const closeDelay = (text, isError) =>
   Math.min(8000, 2500 + 40 * String(text || '').length) + (isError ? 1500 : 0)
 
@@ -67,6 +74,18 @@ Page(
       this.inFlight = 0
       this.shown = null
       this.state.config = null
+      this.isImage = false
+      this.imageShown = false
+      this.imageWaitTimer = null
+      this.pendingImageRun = null
+      // Files pushed by the phone come here while this page is open; the
+      // handler before (the buttons page's, if it is open below) comes back
+      // in onDestroy
+      this.fileHandler = (file) => this.handleIncomingFile(file)
+      if (this.globalData) {
+        this.prevFileHandler = this.globalData.onIncomingFile
+        this.globalData.onIncomingFile = this.fileHandler
+      }
     },
 
     build() {
@@ -132,6 +151,7 @@ Page(
 
     fire(button, input) {
       const t0 = Date.now()
+      this.isImage = Number(button.request && button.request.response_style) === SHOW_IMAGE
       this.status.setProperty(prop.TEXT, getText('run_sending'))
       startLoader(loadingStyle(this.state.config), this.rect, this.rect.back)
       let p
@@ -160,13 +180,73 @@ Page(
     },
 
     finished(t0) {
+      // An image: the phone only said it has the picture; the file comes
+      // after (handleIncomingFile), or its failure (clearImageSpinner)
+      if (this.isImage && !this.shown && !this.imageShown) return
       stopAllLoaders()
+      if (this.imageShown) return
       const s = this.shown
       if (LOG_TRACE) devLog(`[card] ${this.label}: done in ${Date.now() - t0}ms`)
       this.closeAfter(!s ? DONE_MS : (s.quiet ? DONE_MS : closeDelay(s.text, s.isError)))
     },
 
-    // A message instead of a run (button missing, image button, no keyboard)
+    // The picture's file, pushed by the phone: wait for it to be written
+    // (readyState "transferred"), then show it full screen
+    handleIncomingFile(file) {
+      if (!file) return
+      const tIn = Date.now()
+      if (LOG_TRACE) devLog(`[card] ${this.label}: image incoming${file.fileSize ? ', ' + file.fileSize + ' B' : ''}`)
+      file.on('change', (e) => {
+        const state = e && e.data && e.data.readyState
+        if (state === 'transferred') {
+          if (this.closed) return
+          this.imageShown = true
+          this.clearImageSpinner()
+          try {
+            this.showImage(file.filePath)
+            infoLog(`[card] ${this.label}: image shown, ${Date.now() - tIn}ms after it started to arrive`)
+          } catch (err) {
+            warnLog(`[card] ${this.label}: image not shown: ${errorText(err)}`)
+          }
+          this.closeAfter(IMAGE_STAY_MS)
+        } else if (state === 'error' || state === 'canceled') {
+          warnLog(`[card] ${this.label}: image transfer ${state} after ${Date.now() - tIn}ms`)
+          try { if (file.filePath) rmSync({ path: file.filePath }) } catch (err) { /* not there */ }
+          this.clearImageSpinner()
+        }
+      })
+    },
+
+    // The image's wait is over (shown, failed, or timed out): the animation
+    // stops; without a picture, the error stays a moment (the module may show
+    // its own just after this)
+    clearImageSpinner() {
+      if (this.imageWaitTimer) { clearTimeout(this.imageWaitTimer); this.imageWaitTimer = null }
+      stopAllLoaders()
+      if (this.imageShown) return
+      if (!this.shown) this.showResult(getText('run_no_image'), 0, true)
+      this.closeAfter(closeDelay(this.shown.text, true))
+    },
+
+    // Full screen, scaled to fit and centered, as on the buttons page; a tap
+    // on it goes back
+    showImage(filePath) {
+      const bg = createWidget(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: COLOR_BLACK, alpha: 255 })
+      const img = createWidget(widget.IMG, { x: 0, y: 0, src: filePath })
+      const iw = img.getProperty(prop.W), ih = img.getProperty(prop.H)
+      if (iw > 0 && ih > 0) {
+        const scale = Math.min(W / iw, H / ih)
+        const w = Math.round(iw * scale), h = Math.round(ih * scale)
+        img.setProperty(prop.MORE, { x: Math.round((W - w) / 2), y: Math.round((H - h) / 2), w, h, auto_scale: true, auto_scale_obj_fit: true })
+        if (LOG_TRACE) devLog(`[card] ${this.label}: image ${iw}x${ih} drawn at ${w}x${h}`)
+      } else {
+        img.setProperty(prop.MORE, { x: 0, y: 0, w: W, h: H, auto_scale: true, auto_scale_obj_fit: false })
+      }
+      bg.addEventListener(event.CLICK_DOWN, () => this.close())
+      img.addEventListener(event.CLICK_DOWN, () => this.close())
+    },
+
+    // A message instead of a run (button missing, no keyboard)
     message(text, isError) {
       this.showResult(text, 0, isError)
       this.closeAfter(closeDelay(text, isError))
@@ -200,6 +280,11 @@ Page(
 
     onDestroy() {
       if (this.closeTimer) { clearTimeout(this.closeTimer); this.closeTimer = null }
+      if (this.imageWaitTimer) { clearTimeout(this.imageWaitTimer); this.imageWaitTimer = null }
+      // The files go back to the handler there was before (the buttons page's)
+      if (this.globalData && this.globalData.onIncomingFile === this.fileHandler) {
+        this.globalData.onIncomingFile = this.prevFileHandler || null
+      }
       stopAllLoaders()
       // Stop a poll still running, log out a session kept for later
       this.pollsCancelled = true

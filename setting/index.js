@@ -617,8 +617,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
                 (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex))
             ] : [])
           ]),
-          // On the watch's shortcut card (app-widget/index.js), up to CARD_MAX;
-          // not for image buttons (their file transfer needs the buttons page)
+          // On the watch's shortcut card (app-widget/index.js), up to CARD_MAX
           ...(cardAllowed(button) ? [
             View({ style: { marginTop: '6px' } }, [
               Toggle({
@@ -628,9 +627,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
                 onChange: (value) => context.setOnCard(pindex, rindex, bindex, value)
               })
             ])
-          ] : [
-            Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#888', padding: '6px 2px 0' } }, [gettext('card_no_image')])
-          ])
+          ] : [])
         ])
       ])
       ]) // ---- end of the open card ----

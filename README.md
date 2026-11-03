@@ -126,7 +126,7 @@ One request runs at a time per button: tapping a button that is still busy queue
 
 Up to 6 buttons can also sit on the app's **shortcut card**, among the cards beside the watch face. In the settings, open a button and switch on **Show on the watch card**; a collapsed button card then says "on card". Add the card from the watch's list of cards (it is called HTTP-Buttons).
 
-A tap on a button of the card shows it, runs it like the app does (variables, authentication, sessions, polling, the typed text of an input button) and shows the result for a moment, then goes back to the card by itself; a tap goes back at once. The card draws itself from the copy of the config the watch keeps, so open the app once after installing it. Image buttons can't go on the card. In the JSON, a card button has `"card": true`.
+A tap on a button of the card shows it, runs it like the app does (variables, authentication, sessions, polling, the typed text of an input button) and shows the result for a moment, then goes back to the card by itself; a tap goes back at once. An image button shows its picture full screen until a tap (at most 30 s). The card draws itself from the copy of the config the watch keeps, so open the app once after installing it. In the JSON, a card button has `"card": true`.
 
 ### Image Display
 

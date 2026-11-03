@@ -268,8 +268,5 @@ msgstr "Show on the watch card"
 msgid "on_card"
 msgstr "on card"
 
-msgid "card_no_image"
-msgstr "Image buttons can't go on the watch card."
-
 msgid "card_full"
 msgstr "The watch card holds 6 buttons: take one off first"

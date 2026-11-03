@@ -35,3 +35,6 @@ msgstr "Open the app once, then choose buttons for this card in the phone settin
 
 msgid "card_open_app"
 msgstr "Open the app"
+
+msgid "run_no_image"
+msgstr "The picture didn't arrive."
