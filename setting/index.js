@@ -50,19 +50,29 @@ const unmark = (value, ...markers) => {
   return markers.some((m) => v === gettext(m)) ? '' : v;
 }
 
-// The open pages and rows (keys ui_page_<p> / ui_row_<p>_<r> = 'true', by
-// position). When pages or rows are deleted or moved, their state moves with
+// The open pages, rows and buttons (keys ui_page_<p> / ui_row_<p>_<r> /
+// ui_btn_<p>_<r>_<b> = 'true', by position). When pages or rows are deleted or moved, their state moves with
 // them: by position alone the next page inherited a deleted page's state, and
 // keys of deleted pages lingered.
 function openUiKeys(storage, pages) {
   const open = new Set();
   (pages || []).forEach((pg, p) => {
     if (storage.getItem('ui_page_' + p) === 'true') open.add('ui_page_' + p);
-    ((pg && pg.rows) || []).forEach((_, r) => {
+    ((pg && pg.rows) || []).forEach((row, r) => {
       if (storage.getItem('ui_row_' + p + '_' + r) === 'true') open.add('ui_row_' + p + '_' + r);
+      ((row && row.buttons) || []).forEach((_, b) => {
+        if (storage.getItem('ui_btn_' + p + '_' + r + '_' + b) === 'true') open.add('ui_btn_' + p + '_' + r + '_' + b);
+      });
     });
   });
   return open;
+}
+// The open buttons of a row, moved from row (p, r) to row (np, nr)
+function moveRowButtons(before, after, pages, p, r, np, nr) {
+  const row = pages[p] && pages[p].rows && pages[p].rows[r];
+  ((row && row.buttons) || []).forEach((_, b) => {
+    if (before.has('ui_btn_' + p + '_' + r + '_' + b)) after.add('ui_btn_' + np + '_' + nr + '_' + b);
+  });
 }
 // Write only what changes (each write rebuilds the page)
 function applyUiKeys(storage, before, after) {
@@ -76,14 +86,24 @@ function pagesUiAfter(before, pages, order) {
     if (before.has('ui_page_' + oldP)) after.add('ui_page_' + newP);
     ((pages[oldP] && pages[oldP].rows) || []).forEach((_, r) => {
       if (before.has('ui_row_' + oldP + '_' + r)) after.add('ui_row_' + newP + '_' + r);
+      moveRowButtons(before, after, pages, oldP, r, newP, r);
     });
   });
   return after;
 }
-function rowsUiAfter(before, pindex, order) {
-  const prefix = 'ui_row_' + pindex + '_';
+function rowsUiAfter(before, pages, pindex, order) {
+  const rowPrefix = 'ui_row_' + pindex + '_', btnPrefix = 'ui_btn_' + pindex + '_';
+  const after = new Set([...before].filter((k) => !k.startsWith(rowPrefix) && !k.startsWith(btnPrefix)));
+  order.forEach((oldR, newR) => {
+    if (before.has(rowPrefix + oldR)) after.add(rowPrefix + newR);
+    moveRowButtons(before, after, pages, pindex, oldR, pindex, newR);
+  });
+  return after;
+}
+function buttonsUiAfter(before, pindex, rindex, order) {
+  const prefix = 'ui_btn_' + pindex + '_' + rindex + '_';
   const after = new Set([...before].filter((k) => !k.startsWith(prefix)));
-  order.forEach((oldR, newR) => { if (before.has(prefix + oldR)) after.add(prefix + newR); });
+  order.forEach((oldB, newB) => { if (before.has(prefix + oldB)) after.add(prefix + newB); });
   return after;
 }
 // [0..n-1] without one index, or with one index moved to another
@@ -211,6 +231,19 @@ const colors = () => {
   ];
 }
 
+const responseStyles = () => [
+  { name: gettext('system_toast'), value: SYSTEM_TOAST },
+  { name: gettext('custom_toast'), value: CUSTOM_TOAST },
+  { name: gettext('no_notification'), value: NO_NOTIFICATION },
+  { name: gettext('system_modal'), value: SYSTEM_MODAL },
+  { name: gettext('show_image'), value: SHOW_IMAGE }
+];
+const responseStyleName = (style) => {
+  if (style === undefined || style === null || style === '') return gettext('system_toast');
+  const o = responseStyles().find((x) => x.value === Number(style));
+  return o ? o.name : String(style);
+};
+
 const keyboardTypes = () => {
   return [
     { name: gettext('kb_char'), value: KB_TYPE_CHAR },
@@ -292,8 +325,20 @@ const FIELD_MIN_H = '64px';
 const fieldCell = (child) => View({ style: { minHeight: FIELD_MIN_H, display: 'flex', flexDirection: 'column', justifyContent: 'center' } }, [child]);
 const fieldCol = (children) => View({ style: { flex: 1 } }, children.map(fieldCell));
 
+// What a collapsed button card shows under its preview: what it does
+const buttonSummary = (button) => {
+  if (button.spacer) return gettext('is_spacer') + ' · ' + gettext('w') + button.w;
+  const r = button.request || {};
+  return (r.method || 'GET') + ' ' + (r.url || '—');
+};
+
+// A button's card. Collapsed by default (ui_btn_<p>_<r>_<b>): the preview, what
+// the button does, delete and the chevron; open: every field. With every field
+// always shown, two buttons already made the page very long (seen on the phone).
 const buildButtonView = (button, pindex, rindex, bindex, context) => {
   const buttonsInRow = context.state.data.pages[pindex].rows[rindex].buttons.length;
+  const openKey = 'ui_btn_' + pindex + '_' + rindex + '_' + bindex;
+  const open = context.state.props.settingsStorage.getItem(openKey) === 'true';
   return View(
     {
       style: {
@@ -331,8 +376,18 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
             }
           })
         ]),
-        deleteConfirm(gettext('delete_button'), '#db2c2c', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || ''), icon: '×', style: { marginLeft: '4px', flexShrink: 0 } })
+        deleteConfirm(gettext('delete_button'), '#db2c2c', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || ''), icon: '×', style: { marginLeft: '4px', flexShrink: 0 } }),
+        Button({
+          label: open ? '▾' : '◂',
+          style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px', flexShrink: 0 },
+          onClick: () => context.state.props.settingsStorage.setItem(openKey, open ? 'false' : 'true')
+        })
       ]),
+      // Collapsed: one line saying what the button does, and nothing else
+      ...(!open ? [
+        Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#555', padding: '4px 4px 0', wordBreak: 'break-all' } }, [buttonSummary(button)])
+      ] : [
+      // ---- open: every field ----
       // Position in the row, on its own line: beside the preview it slid under
       // the delete × (seen on the phone), and with no title it read as an
       // empty field. Its title says where the button is.
@@ -411,7 +466,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
               onChange: (value) => context.editButton('input', value, pindex, rindex, bindex)
             }),
             ...(button.input ? [Select({
-              title: gettext('keyboard_type'),
+              title: gettext('keyboard_type') + ': ' + ((keyboardTypes().find((o) => o.value === Number(button.keyboard_type || KB_TYPE_CHAR)) || keyboardTypes()[0]).name),
               value: button.keyboard_type || KB_TYPE_CHAR,
               options: keyboardTypes(),
               onChange: (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex)
@@ -471,20 +526,17 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
               }
             }),
             Select({
-              title: gettext('response_style'),
+              // The choice in the title (a Select shows nothing closed). No
+              // style set: the watch shows a system toast
+              title: gettext('response_style') + ': ' + responseStyleName(button.request.response_style),
               value: button.request.response_style,
-              options: [
-                { name: gettext('system_toast'), value: SYSTEM_TOAST },
-                { name: gettext('custom_toast'), value: CUSTOM_TOAST },
-                { name: gettext('no_notification'), value: NO_NOTIFICATION },
-                { name: gettext('system_modal'), value: SYSTEM_MODAL },
-                { name: gettext('show_image'), value: SHOW_IMAGE }
-              ],
+              options: responseStyles(),
               onChange: (value) => context.editButton('response_style', value, pindex, rindex, bindex)
             })
           ])
         ])
       ])
+      ]) // ---- end of the open card ----
     ]
   );
 };
@@ -818,7 +870,7 @@ AppSettingsPage({
     const st = this.state.props.settingsStorage;
     const page = this.state.data.pages[pindex];
     const before = openUiKeys(st, this.state.data.pages);
-    applyUiKeys(st, before, rowsUiAfter(before, pindex, order));
+    applyUiKeys(st, before, rowsUiAfter(before, this.state.data.pages, pindex, order));
     page.rows = order.map((i) => page.rows[i]);
     this.setItem()
   },
@@ -858,7 +910,10 @@ AppSettingsPage({
   },
   addButton(pageindex, rowindex) {
     let button = clone(DEFAULT_BUTTON);
-    this.state.data.pages[pageindex].rows[rowindex].buttons.push(button);
+    const buttons = this.state.data.pages[pageindex].rows[rowindex].buttons;
+    buttons.push(button);
+    // Open, to be edited (buttons are collapsed by default)
+    this.state.props.settingsStorage.setItem('ui_btn_' + pageindex + '_' + rowindex + '_' + (buttons.length - 1), 'true');
     this.setItem()
   },
   editButton(prop, val, pindex, rindex, bindex) {
@@ -901,15 +956,22 @@ AppSettingsPage({
   },
   moveButton(pindex, rindex, fromIndex, toIndex) {
     const buttons = this.state.data.pages[pindex].rows[rindex].buttons;
-    if (fromIndex >= buttons.length || toIndex >= buttons.length || fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) {
+    const to = Number(toIndex);
+    if (fromIndex >= buttons.length || !(to >= 0) || to >= buttons.length || fromIndex < 0 || fromIndex === to) {
       return;
     }
-    const buttonToMove = buttons.splice(fromIndex, 1)[0];
-    buttons.splice(toIndex, 0, buttonToMove);
-    this.setItem();
+    this.reorderButtons(pindex, rindex, movedIndex(buttons.length, fromIndex, to))
   },
   deleteButton(pindex, rindex, bindex) {
-    this.state.data.pages[pindex].rows[rindex].buttons = this.state.data.pages[pindex].rows[rindex].buttons.filter((_, ind) => ind !== bindex)
+    this.reorderButtons(pindex, rindex, withoutIndex(this.state.data.pages[pindex].rows[rindex].buttons.length, bindex))
+  },
+  // The buttons of a row in `order` (old indexes), their open state with them
+  reorderButtons(pindex, rindex, order) {
+    const st = this.state.props.settingsStorage;
+    const row = this.state.data.pages[pindex].rows[rindex];
+    const before = openUiKeys(st, this.state.data.pages);
+    applyUiKeys(st, before, buttonsUiAfter(before, pindex, rindex, order));
+    row.buttons = order.map((i) => row.buttons[i]);
     this.setItem()
   },
   setItem() {
