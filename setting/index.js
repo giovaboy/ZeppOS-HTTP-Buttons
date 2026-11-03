@@ -838,31 +838,25 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
   );
 };
 
-// The app's logo, drawn like the miniatures: the icon (assets/*/icon.png) is
-// three of the app's own buttons on a dark disc, "HT" and "TP" round and
-// "Buttons" orange, in the palette's green, dark red and orange. Drawn, not an
-// image: sharp at any size, nothing to load.
-const LOGO_SIZE = 150;
+// The app's logo, drawn like the miniatures: the icon's three buttons
+// (assets/*/icon.png: "HT" and "TP" round, "Buttons" orange, in the palette's
+// green, dark red and orange) in a line, without the icon's dark disc. Drawn,
+// not an image: sharp at any size, nothing to load.
+const LOGO_H = 48;   // px, the height of the three buttons
 const appLogo = () => {
-  const d = LOGO_SIZE, dot = Math.round(d * 0.285);
-  const round = (label, color) => View({ style: {
-    width: dot + 'px', height: dot + 'px', borderRadius: '50%', background: toColor(color),
-    display: 'flex', alignItems: 'center', justifyContent: 'center'
-  } }, [Text({ style: { color: 'white', fontSize: Math.round(d * 0.115) + 'px', fontWeight: '500', lineHeight: '1' } }, [label])]);
-  return View({ style: {
-    width: d + 'px', height: d + 'px', borderRadius: '50%', background: '#333333',
-    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
-  } }, [
-    View({ style: { display: 'flex', flexDirection: 'row' } }, [
-      round('HT', COLOR_GREEN),
-      View({ style: { width: Math.round(d * 0.11) + 'px' } }, []),
-      round('TP', COLOR_RED)
-    ]),
+  const h = LOGO_H, gap = Math.round(h * 0.22) + "px";
+  const label = (text) => Text({ style: { color: "white", fontSize: Math.round(h * 0.42) + "px", fontWeight: "500", lineHeight: "1" } }, [text]);
+  const round = (text, color, first) => View({ style: {
+    width: h + "px", height: h + "px", borderRadius: "50%", background: toColor(color), marginLeft: first ? "0" : gap,
+    display: "flex", alignItems: "center", justifyContent: "center"
+  } }, [label(text)]);
+  return View({ style: { display: "flex", flexDirection: "row", alignItems: "center", justifyContent: "center" } }, [
+    round("HT", COLOR_GREEN, true),
+    round("TP", COLOR_RED, false),
     View({ style: {
-      marginTop: Math.round(d * 0.07) + 'px', width: Math.round(d * 0.74) + 'px', height: Math.round(d * 0.235) + 'px',
-      borderRadius: Math.round(d * 0.045) + 'px', background: toColor(COLOR_ORANGE),
-      display: 'flex', alignItems: 'center', justifyContent: 'center'
-    } }, [Text({ style: { color: 'white', fontSize: Math.round(d * 0.14) + 'px', fontWeight: '500', lineHeight: '1' } }, ['Buttons'])])
+      marginLeft: gap, height: h + "px", padding: "0 " + Math.round(h * 0.35) + "px", borderRadius: Math.round(h * 0.2) + "px",
+      background: toColor(COLOR_ORANGE), display: "flex", alignItems: "center", justifyContent: "center"
+    } }, [Text({ style: { color: "white", fontSize: Math.round(h * 0.5) + "px", fontWeight: "500", lineHeight: "1" } }, ["Buttons"])])
   ]);
 };
 
