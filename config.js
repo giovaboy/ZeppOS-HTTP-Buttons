@@ -13,7 +13,7 @@ export const DEV = false
 //   'off'   PUBLIC RELEASES: nothing is logged, no line goes to the phone, and
 //           the settings page has no Logs box. A user with a problem reports
 //           it; one willing to help gets a test build with the logs on
-export const LOG_LEVEL = 'off'
+export const LOG_LEVEL = 'trace'
 
 const LEVELS = { trace: 0, info: 1, warn: 2, off: 3 }
 
