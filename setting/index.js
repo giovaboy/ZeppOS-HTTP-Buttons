@@ -842,7 +842,7 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
 // three of the app's own buttons on a dark disc, "HT" and "TP" round and
 // "Buttons" orange, in the palette's green, dark red and orange. Drawn, not an
 // image: sharp at any size, nothing to load.
-const LOGO_SIZE = 112;
+const LOGO_SIZE = 150;
 const appLogo = () => {
   const d = LOGO_SIZE, dot = Math.round(d * 0.285);
   const round = (label, color) => View({ style: {
@@ -1123,12 +1123,11 @@ AppSettingsPage({
     const contentVariables = []
 
     // Welcome text
-    // Header: the app's logo, its name, what the page is for
+    // Header: the app's logo (it carries the name: no title under it) and
+    // what the page is for
     const welcomeText = View({ style: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 10px 8px' }}, [
       appLogo(),
-      Text({ bold: true, align: 'center', paragraph: true, style: { fontSize: '28px', marginTop: '10px' }},
-        [gettext('title_text')]),
-      Text({ bold: false, align: 'center', paragraph: true, style: { fontSize: '14px', color: '#555', padding: '6px 4px 0' }},
+      Text({ bold: false, align: 'center', paragraph: true, style: { fontSize: '14px', color: '#555', padding: '12px 4px 0' }},
         [gettext('welcome_text')])
     ])
 
