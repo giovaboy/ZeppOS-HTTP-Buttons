@@ -362,28 +362,46 @@ const textField = (label, value, placeholderKey, max, oldMarker, onValue, { secr
 
 // === LAYOUT BUILDER FUNCTIONS ===
 
-// A destructive-action control that looks like a button but is backed by a
-// disabled TextInput: tapping opens the framework's native dialog, and the
-// delete (onConfirm) only fires after the user confirms. A real Button would
-// delete on the first tap with no confirmation (see the note on clearBTN).
-const deleteConfirm = (label, background, onConfirm, { name, style, icon } = {}) => {
-  // Confirm dialog always names the element, e.g. Delete Button "ON/OFF"?.
-  // Styled to match the round "+" add button (same 32px circle / 20px glyph); a
-  // TextInput is used rather than a Button because tapping must ask for
-  // confirmation via its placeholder before firing onConfirm.
-  const placeholder = label + (name ? ' "' + name + '"' : '') + '?';
-  return View({ style: { fontSize: '20px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '50%', background, color: 'white', textAlign: 'center', padding: '0', ...style } }, [
-    TextInput({
-      label: icon || label,
-      labelStyle: { textAlign: 'center', fontSize: '20px', fontWeight: '700', lineHeight: '32px', padding: '0', margin: '0', color: 'white' },
-      subStyle: { display: 'none' },
-      disabled: true,
-      placeholder,
-      value: undefined,
-      onChange: () => onConfirm()
-    })
-  ]);
-};
+// Destructive actions take two taps, as in zeppamp's and zhue's settings pages:
+// the first stores what is asked (ui_confirm = an id), the page is built again
+// with the question in red and the action + Cancel side by side, the second
+// runs it. One question at a time; tapping the × again, Cancel, or any save
+// (setItem) clears it. Replaces the disabled TextInput that opened the system's
+// text-input dialog to ask, with OK on a field nobody types in.
+const CONFIRM_KEY = 'ui_confirm';
+const askingFor = (context, id) => context.state.props.settingsStorage.getItem(CONFIRM_KEY) === id;
+// The round red ×: asks (or, asked already, takes the question back)
+const deleteX = (context, id, style = {}) => Button({
+  label: '×',
+  style: { fontSize: '20px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '50%', background: '#db2c2c', color: 'white', padding: '0', flexShrink: 0, ...style },
+  onClick: () => {
+    const st = context.state.props.settingsStorage;
+    if (askingFor(context, id)) st.removeItem(CONFIRM_KEY); else st.setItem(CONFIRM_KEY, id);
+  }
+});
+// The question, shown under what it is about while it is asked
+const confirmBar = (context, id, question, actionLabel, run) => !askingFor(context, id) ? [] : [
+  View({ style: { display: 'flex', flexDirection: 'column', margin: '6px 0', padding: '8px', background: '#fdecea', border: '1px solid #f5c2c0', borderRadius: '8px' } }, [
+    Text({ paragraph: true, style: { fontSize: '14px', color: '#b3261e', fontWeight: '600' } }, [question]),
+    View({ style: { display: 'flex', flexDirection: 'row', marginTop: '8px' } }, [
+      View({ style: { flex: 1 } }, [
+        Button({
+          label: actionLabel,
+          style: { width: '100%', fontSize: '14px', fontWeight: '600', borderRadius: '24px', background: '#db2c2c', color: 'white' },
+          onClick: () => { context.state.props.settingsStorage.removeItem(CONFIRM_KEY); run(); }
+        })
+      ]),
+      View({ style: { flex: 1, marginLeft: '8px' } }, [
+        Button({
+          label: gettext('cancel'),
+          style: { width: '100%', fontSize: '14px', fontWeight: '600', borderRadius: '24px', background: '#e0e0e0', color: '#333' },
+          onClick: () => context.state.props.settingsStorage.removeItem(CONFIRM_KEY)
+        })
+      ])
+    ])
+  ])
+];
+const quoted = (name) => name ? ' "' + name + '"' : '';
 
 // Two-column form controls have different intrinsic heights (the radius slider
 // is taller than the selects), so the two columns drift out of alignment. Wrap
@@ -460,13 +478,16 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
             }
           })
         ]),
-        deleteConfirm(gettext('delete_button'), '#db2c2c', () => context.deleteButton(pindex, rindex, bindex), { name: button.spacer ? gettext('**SPACER**') : (button.text || ''), icon: '×', style: { marginLeft: '4px', flexShrink: 0 } }),
+        deleteX(context, 'btn:' + pindex + ':' + rindex + ':' + bindex, { marginLeft: '4px' }),
         Button({
           label: open ? '▾' : '◂',
           style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px', flexShrink: 0 },
           onClick: () => context.state.props.settingsStorage.setItem(openKey, open ? 'false' : 'true')
         })
       ]),
+      ...confirmBar(context, 'btn:' + pindex + ':' + rindex + ':' + bindex,
+        gettext('delete_button') + quoted(button.spacer ? gettext('is_spacer') : button.text) + '?', gettext('delete_action'),
+        () => context.deleteButton(pindex, rindex, bindex)),
       // Collapsed: one line saying what the button does, and nothing else
       ...(!open ? [
         Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#555', padding: '4px 4px 0', wordBreak: 'break-all' } }, [buttonSummary(button)]),
@@ -714,7 +735,7 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
         style: { fontSize: '20px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '50%', background: '#ababab', color: 'white', padding: '0', marginLeft: '4px' },
         onClick: () => context.addButton(pindex, rindex)
       }),
-      deleteConfirm(gettext('delete_row'), '#db2c2c', () => context.deleteRow(pindex, rindex), { name: String(rindex + 1), icon: '×', style: { marginLeft: '4px' } }),
+      deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
       // Expand/collapse chevron. A Button (not a switch) so its arrow always
       // reflects the real state — ▾ open, ▸ collapsed.
       Button({
@@ -798,7 +819,7 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
           ] : [])
         ]),
         // Delete page — always visible (even when the page is collapsed).
-        deleteConfirm(gettext('delete_page'), '#db2c2c', () => context.deletePage(pindex), { name: page.title || String(pindex + 1), icon: '×', style: { marginLeft: '4px' } }),
+        deleteX(context, 'page:' + pindex, { marginLeft: '4px' }),
         Button({
           label: pageOpen ? '▾' : '◂',
           style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
@@ -1034,7 +1055,10 @@ AppSettingsPage({
   },
   setItem() {
     const newString = JSON.stringify(this.state.data)
-    this.state.props.settingsStorage.setItem('data', newString)
+    const st = this.state.props.settingsStorage
+    // A question still asked is about a position that may have changed
+    if (st.getItem(CONFIRM_KEY)) st.removeItem(CONFIRM_KEY)
+    st.setItem('data', newString)
   },
   setState(props) {
     this.state.props = props
@@ -1112,16 +1136,14 @@ AppSettingsPage({
     // ("delete storage?"), and onChange only fires once the user confirms.
     // A real Button would delete immediately with no confirmation — which we
     // don't want for a destructive action. Keep as-is.
-    const clearBTN = View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background: '#db2c2c', color: 'white', textAlign: 'left', padding: '0 15px', marginTop: '18px'}}, [
-      TextInput({
+    // Re-Init: two taps too (the question says what it does)
+    const clearBTN = View({ style: { display: 'flex', flexDirection: 'column', marginTop: '18px' }}, [
+      Button({
         label: gettext('delete_storage'),
-        labelStyle: { textAlign: 'center' },
-        subStyle: { display: 'none' },
-        disabled: true,
-        placeholder: gettext('delete_storage') + '?',
-        value: undefined,
-        onChange: () => this.deleteState()
-      })
+        style: { width: '100%', fontSize: '14px', fontWeight: '600', borderRadius: '24px', background: '#db2c2c', color: 'white' },
+        onClick: () => askingFor(this, 'reinit') ? props.settingsStorage.removeItem(CONFIRM_KEY) : props.settingsStorage.setItem(CONFIRM_KEY, 'reinit')
+      }),
+      ...confirmBar(this, 'reinit', gettext('reinit_question'), gettext('delete_storage'), () => this.deleteState())
     ]);
 
     // Collapsible advanced JSON editor. Pretty-printed + multi-line so users can
@@ -1325,22 +1347,10 @@ AppSettingsPage({
                   }
                 })
               ]),
-              // Disabled TextInput (NOT a Button) on purpose: it opens a native
-              // confirm dialog ("delete <var>?") before onChange fires. A Button
-              // would delete on the first tap with no confirmation.
-              View({ style: { fontSize: '12px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background: '#D85E33', color: 'white', textAlign: 'left', padding: '0 15px', margin: '0 5px 0 0' }}, [
-                TextInput({
-                  label: gettext('delete_variable'),
-                  labelStyle: { textAlign: 'center' },
-                  subStyle: { display: 'none' },
-                  disabled: true,
-                  placeholder: gettext('delete_variable') + ' ' + vindex + '?',
-                  value: undefined,
-                  onChange: (newValue) => this.deleteGlobalVariable(vindex)
-                })
-              ])
+              deleteX(this, 'var:' + vindex)
             ])
           )
+          contentVariables.push(...confirmBar(this, 'var:' + vindex, gettext('delete_variable_q') + quoted(vindex) + '?', gettext('delete_action'), () => this.deleteGlobalVariable(vindex)))
         });
         // "+" add-variable button at the bottom of the (open) list.
         contentVariables.push(
@@ -1361,13 +1371,19 @@ AppSettingsPage({
       // shows a summary of its buttons (one line per row).
       for (let [pindex, page] of pages.entries()) {
         const pageOpen = this.state.props.settingsStorage.getItem('ui_page_' + pindex) === 'true';
-        const pageChildren = [buildPageView(page, pindex, this, pageOpen, pages.length)];
+        const pageChildren = [
+          buildPageView(page, pindex, this, pageOpen, pages.length),
+          ...confirmBar(this, 'page:' + pindex, gettext('delete_page') + quoted(page.title || String(pindex + 1)) + '?', gettext('delete_action'), () => this.deletePage(pindex))
+        ];
         if (pageOpen) {
           for (let [rindex, row] of page.rows.entries()) {
             // Each row is itself collapsible: open → button editors; collapsed →
             // a one-line summary of the button names. UI-only key, default closed.
             const rowOpen = this.state.props.settingsStorage.getItem('ui_row_' + pindex + '_' + rindex) === 'true';
-            const rowChildren = [buildRowView(row, page, pindex, rindex, this, rowOpen)];
+            const rowChildren = [
+              buildRowView(row, page, pindex, rindex, this, rowOpen),
+              ...confirmBar(this, 'row:' + pindex + ':' + rindex, gettext('delete_row') + ' ' + (rindex + 1) + '?', gettext('delete_action'), () => this.deleteRow(pindex, rindex))
+            ];
             if (rowOpen) {
               for (let [bindex, button] of row.buttons.entries()) {
                 rowChildren.push(buildButtonView(button, pindex, rindex, bindex, this));

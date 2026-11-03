@@ -249,3 +249,15 @@ msgstr "Authentication"
 
 msgid "json_only"
 msgstr "edit in the JSON (Configuration)"
+
+msgid "cancel"
+msgstr "Cancel"
+
+msgid "delete_action"
+msgstr "Delete"
+
+msgid "delete_variable_q"
+msgstr "Delete variable"
+
+msgid "reinit_question"
+msgstr "Replace all your pages, buttons and variables with the example configuration? This can't be undone."
