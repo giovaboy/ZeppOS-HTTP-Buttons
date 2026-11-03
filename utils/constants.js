@@ -217,6 +217,10 @@ export const COLOR_GRAY = 0x808080;
 export const COLOR_GRAY_TOAST = 0x626262;
 
 export const COLOR_DARK_RED = 0x8B0000;
+// A true red for the settings palette: COLOR_RED is the same dark red (the
+// watch draws error toasts with it), so the palette had two identical swatches
+// and no red
+export const COLOR_BRIGHT_RED = 0xFF0000;
 export const COLOR_CRIMSON = 0xDC143C;
 export const COLOR_PINK = 0xFFC0CB;
 export const COLOR_HOT_PINK = 0xFF69B4;

@@ -2,7 +2,7 @@ import { gettext } from 'i18n'
 import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
   COLOR_BLACK, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_ORANGE2,
   COLOR_RED, COLOR_VIOLET, COLOR_WHITE, COLOR_YELLOW,
-  COLOR_DARK_RED, COLOR_CRIMSON, COLOR_PINK, COLOR_HOT_PINK,
+  COLOR_DARK_RED, COLOR_BRIGHT_RED, COLOR_CRIMSON, COLOR_PINK, COLOR_HOT_PINK,
   COLOR_DARK_ORANGE, COLOR_CORAL, COLOR_TOMATO,
   COLOR_GOLD, COLOR_KHAKI,
   COLOR_DARK_GREEN, COLOR_LIME, COLOR_OLIVE, COLOR_TEAL, COLOR_MINT,
@@ -186,7 +186,7 @@ const colors = () => {
     { name: 'white', value: COLOR_WHITE },
     { name: 'gray', value: COLOR_GRAY },
 
-    { name: 'red', value: COLOR_RED },
+    { name: 'red', value: COLOR_BRIGHT_RED },
     { name: 'dark red', value: COLOR_DARK_RED },
     { name: 'crimson', value: COLOR_CRIMSON },
     { name: 'pink', value: COLOR_PINK },
