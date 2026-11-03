@@ -2,7 +2,7 @@ msgid "title_text"
 msgstr "HTTP-Buttons"
 
 msgid "welcome_text"
-msgstr "Hi! From here you can set up HTTP-Buttons, you can add and reorder pages, rows and buttons. You can edit a lot of properties but you can also modify the JSON string clicking the config button at the bottom of the page."
+msgstr "Set up the pages, rows and buttons of your watch. Tap ◂ to open a page, a row or a button; tap a color to pick it. The whole configuration can also be edited as JSON in Configuration, at the bottom."
 
 msgid "conf"
 msgstr "Configuration"

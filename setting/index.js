@@ -838,6 +838,34 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
   );
 };
 
+// The app's logo, drawn like the miniatures: the icon (assets/*/icon.png) is
+// three of the app's own buttons on a dark disc, "HT" and "TP" round and
+// "Buttons" orange, in the palette's green, dark red and orange. Drawn, not an
+// image: sharp at any size, nothing to load.
+const LOGO_SIZE = 112;
+const appLogo = () => {
+  const d = LOGO_SIZE, dot = Math.round(d * 0.285);
+  const round = (label, color) => View({ style: {
+    width: dot + 'px', height: dot + 'px', borderRadius: '50%', background: toColor(color),
+    display: 'flex', alignItems: 'center', justifyContent: 'center'
+  } }, [Text({ style: { color: 'white', fontSize: Math.round(d * 0.115) + 'px', fontWeight: '500', lineHeight: '1' } }, [label])]);
+  return View({ style: {
+    width: d + 'px', height: d + 'px', borderRadius: '50%', background: '#333333',
+    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+  } }, [
+    View({ style: { display: 'flex', flexDirection: 'row' } }, [
+      round('HT', COLOR_GREEN),
+      View({ style: { width: Math.round(d * 0.11) + 'px' } }, []),
+      round('TP', COLOR_RED)
+    ]),
+    View({ style: {
+      marginTop: Math.round(d * 0.07) + 'px', width: Math.round(d * 0.74) + 'px', height: Math.round(d * 0.235) + 'px',
+      borderRadius: Math.round(d * 0.045) + 'px', background: toColor(COLOR_ORANGE),
+      display: 'flex', alignItems: 'center', justifyContent: 'center'
+    } }, [Text({ style: { color: 'white', fontSize: Math.round(d * 0.14) + 'px', fontWeight: '500', lineHeight: '1' } }, ['Buttons'])])
+  ]);
+};
+
 // === MAIN APP ===
 
 AppSettingsPage({
@@ -1095,10 +1123,12 @@ AppSettingsPage({
     const contentVariables = []
 
     // Welcome text
-    const welcomeText = View({}, [
-      Text({ bold: true, align: 'center', paragraph: true, style: { fontSize: '36px' }},
+    // Header: the app's logo, its name, what the page is for
+    const welcomeText = View({ style: { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 10px 8px' }}, [
+      appLogo(),
+      Text({ bold: true, align: 'center', paragraph: true, style: { fontSize: '28px', marginTop: '10px' }},
         [gettext('title_text')]),
-      Text({ bold: false, align: 'left', paragraph: true, style: { fontSize: '16px', padding: '10px 10px' }},
+      Text({ bold: false, align: 'center', paragraph: true, style: { fontSize: '14px', color: '#555', padding: '6px 4px 0' }},
         [gettext('welcome_text')])
     ])
 
