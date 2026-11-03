@@ -690,7 +690,7 @@ const buildRowSummary = (row, page) => {
 };
 
 // Row header — all controls on one line: Row:N (emphasized) · reorder · height
-// · add button (+) · delete (×) · collapse switch (open = show buttons).
+// · delete (×) · collapse chevron (open = show buttons; Add Button is under them).
 const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
   // The row's title bar: across the top of the row's container (its negative
   // margins cancel the container's padding), darker, a line under it. As a
@@ -733,11 +733,6 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
           onChange: (value) => context.editRow('h', value, pindex, rindex)
         })
       ]),
-      Button({
-        label: '+',
-        style: { fontSize: '20px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '50%', background: '#ababab', color: 'white', padding: '0', marginLeft: '4px' },
-        onClick: () => context.addButton(pindex, rindex)
-      }),
       deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
       // Expand/collapse chevron. A Button (not a switch) so its arrow always
       // reflects the real state — ▾ open, ▸ collapsed.
@@ -1414,6 +1409,17 @@ AppSettingsPage({
               for (let [bindex, button] of row.buttons.entries()) {
                 rowChildren.push(buildButtonView(button, pindex, rindex, bindex, this));
               }
+              // Add Button under the buttons, centered, like Add Row under the
+              // rows and Add Page under the pages (it was a "+" in the row's bar)
+              rowChildren.push(
+                View({ style: { display: 'flex', justifyContent: 'center', margin: '4px 0 2px' }}, [
+                  Button({
+                    label: gettext('add_button'),
+                    style: { fontSize: '13px', fontWeight: '500', borderRadius: '30px', background: '#ababab', color: 'white', padding: '4px 22px' },
+                    onClick: () => this.addButton(pindex, rindex)
+                  })
+                ])
+              );
             } else {
               rowChildren.push(buildRowSummary(row, page));
             }
