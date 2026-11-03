@@ -296,18 +296,23 @@ const fieldLabel = (text) => Text({ align: 'left', paragraph: true, style: { fon
 // A text field under its label. Empty, it shows a grey dash (still tappable);
 // confirming the dash, or an old marker ("**USER**") a config may hold,
 // gives an empty value. onValue gets the cleaned text.
+// secret (password, token): shown as dots, so it doesn't show on screen or in
+// a screenshot; confirming the dots unchanged keeps the value, typing replaces
+// it. A variable reference ("{ring_token}") isn't a secret and shows as is.
 const EMPTY_FIELD = '—';
-const textField = (label, value, placeholderKey, max, oldMarker, onValue) => {
+const textField = (label, value, placeholderKey, max, oldMarker, onValue, { secret = false } = {}) => {
   const current = unmark(value, EMPTY_FIELD, oldMarker);
-  return View({ style: { marginTop: '2px' } }, [
+  const masked = secret && current && current.indexOf('{') === -1 ? '•'.repeat(Math.min(current.length, 10)) : null;
+  return View({ style: { marginTop: '2px', marginBottom: '6px' } }, [
     fieldLabel(label),
     TextInput({
       bold: false,
-      value: current || EMPTY_FIELD,
+      value: masked || current || EMPTY_FIELD,
       placeholder: gettext(placeholderKey),
       subStyle: { color: current ? COLOR_BLACK : '#999', fontSize: '14px', wordBreak: 'break-all' },
       maxLength: max,
       onChange: (v) => {
+        if (masked && v === masked) return;
         const clean = unmark(v, EMPTY_FIELD, oldMarker);
         if (clean.length <= max) onValue(clean);
       }
@@ -349,6 +354,20 @@ const fieldCell = (child) => View({ style: { minHeight: FIELD_MIN_H, display: 'f
 const fieldCol = (children) => View({ style: { flex: 1 } }, children.map(fieldCell));
 
 // What a collapsed button card shows under its preview: what it does
+// The request blocks the settings page can't edit (session login/logout, poll),
+// so a button that has them doesn't look like a plain one
+const jsonOnlyBlocks = (button) => {
+  const r = (button && button.request) || {};
+  return [r.session ? 'session' : null, r.poll ? 'poll' : null].filter(Boolean);
+};
+const jsonOnlyNote = (button) => {
+  const blocks = jsonOnlyBlocks(button);
+  return blocks.length ? [
+    Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#8a6d3b', background: '#fff3cd', borderRadius: '6px', padding: '3px 6px', margin: '4px 0 0' } },
+      [blocks.join(' · ') + ' — ' + gettext('json_only')])
+  ] : [];
+};
+
 const buttonSummary = (button) => {
   if (button.spacer) return gettext('is_spacer') + ' · ' + gettext('w') + button.w;
   const r = button.request || {};
@@ -410,8 +429,10 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
       ]),
       // Collapsed: one line saying what the button does, and nothing else
       ...(!open ? [
-        Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#555', padding: '4px 4px 0', wordBreak: 'break-all' } }, [buttonSummary(button)])
+        Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#555', padding: '4px 4px 0', wordBreak: 'break-all' } }, [buttonSummary(button)]),
+        ...jsonOnlyNote(button)
       ] : [
+      ...jsonOnlyNote(button),
       // ---- open: every field ----
       // Position in the row, on its own line: beside the preview it slid under
       // the delete × (seen on the phone), and with no title it read as an
@@ -474,7 +495,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
         View({ style: { display: 'flex', flexDirection: 'column', borderTop: '1px solid #d5d5d5', marginTop: '8px', paddingTop: '2px' } }, [
           textField(gettext('field_url'), button.request.url, 'insert_url', 200, '**URL**',
             (v) => context.editButton('url', v.trim() || null, pindex, rindex, bindex)),
-          View({ style: { display: 'flex', flexDirection: 'row' } }, [
+          View({ style: { display: 'flex', flexDirection: 'row', marginTop: '4px' } }, [
             View({ style: { flex: 1 } }, [
               Select({
                 title: gettext('insert_method') + (button.request.method || '--'),
@@ -552,13 +573,13 @@ const buildAuthFields = (button, pindex, rindex, bindex, context) => {
       textField(gettext('field_user'), button.request.user, 'user', 200, '**USER**',
         (v) => context.editButton('user', v, pindex, rindex, bindex)),
       textField(gettext('field_pass'), button.request.pass, 'pass', 400, '**PASS**',
-        (v) => context.editButton('pass', v, pindex, rindex, bindex))
+        (v) => context.editButton('pass', v, pindex, rindex, bindex), { secret: true })
     );
   }
   if (auth === 'Bearer') {
     fields.push(
       textField(gettext('field_token'), button.request.token, 'token', 512, '**TOKEN**',
-        (v) => context.editButton('token', v, pindex, rindex, bindex))
+        (v) => context.editButton('token', v, pindex, rindex, bindex), { secret: true })
     );
   }
   return fields;

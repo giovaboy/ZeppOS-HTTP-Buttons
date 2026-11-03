@@ -246,3 +246,6 @@ msgstr "Token"
 
 msgid "auth_title"
 msgstr "Authentication"
+
+msgid "json_only"
+msgstr "edit in the JSON (Configuration)"
