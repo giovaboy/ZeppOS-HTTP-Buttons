@@ -1,6 +1,6 @@
 import { gettext } from 'i18n'
 import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
-  BTN_RADIUS, COLOR_BLACK, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_ORANGE2,
+  BTN_RADIUS, BTN_PADDING, ROW_PADDING, COLOR_BLACK, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_ORANGE2,
   COLOR_RED, COLOR_VIOLET, COLOR_WHITE, COLOR_YELLOW,
   COLOR_DARK_RED, COLOR_BRIGHT_RED, COLOR_CRIMSON, COLOR_PINK, COLOR_HOT_PINK,
   COLOR_DARK_ORANGE, COLOR_CORAL, COLOR_TOMATO,
@@ -672,10 +672,17 @@ const evenOver100 = (values) => {
   return nums.reduce((a, b) => a + b, 0) > 100 ? nums.map(() => 100 / nums.length) : nums;
 };
 const colorOr = (c, fallback) => toColor(c !== undefined && c !== null && c !== '' ? Number(c) : fallback);
-const miniButtons = (row, scale = MINI_SCALE) => {
+// pad: the space around each button, in miniature px ({ x, y }): the watch
+// leaves BTN_PADDING / ROW_PADDING (12 px, or the page's button_padding /
+// row_padding) on each side of a button inside its slot
+const miniPad = (page, scale) => ({
+  x: ((page && Number(page.button_padding)) || BTN_PADDING) * scale,
+  y: ((page && Number(page.row_padding)) || ROW_PADDING) * scale
+});
+const miniButtons = (row, scale = MINI_SCALE, pad = { x: 1, y: 1 }) => {
   const buttons = (row && row.buttons) || [];
   const widths = evenOver100(buttons.map((b) => b.w));
-  return buttons.map((b, i) => View({ style: { width: widths[i] + '%', flex: '0 0 ' + widths[i] + '%', height: '100%', padding: '1px', boxSizing: 'border-box' } },
+  return buttons.map((b, i) => View({ style: { width: widths[i] + '%', flex: '0 0 ' + widths[i] + '%', height: '100%', padding: pad.y.toFixed(1) + 'px ' + pad.x.toFixed(1) + 'px', boxSizing: 'border-box' } },
     b.spacer ? [] : [
       View({ style: {
         width: '100%', height: '100%', boxSizing: 'border-box', overflow: 'hidden',
@@ -694,7 +701,8 @@ const buildRowSummary = (row, page) => {
     return Text({ align: 'center', style: { fontSize: '13px', color: '#666', padding: '4px 8px' } }, ['(no buttons)']);
   }
   return View({ style: { display: 'flex', flexDirection: 'row', height: MINI_ROW_H + 'px', margin: '4px 6px 2px', padding: '2px', borderRadius: '6px', overflow: 'hidden', background: colorOr(page && page.back_color, COLOR_BLACK) } },
-    miniButtons(row));
+    // the watch's horizontal space between buttons; little vertical space in a strip
+    miniButtons(row, MINI_SCALE, { x: miniPad(page, MINI_SCALE).x, y: 1 }));
 };
 
 // Row header — all controls on one line: Row:N (emphasized) · reorder · height
@@ -774,7 +782,7 @@ const buildPageSummary = (page, screen) => {
         Text({ align: 'center', style: { height: titleH + 'px', lineHeight: titleH + 'px', fontSize: '11px', fontWeight: '600', color: colorOr(page.text_color, COLOR_WHITE), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 4px', flex: '0 0 ' + titleH + 'px' } }, [page.title])
       ] : []),
       View({ style: { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 } },
-        rows.map((row, i) => View({ style: { height: heights[i] + '%', flex: '0 0 ' + heights[i] + '%', display: 'flex', flexDirection: 'row', padding: '0 2px', boxSizing: 'border-box' } }, miniButtons(row, scale))))
+        rows.map((row, i) => View({ style: { height: heights[i] + '%', flex: '0 0 ' + heights[i] + '%', display: 'flex', flexDirection: 'row', boxSizing: 'border-box' } }, miniButtons(row, scale, miniPad(page, scale)))))
     ])
   ]);
 };
