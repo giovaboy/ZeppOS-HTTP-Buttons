@@ -1307,6 +1307,8 @@ AppSettingsPage({
         // message set by notify() (JSON editor, variable rename)
         Toast({
           message: gettext(props.settingsStorage.getItem('ui_notice') || 'invalid_json'),
+          // The default 2 s was too short to read a sentence (seen on the phone)
+          duration: 6000,
           visible: !!props.settingsStorage.getItem('ui_notice'),
           onClose: () => this.state.props.settingsStorage.removeItem('ui_notice')
         })
