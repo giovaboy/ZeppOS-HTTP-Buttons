@@ -1,6 +1,6 @@
 import { gettext } from 'i18n'
 import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
-  COLOR_BLACK, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_ORANGE2,
+  BTN_RADIUS, COLOR_BLACK, COLOR_BLUE, COLOR_GRAY, COLOR_GREEN, COLOR_INDIGO, COLOR_ORANGE, COLOR_ORANGE2,
   COLOR_RED, COLOR_VIOLET, COLOR_WHITE, COLOR_YELLOW,
   COLOR_DARK_RED, COLOR_BRIGHT_RED, COLOR_CRIMSON, COLOR_PINK, COLOR_HOT_PINK,
   COLOR_DARK_ORANGE, COLOR_CORAL, COLOR_TOMATO,
@@ -628,12 +628,43 @@ const buildAuthFields = (button, pindex, rindex, bindex, context) => {
   return fields;
 };
 
-// Compact summary of a collapsed row: the names of the buttons it contains.
-const buildRowSummary = (row) => {
-  const names = (row.buttons || [])
-    .map((b) => b.spacer ? '▭' : (b.text || '—'))
-    .join('   ·   ');
-  return Text({ align: 'center', style: { fontSize: '13px', color: '#666', padding: '4px 8px' } }, [names || '(no buttons)']);
+// === MINIATURES of collapsed pages and rows ===
+// Drawn as the watch draws them (page/index.[pf].layout.js): rows share the
+// screen by their height %, buttons share the row by their width % (sums over
+// 100 are split evenly, as the watch does), each button with its colors, text
+// and radius; a spacer is an empty slot. The names alone said nothing of the
+// sizes.
+const MINI_SCREEN = 180;              // px, the page miniature (a 480 px watch at ~0.375)
+const MINI_SCALE = MINI_SCREEN / 480;
+const MINI_ROW_H = 34;                // px, the strip of a collapsed row
+const evenOver100 = (values) => {
+  const nums = values.map((v) => Number(v) || 0);
+  return nums.reduce((a, b) => a + b, 0) > 100 ? nums.map(() => 100 / nums.length) : nums;
+};
+const colorOr = (c, fallback) => toColor(c !== undefined && c !== null && c !== '' ? Number(c) : fallback);
+const miniButtons = (row) => {
+  const buttons = (row && row.buttons) || [];
+  const widths = evenOver100(buttons.map((b) => b.w));
+  return buttons.map((b, i) => View({ style: { width: widths[i] + '%', flex: '0 0 ' + widths[i] + '%', height: '100%', padding: '1px', boxSizing: 'border-box' } },
+    b.spacer ? [] : [
+      View({ style: {
+        width: '100%', height: '100%', boxSizing: 'border-box', overflow: 'hidden',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: colorOr(b.back_color, COLOR_GRAY),
+        borderRadius: Math.round((b.radius != null ? Number(b.radius) : BTN_RADIUS) * MINI_SCALE) + 'px'
+      } }, [
+        Text({ style: { fontSize: '9px', lineHeight: '11px', color: colorOr(b.text_color, COLOR_WHITE), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 2px' } }, [b.text || ''])
+      ])
+    ]));
+};
+
+// A collapsed row: a strip of its buttons on the page's background
+const buildRowSummary = (row, page) => {
+  if (!row.buttons || !row.buttons.length) {
+    return Text({ align: 'center', style: { fontSize: '13px', color: '#666', padding: '4px 8px' } }, ['(no buttons)']);
+  }
+  return View({ style: { display: 'flex', flexDirection: 'row', height: MINI_ROW_H + 'px', margin: '4px 6px 2px', padding: '2px', borderRadius: '6px', overflow: 'hidden', background: colorOr(page && page.back_color, COLOR_BLACK) } },
+    miniButtons(row));
 };
 
 // Row header — all controls on one line: Row:N (emphasized) · reorder · height
@@ -695,17 +726,24 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
   );
 };
 
-// Summary of a collapsed page: each row's button names on its own line.
+// A collapsed page: a small screen with its title and rows (the title takes
+// 50 of 480 px on the watch)
 const buildPageSummary = (page) => {
-  return View({ style: { padding: '4px 8px' } },
-    (page.rows || []).map((row) =>
-      // paragraph: true so each row renders as a block (its own line); a plain
-      // Text renders as an inline <span> and they'd all run together.
-      Text({ align: 'center', paragraph: true, style: { fontSize: '13px', color: '#666' } }, [
-        (row.buttons || []).map((b) => b.spacer ? '▭' : (b.text || '—')).join('   ·   ') || '—'
-      ])
-    )
-  );
+  const rows = page.rows || [];
+  const heights = evenOver100(rows.map((r) => r.h));
+  const titleH = page.title ? Math.round(50 * MINI_SCALE) : 0;
+  return View({ style: { display: 'flex', justifyContent: 'center', padding: '6px 0 2px' } }, [
+    View({ style: {
+      width: MINI_SCREEN + 'px', height: MINI_SCREEN + 'px', borderRadius: '12px', overflow: 'hidden',
+      display: 'flex', flexDirection: 'column', background: colorOr(page.back_color, COLOR_BLACK), border: '1px solid #bbb'
+    } }, [
+      ...(page.title ? [
+        Text({ align: 'center', style: { height: titleH + 'px', lineHeight: titleH + 'px', fontSize: '11px', fontWeight: '600', color: colorOr(page.text_color, COLOR_WHITE), whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 4px', flex: '0 0 ' + titleH + 'px' } }, [page.title])
+      ] : []),
+      View({ style: { flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 } },
+        rows.map((row, i) => View({ style: { height: heights[i] + '%', flex: '0 0 ' + heights[i] + '%', display: 'flex', flexDirection: 'row', padding: '0 2px', boxSizing: 'border-box' } }, miniButtons(row))))
+    ])
+  ]);
 };
 
 // Page header. Title (editable, with the page's own colors as a preview) sits
@@ -1335,7 +1373,7 @@ AppSettingsPage({
                 rowChildren.push(buildButtonView(button, pindex, rindex, bindex, this));
               }
             } else {
-              rowChildren.push(buildRowSummary(row));
+              rowChildren.push(buildRowSummary(row, page));
             }
             pageChildren.push(
               View({ style: { border: '1px solid #c9c9c9', borderRadius: '10px', padding: '6px', marginBottom: '10px', background: '#f0f0f0' }}, rowChildren)
