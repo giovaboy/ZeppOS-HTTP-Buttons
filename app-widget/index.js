@@ -16,12 +16,10 @@ import { cardButtons, runParams } from '../utils/card.js'
 import { BTN_RADIUS, COLOR_GRAY, COLOR_WHITE, btnPressColor } from '../utils/constants.js'
 
 const M = px(12)          // inside the card
-const HEADER_H = px(44)   // the app's name: opens the app
 const BTN_H = px(76)
 const GAP = px(10)
 const HINT_H = px(96)
 const OPEN_H = px(56)
-const SURFACE = 0x2a2a2a  // a control on the system's card
 
 AppWidget({
   state: { widgets: [], copy: null },
@@ -65,14 +63,8 @@ AppWidget({
     const x0 = margin || 0
     const innerW = w - 2 * M
 
-    // Header: the app's name, a tap opens the app
-    this.add(widget.BUTTON, {
-      x: x0 + M, y: M, w: innerW, h: HEADER_H, radius: Math.round(HEADER_H / 2),
-      normal_color: SURFACE, press_color: btnPressColor(SURFACE, 1.4),
-      color: COLOR_WHITE, text_size: px(24), text: 'HTTP-Buttons',
-      click_func: () => push({ url: 'page/index' })
-    })
-    let y = M + HEADER_H + GAP
+    // Only the buttons (no title: the card's own label names the app)
+    let y = M
 
     if (!shortcuts.length) {
       // None chosen yet (or the app never opened: no copy of the config)
