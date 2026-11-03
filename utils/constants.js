@@ -33,12 +33,15 @@ export const DEFAULT_DATA = {"variables":{"city":"London"},"pages":[{"title":"�
 // async-job polling (extract → {{job}} → until, plus the attempts limit).
 // Mostly against httpbin.io; the camera button uses the {cam}/{user}/{pass}
 // variables below.
+// The test suite (settings: Test mode). Six of its buttons go on the shortcut
+// card ("card": true): a plain result, "no notification", an input, a small
+// and a large image, a poll
 export const TEST_DATA = {
   variables: { cam: "192.168.1.1:8443", user: "admin", pass: "password" },
   pages: [
     { title: "① Methods", back_color: 856343, text_color: 16777215, rows: [
       { h: 33, buttons: [
-        { text: "GET", w: 33, radius: 14, back_color: 3978097, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/get", parse_result: "url", response_style: 0 } },
+        { text: "GET", w: 33, radius: 14, card: true, back_color: 3978097, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/get", parse_result: "url", response_style: 0 } },
         { text: "POST", w: 33, radius: 14, back_color: 558288, text_color: 16777215, request: { method: "POST", url: "https://httpbin.io/post", body: '{"hello": "world"}', parse_result: "json", response_style: 0 } },
         { text: "PUT", w: 34, radius: 14, back_color: 8388736, text_color: 16777215, request: { method: "PUT", url: "https://httpbin.io/put", body: '{"a": 1}', parse_result: "json", response_style: 0 } }
       ] },
@@ -71,16 +74,16 @@ export const TEST_DATA = {
       ] },
       { h: 50, buttons: [
         { text: "Modal", w: 50, radius: 14, back_color: 14423100, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/uuid", parse_result: "uuid", response_style: 2 } },
-        { text: "Silent", w: 50, radius: 14, back_color: 8421504, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/status/200", response_style: 3 } }
+        { text: "Silent", w: 50, radius: 14, card: true, back_color: 8421504, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/status/200", response_style: 3 } }
       ] }
     ] },
     { title: "④ Images", back_color: 856343, text_color: 16777215, rows: [
       { h: 33, buttons: [
-        { text: "PNG", w: 50, radius: 14, back_color: 3978097, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/image/png", response_style: 4 } },
+        { text: "PNG", w: 50, radius: 14, card: true, back_color: 3978097, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/image/png", response_style: 4 } },
         { text: "JPEG", w: 50, radius: 14, back_color: 16542032, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/image/jpeg", response_style: 4 } }
       ] },
       { h: 33, buttons: [
-        { text: "Landscape", w: 50, radius: 14, back_color: 558288, text_color: 16777215, request: { method: "GET", url: "https://dummyimage.com/600x200/1e3a5f/ffffff.png", response_style: 4 } },
+        { text: "Landscape", w: 50, radius: 14, card: true, back_color: 558288, text_color: 16777215, request: { method: "GET", url: "https://dummyimage.com/600x200/1e3a5f/ffffff.png", response_style: 4 } },
         { text: "Portrait", w: 50, radius: 14, back_color: 558288, text_color: 16777215, request: { method: "GET", url: "https://dummyimage.com/200x600/1e3a5f/ffffff.png", response_style: 4 } }
       ] },
       { h: 34, buttons: [
@@ -98,7 +101,7 @@ export const TEST_DATA = {
       ] },
       { h: 33, buttons: [
         { text: "⌨ Body in", w: 50, radius: 14, back_color: 558288, text_color: 16777215, input: true, keyboard_type: 0, request: { method: "POST", url: "https://httpbin.io/anything", body: '{"msg": "{input}"}', parse_result: "json", response_style: 0 } },
-        { text: "⌨ Echo", w: 50, radius: 14, back_color: 558288, text_color: 16777215, input: true, keyboard_type: 0, request: { method: "GET", url: "https://httpbin.io/anything/{input}", parse_result: "url", response_style: 0 } }
+        { text: "⌨ Echo", w: 50, radius: 14, card: true, back_color: 558288, text_color: 16777215, input: true, keyboard_type: 0, request: { method: "GET", url: "https://httpbin.io/anything/{input}", parse_result: "url", response_style: 0 } }
       ] },
       { h: 34, buttons: [
         { text: "Var: {cam}", w: 100, radius: 14, back_color: 4915330, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/anything/{cam}", parse_result: "url", response_style: 0 } }
@@ -167,7 +170,7 @@ export const TEST_DATA = {
     // exercising the attempts limit (3 × 2 s → "Poll: not ready…").
     { title: "⑧ Poll", back_color: 856343, text_color: 16777215, rows: [
       { h: 50, buttons: [
-        { text: "Poll ok", w: 100, radius: 14, back_color: 558288, text_color: 16777215, request: {
+        { text: "Poll ok", w: 100, radius: 14, card: true, back_color: 558288, text_color: 16777215, request: {
           method: "GET", url: "https://httpbin.io/uuid", parse_result: "url", response_style: 2,
           poll: {
             extract: { path: "uuid", as: "job" },
