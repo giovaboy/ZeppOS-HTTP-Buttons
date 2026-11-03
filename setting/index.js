@@ -450,7 +450,8 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
         marginBottom: '6px',
         display: 'flex',
         flexDirection: 'column',
-        background: '#eaeaea'
+        // White: the row's content, against the row's grey
+        background: '#ffffff'
       }
     },
     [
@@ -691,17 +692,19 @@ const buildRowSummary = (row, page) => {
 // Row header — all controls on one line: Row:N (emphasized) · reorder · height
 // · add button (+) · delete (×) · collapse switch (open = show buttons).
 const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
+  // The row's title bar: across the top of the row's container (its negative
+  // margins cancel the container's padding), darker, a line under it. As a
+  // box of its own it read as one more item beside the buttons.
   return View(
     {
       style: {
-        border: '1px solid #eaeaea',
-        borderRadius: '8px',
-        padding: '4px 6px',
-        marginBottom: '6px',
+        margin: '0 -6px 6px',
+        padding: '6px 8px',
+        borderBottom: '1px solid #c9c9c9',
         display: 'flex',
         flexDirection: 'row',
         alignItems: 'center',
-        background: '#f5f5f5'
+        background: '#dcdcdc'
       }
     },
     [
@@ -1415,7 +1418,7 @@ AppSettingsPage({
               rowChildren.push(buildRowSummary(row, page));
             }
             pageChildren.push(
-              View({ style: { border: '1px solid #c9c9c9', borderRadius: '10px', padding: '6px', marginBottom: '10px', background: '#f0f0f0' }}, rowChildren)
+              View({ style: { border: '1px solid #c9c9c9', borderRadius: '10px', padding: '0 6px 6px', marginBottom: '10px', background: '#f0f0f0', overflow: 'hidden' }}, rowChildren)
             );
           }
           // Add Row at the bottom of the rows (like Add Page after the pages).
