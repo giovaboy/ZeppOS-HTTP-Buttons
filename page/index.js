@@ -4,6 +4,7 @@ import { readdirSync, statSync, rmSync, readFileSync, writeFileSync } from '@zos
 import { layout, LOADING_TEXT_WIDGET, LOADING_IMG_ANIM_WIDGET } from 'zosLoader:./index.[pf].layout.js'
 import { CUSTOM_TOAST } from '../utils/constants.js'
 import { requestMethods, parseJSON, configCounts, cachedSessions, clearSessionCache } from '../utils/button-request.js'
+import { readConfigCopy, writeConfigCopy, removeConfigCopy } from '../utils/config-copy.js'
 import { replace } from '@zos/router'
 import { getDeviceInfo, SCREEN_SHAPE_ROUND } from '@zos/device'
 import { devLog, infoLog, warnLog, LOG_TRACE } from '../utils/remote-log.js'
@@ -13,37 +14,9 @@ import { urlForLog, authForLog, styleForLog } from '../utils/log-text.js'
 // Log lines (utils/remote-log.js): one per event, facts with numbers.
 // Running a button (requests, sessions, polling, results): utils/button-request.js
 
-// The watch's copy of the config (the JSON text the phone sent last): the
-// buttons are drawn from it at once, while the phone is asked whether the
-// config changed (asking took 1.8–3.5 s at every start). It holds what the
-// config holds, credentials included, in the app's own data folder.
-const CONFIG_COPY_FILE = 'config_copy.json'
 // While a press runs, a changed config waits this long between checks before
 // redrawing (a redraw would cut the press short)
 const RELOAD_RETRY_MS = 500
-
-function readConfigCopy() {
-  try {
-    if (!statSync({ path: CONFIG_COPY_FILE })) return null
-    return readFileSync({ path: CONFIG_COPY_FILE, options: { encoding: 'utf8' } }) || null
-  } catch (e) {
-    return null
-  }
-}
-
-function writeConfigCopy(text) {
-  try {
-    writeFileSync({ path: CONFIG_COPY_FILE, data: text, options: { encoding: 'utf8' } })
-    return true
-  } catch (e) {
-    warnLog(`[cfg] the watch's copy of the config not written: ${errorText(e)}`)
-    return false
-  }
-}
-
-function removeConfigCopy() {
-  try { if (statSync({ path: CONFIG_COPY_FILE })) rmSync({ path: CONFIG_COPY_FILE }) } catch (e) { /* not there */ }
-}
 
 // The watch's screen, sent with each GET_DATA: the settings page draws its
 // page miniatures with this shape and these proportions

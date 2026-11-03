@@ -15,6 +15,7 @@ import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
   LOADING_STYLE_BORDER, LOADING_STYLE_PULSE, LOADING_STYLE_CORNER } from '../utils/constants.js'
 import { LOG_KEY } from '../app-side/log.js'
 import { logsEnabled } from '../config.js'
+import { CARD_MAX, cardAllowed, cardButtons } from '../utils/card.js'
 
 // Shown in the footer link and next to the README links. Keep in sync with
 // package.json / app.json when bumping the app version. Calendar versions
@@ -433,7 +434,8 @@ const buttonSummary = (button) => {
   const r = button.request || {};
   // A long URL (a whole paragraph in a query) filled the card: cut
   const url = r.url || '—';
-  return (r.method || 'GET') + ' ' + (url.length > 70 ? url.slice(0, 67) + '…' : url);
+  return (r.method || 'GET') + ' ' + (url.length > 70 ? url.slice(0, 67) + '…' : url) +
+    (button.card && cardAllowed(button) ? '  ·  ' + gettext('on_card') : '');
 };
 
 // A button's card. Collapsed by default (ui_btn_<p>_<r>_<b>): the preview, what
@@ -614,6 +616,20 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
                 Number(button.keyboard_type || KB_TYPE_CHAR),
                 (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex))
             ] : [])
+          ]),
+          // On the watch's shortcut card (app-widget/index.js), up to CARD_MAX;
+          // not for image buttons (their file transfer needs the buttons page)
+          ...(cardAllowed(button) ? [
+            View({ style: { marginTop: '6px' } }, [
+              Toggle({
+                label: gettext('show_on_card'),
+                value: !!button.card,
+                subStyle: { color: '#333', fontSize: '10px' },
+                onChange: (value) => context.setOnCard(pindex, rindex, bindex, value)
+              })
+            ])
+          ] : [
+            Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#888', padding: '6px 2px 0' } }, [gettext('card_no_image')])
           ])
         ])
       ])
@@ -912,6 +928,12 @@ AppSettingsPage({
     delete this.state.data.variables[oldkey];
     this.setItem()
   },
+  // A button on the shortcut card or off it; refused past CARD_MAX
+  setOnCard(pindex, rindex, bindex, on) {
+    const btn = this.state.data.pages[pindex].rows[rindex].buttons[bindex];
+    if (on && !btn.card && cardButtons(this.state.data).length >= CARD_MAX) return this.notify('card_full');
+    this.editButton('card', !!on, pindex, rindex, bindex);
+  },
   // A message for the user (an i18n key), shown by the Toast at the bottom of
   // the page: a Toast returned from an onChange is not drawn
   notify(key) {
@@ -1063,6 +1085,8 @@ AppSettingsPage({
       case 'token': btn.request.token = val; break;
       case 'input': btn.input = val; break;
       case 'keyboard_type': btn.keyboard_type = val; break;
+      // The key only when on: a config without cards stays as it was
+      case 'card': if (val) btn.card = true; else delete btn.card; break;
     }
     this.setItem()
   },

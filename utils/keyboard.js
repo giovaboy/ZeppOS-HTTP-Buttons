@@ -34,8 +34,10 @@ function getSystemInputType(keyboardType) {
  * @param {function} [onSubmit] - optional (text) => void; if given, it runs the
  *   request instead of calling executeButtonRequest directly (lets the caller
  *   wrap it with a button loading spinner)
+ * @param {function} [onCancel] - optional () => void, run when the keyboard is
+ *   cancelled (the page the shortcut card opens goes back to the card)
  */
-export function openSystemKeyboard(vm, button, pageId, onSubmit) {
+export function openSystemKeyboard(vm, button, pageId, onSubmit, onCancel) {
   createKeyboard({
     inputType: getSystemInputType(button.keyboard_type),
     onComplete: (_, result) => {
@@ -51,6 +53,7 @@ export function openSystemKeyboard(vm, button, pageId, onSubmit) {
     onCancel: () => {
       logger.debug('system keyboard cancelled')
       deleteKeyboard()
+      if (typeof onCancel === 'function') onCancel()
     }
   })
 }

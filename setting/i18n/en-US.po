@@ -261,3 +261,15 @@ msgstr "Delete variable"
 
 msgid "reinit_question"
 msgstr "Replace all your pages, buttons and variables with the example configuration? This can't be undone."
+
+msgid "show_on_card"
+msgstr "Show on the watch card"
+
+msgid "on_card"
+msgstr "on card"
+
+msgid "card_no_image"
+msgstr "Image buttons can't go on the watch card."
+
+msgid "card_full"
+msgstr "The watch card holds 6 buttons: take one off first"

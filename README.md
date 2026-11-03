@@ -26,6 +26,7 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 - **Image Display** — Fetch a remote image (PNG/JPEG) and show it fullscreen on the watch
 - **JSON Parsing** — Extract specific fields from API responses, with path expressions like `choices[0].message.content`, `[*]` wildcards and `[?field==value]` filters
 - **Timeouts** — Global and per-button request timeouts (5–60 s) for slow endpoints
+- **Shortcut card** — Up to 6 buttons on a watch card (the widgets beside the watch face): a tap runs the button and comes back to the card
 - **Fast start** — The watch keeps a copy of the config and shows the buttons at once, then checks with the phone whether it changed (the copy, credentials included, stays in the app's own storage on the watch)
 - **Loading feedback** — A pressed button shows an animation until its request is done; taps on a busy button wait their turn
 - **Logs box (test builds)** — The settings page shows the latest watch and phone log lines, ready to copy into a bug report (passwords, tokens and variable values removed). Release builds log nothing and have no Logs box: if something doesn't work, open an issue and we can send you a test build with the logs on
@@ -120,6 +121,12 @@ While a button's request runs, the button shows an animation. Choose it in the s
 | `"corner"` | A small spinner in the button's top-right corner |
 
 One request runs at a time per button: tapping a button that is still busy queues the tap (up to 10), and it fires as soon as the previous one is done. With an image button, the button stays busy until the picture is on screen.
+
+### Shortcut Card
+
+Up to 6 buttons can also sit on the app's **shortcut card**, among the cards beside the watch face. In the settings, open a button and switch on **Show on the watch card**; a collapsed button card then says "on card". Add the card from the watch's list of cards (it is called HTTP-Buttons).
+
+A tap on a button of the card shows it, runs it like the app does (variables, authentication, sessions, polling, the typed text of an input button) and shows the result for a moment, then goes back to the card by itself; a tap goes back at once. The card draws itself from the copy of the config the watch keeps, so open the app once after installing it. Image buttons can't go on the card. In the JSON, a card button has `"card": true`.
 
 ### Image Display
 

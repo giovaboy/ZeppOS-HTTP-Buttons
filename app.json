@@ -12,7 +12,9 @@
     "vender": "giova",
     "description": "Some buttons firing HTTP requests"
   },
-  "permissions": ["data:os.device.info"],
+  "permissions": [
+    "data:os.device.info"
+  ],
   "runtime": {
     "apiVersion": {
       "compatible": "3.0.0",
@@ -25,7 +27,20 @@
       "module": {
         "page": {
           "pages": [
-            "page/index"
+            "page/index",
+            "page/run"
+          ]
+        },
+        "app-widget": {
+          "widgets": [
+            {
+              "path": "app-widget/index",
+              "icon": "icon.png",
+              "name": "HTTP-Buttons",
+              "runtime": {
+                "type": "js"
+              }
+            }
           ]
         },
         "app-side": {

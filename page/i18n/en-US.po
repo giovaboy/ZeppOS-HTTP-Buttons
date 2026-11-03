@@ -14,3 +14,24 @@ msgid "load_example"
 msgstr "Load example"
 msgid "no_pages"
 msgstr "No pages to show. Add one in the app on your phone."
+
+msgid "run_sending"
+msgstr "Sending…"
+
+msgid "run_missing"
+msgstr "This button isn't in the app any more. Open the app to update the card."
+
+msgid "run_in_app"
+msgstr "Open the app for this button."
+
+msgid "run_keyboard_in_app"
+msgstr "Open the app to type the text for this button."
+
+msgid "card_hint"
+msgstr "Choose up to 6 buttons for this card in the phone settings: \"Show on card\"."
+
+msgid "card_no_copy"
+msgstr "Open the app once, then choose buttons for this card in the phone settings."
+
+msgid "card_open_app"
+msgstr "Open the app"
