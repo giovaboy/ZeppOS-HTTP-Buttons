@@ -47,7 +47,7 @@ function tryParseJSON(json) {
 // so the user sees an empty field and can fill it.
 const unmark = (value, ...markers) => {
   const v = value == null ? '' : String(value);
-  return markers.some((m) => v === gettext(m)) ? '' : v;
+  return markers.some((m) => v === m || v === gettext(m)) ? '' : v;
 }
 
 // The open pages, rows and buttons (keys ui_page_<p> / ui_row_<p>_<r> /
@@ -238,12 +238,10 @@ const responseStyles = () => [
   { name: gettext('system_modal'), value: SYSTEM_MODAL },
   { name: gettext('show_image'), value: SHOW_IMAGE }
 ];
-const responseStyleName = (style) => {
-  if (style === undefined || style === null || style === '') return gettext('system_toast');
-  const o = responseStyles().find((x) => x.value === Number(style));
-  return o ? o.name : String(style);
-};
-
+// The stored style as a number, for the choice; unset is what the watch then
+// shows, a system toast
+const responseStyleValue = (style) =>
+  (style === undefined || style === null || style === '') ? SYSTEM_TOAST : Number(style);
 const keyboardTypes = () => {
   return [
     { name: gettext('kb_char'), value: KB_TYPE_CHAR },
@@ -292,6 +290,31 @@ const choice = (options, chosen, onPick, perRow = options.length) => {
   ));
 }
 
+// A small grey label above a field or a choice
+const fieldLabel = (text) => Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#666', padding: '8px 2px 0' } }, [text]);
+
+// A text field under its label. Empty, it shows a grey dash (still tappable);
+// confirming the dash, or an old marker ("**USER**") a config may hold,
+// gives an empty value. onValue gets the cleaned text.
+const EMPTY_FIELD = '—';
+const textField = (label, value, placeholderKey, max, oldMarker, onValue) => {
+  const current = unmark(value, EMPTY_FIELD, oldMarker);
+  return View({ style: { marginTop: '2px' } }, [
+    fieldLabel(label),
+    TextInput({
+      bold: false,
+      value: current || EMPTY_FIELD,
+      placeholder: gettext(placeholderKey),
+      subStyle: { color: current ? COLOR_BLACK : '#999', fontSize: '14px', wordBreak: 'break-all' },
+      maxLength: max,
+      onChange: (v) => {
+        const clean = unmark(v, EMPTY_FIELD, oldMarker);
+        if (clean.length <= max) onValue(clean);
+      }
+    })
+  ]);
+};
+
 // === LAYOUT BUILDER FUNCTIONS ===
 
 // A destructive-action control that looks like a button but is backed by a
@@ -329,7 +352,9 @@ const fieldCol = (children) => View({ style: { flex: 1 } }, children.map(fieldCe
 const buttonSummary = (button) => {
   if (button.spacer) return gettext('is_spacer') + ' · ' + gettext('w') + button.w;
   const r = button.request || {};
-  return (r.method || 'GET') + ' ' + (r.url || '—');
+  // A long URL (a whole paragraph in a query) filled the card: cut
+  const url = r.url || '—';
+  return (r.method || 'GET') + ' ' + (url.length > 70 ? url.slice(0, 67) + '…' : url);
 };
 
 // A button's card. Collapsed by default (ui_btn_<p>_<r>_<b>): the preview, what
@@ -440,99 +465,67 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
           ])
         ])
       ]),
-      // FUNCTIONS — two columns (hidden for spacers). A top border divides it
-      // from the STYLE block above.
+      // FUNCTIONS (hidden for spacers), below a divider. The URL first, full
+      // width; method and timeout side by side; the choices as buttons (auth,
+      // response, keyboard: a Select shows nothing closed and takes two lines);
+      // every text field with its label (a value alone, e.g. "url", didn't say
+      // which field it was).
       ...(button.spacer ? [] : [
-        View({ style: { display: 'flex', flexDirection: 'row', borderTop: '1px solid #d5d5d5', marginTop: '8px', paddingTop: '8px' } }, [
-          fieldCol([
-            Select({
-              title: gettext('insert_method') + (button.request.method || '--'),
-              options: [
-                { name: 'GET', value: 'GET' },
-                { name: 'POST', value: 'POST' },
-                { name: 'PUT', value: 'PUT' },
-                { name: 'HEAD', value: 'HEAD' },
-                { name: 'DELETE', value: 'DELETE' },
-                { name: 'PATCH', value: 'PATCH' },
-                { name: 'OPTIONS', value: 'OPTIONS' },
-                { name: 'CONNECT', value: 'CONNECT' }
-              ],
-              onChange: (value) => context.editButton('method', value, pindex, rindex, bindex)
-            }),
-            Toggle({
-              label: gettext('is_input'),
-              value: button.input,
-              subStyle: { color: '#333', fontSize: '10px' },
-              onChange: (value) => context.editButton('input', value, pindex, rindex, bindex)
-            }),
-            ...(button.input ? [Select({
-              title: gettext('keyboard_type') + ': ' + ((keyboardTypes().find((o) => o.value === Number(button.keyboard_type || KB_TYPE_CHAR)) || keyboardTypes()[0]).name),
-              value: button.keyboard_type || KB_TYPE_CHAR,
-              options: keyboardTypes(),
-              onChange: (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex)
-            })] : []),
-            Select({
-              title: gettext('timeout') + ': ' + (button.request.timeout ? timeoutLabel(button.request.timeout) : gettext('timeout_default')),
-              value: button.request.timeout,
-              options: timeoutRange(),
-              onChange: (value) => context.editButton('timeout', value, pindex, rindex, bindex)
-            })
+        View({ style: { display: 'flex', flexDirection: 'column', borderTop: '1px solid #d5d5d5', marginTop: '8px', paddingTop: '2px' } }, [
+          textField(gettext('field_url'), button.request.url, 'insert_url', 200, '**URL**',
+            (v) => context.editButton('url', v.trim() || null, pindex, rindex, bindex)),
+          View({ style: { display: 'flex', flexDirection: 'row' } }, [
+            View({ style: { flex: 1 } }, [
+              Select({
+                title: gettext('insert_method') + (button.request.method || '--'),
+                options: [
+                  { name: 'GET', value: 'GET' },
+                  { name: 'POST', value: 'POST' },
+                  { name: 'PUT', value: 'PUT' },
+                  { name: 'HEAD', value: 'HEAD' },
+                  { name: 'DELETE', value: 'DELETE' },
+                  { name: 'PATCH', value: 'PATCH' },
+                  { name: 'OPTIONS', value: 'OPTIONS' },
+                  { name: 'CONNECT', value: 'CONNECT' }
+                ],
+                onChange: (value) => context.editButton('method', value, pindex, rindex, bindex)
+              })
+            ]),
+            View({ style: { flex: 1, marginLeft: '8px' } }, [
+              Select({
+                title: gettext('timeout') + ': ' + (button.request.timeout ? timeoutLabel(button.request.timeout) : gettext('timeout_default')),
+                value: button.request.timeout,
+                options: timeoutRange(),
+                onChange: (value) => context.editButton('timeout', value, pindex, rindex, bindex)
+              })
+            ])
           ]),
-          fieldCol([
-            ...buildAuthFields(button, pindex, rindex, bindex, context),
-            TextInput({
-              bold: false,
-              value: button.request.url || gettext('**URL**'),
-              placeholder: gettext('insert_url'),
-              subStyle: { color: COLOR_BLACK, fontSize: '14px' },
-              maxLength: 200,
-              onChange: (value) => {
-                // Empty (or the marker confirmed unchanged): no URL
-                const v = unmark(value, '**URL**').trim();
-                context.editButton('url', v || null, pindex, rindex, bindex);
-              }
-            }),
-            TextInput({
-              bold: false,
-              value: button.request.headers || gettext('**HEADERS**'),
-              placeholder: gettext('insert_headers'),
-              subStyle: { color: COLOR_BLACK, fontSize: '14px' },
-              maxLength: 200,
-              onChange: (value) => {
-                const v = unmark(value, '**HEADERS**');
-                if (v.length <= 200) context.editButton('headers', v, pindex, rindex, bindex);
-              }
-            }),
-            TextInput({
-              bold: false,
-              value: button.request.body || gettext('**BODY**'),
-              placeholder: gettext('insert_body'),
-              subStyle: { color: COLOR_BLACK, fontSize: '14px' },
-              maxLength: 200,
-              onChange: (value) => {
-                const v = unmark(value, '**BODY**');
-                if (v.length <= 200) context.editButton('body', v, pindex, rindex, bindex);
-              }
-            }),
-            TextInput({
-              bold: false,
-              value: button.request.parse_result || gettext('**parse_result**'),
-              placeholder: gettext('insert_parse_result'),
-              subStyle: { color: COLOR_BLACK, fontSize: '14px' },
-              maxLength: 200,
-              onChange: (value) => {
-                const v = unmark(value, '**parse_result**');
-                if (v.length <= 200) context.editButton('parse_result', v, pindex, rindex, bindex);
-              }
-            }),
-            Select({
-              // The choice in the title (a Select shows nothing closed). No
-              // style set: the watch shows a system toast
-              title: gettext('response_style') + ': ' + responseStyleName(button.request.response_style),
-              value: button.request.response_style,
-              options: responseStyles(),
-              onChange: (value) => context.editButton('response_style', value, pindex, rindex, bindex)
-            })
+          ...buildAuthFields(button, pindex, rindex, bindex, context),
+          textField(gettext('field_headers'), button.request.headers, 'insert_headers', 200, '**HEADERS**',
+            (v) => context.editButton('headers', v, pindex, rindex, bindex)),
+          textField(gettext('field_body'), button.request.body, 'insert_body', 200, '**BODY**',
+            (v) => context.editButton('body', v, pindex, rindex, bindex)),
+          textField(gettext('field_parse_result'), button.request.parse_result, 'insert_parse_result', 200, '**parse_result**',
+            (v) => context.editButton('parse_result', v, pindex, rindex, bindex)),
+          // No style set: the watch shows a system toast
+          fieldLabel(gettext('response_style')),
+          choice(responseStyles(), responseStyleValue(button.request.response_style),
+            (value) => context.editButton('response_style', value, pindex, rindex, bindex), 3),
+          // Input: the switch, and beside it the keyboard when it's on
+          View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '6px' } }, [
+            View({ style: { flex: 1 } }, [
+              Toggle({
+                label: gettext('is_input'),
+                value: button.input,
+                subStyle: { color: '#333', fontSize: '10px' },
+                onChange: (value) => context.editButton('input', value, pindex, rindex, bindex)
+              })
+            ]),
+            View({ style: { flex: 1, marginLeft: '8px' } }, button.input ? [
+              choice([{ name: 'abc', value: KB_TYPE_CHAR }, { name: '123', value: KB_TYPE_NUMERIC }],
+                Number(button.keyboard_type || KB_TYPE_CHAR),
+                (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex))
+            ] : [])
           ])
         ])
       ])
@@ -541,67 +534,34 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
   );
 };
 
+// Auth as choice buttons ("—" none, Basic, Bearer, Digest; none is stored as
+// '--', as the Select did), then its fields: user and password, or the token
 const buildAuthFields = (button, pindex, rindex, bindex, context) => {
-  const authFields = [
-    Select({
-      title: gettext('auth') + (button.request.auth || '--'),
-      value: button.request.auth || '--',
-      options: [
-        { name: '--', value: '--' },
-        { name: 'Basic', value: 'Basic' },
-        { name: 'Bearer', value: 'Bearer' },
-        { name: 'Digest', value: 'Digest' }
-      ],
-      onChange: (value) => context.editButton('auth', value, pindex, rindex, bindex)
-    })
+  const auth = button.request.auth || '--';
+  const fields = [
+    fieldLabel(gettext('auth_title')),
+    choice([
+      { name: '—', value: '--' },
+      { name: 'Basic', value: 'Basic' },
+      { name: 'Bearer', value: 'Bearer' },
+      { name: 'Digest', value: 'Digest' }
+    ], auth, (value) => context.editButton('auth', value, pindex, rindex, bindex))
   ];
-
-  // User field (Basic/Digest)
-  if (button.request.auth === 'Basic' || button.request.auth === 'Digest') {
-    authFields.push(
-      TextInput({
-        bold: false,
-        value: button.request.user || gettext('**USER**'),
-        placeholder: gettext('user'),
-        subStyle: { color: COLOR_BLACK, fontSize: '14px' },
-        maxLength: 200,
-        onChange: (value) => {
-          const v = unmark(value, '**USER**');
-          if (v.length <= 200) context.editButton('user', v, pindex, rindex, bindex);
-        }
-      }),
-      TextInput({
-        bold: false,
-        value: button.request.pass || gettext('**PASS**'),
-        placeholder: gettext('pass'),
-        subStyle: { color: COLOR_BLACK, fontSize: '14px' },
-        maxLength: 400,
-        onChange: (value) => {
-          const v = unmark(value, '**PASS**');
-          if (v.length <= 400) context.editButton('pass', v, pindex, rindex, bindex);
-        }
-      })
+  if (auth === 'Basic' || auth === 'Digest') {
+    fields.push(
+      textField(gettext('field_user'), button.request.user, 'user', 200, '**USER**',
+        (v) => context.editButton('user', v, pindex, rindex, bindex)),
+      textField(gettext('field_pass'), button.request.pass, 'pass', 400, '**PASS**',
+        (v) => context.editButton('pass', v, pindex, rindex, bindex))
     );
   }
-
-  // Token field (Bearer)
-  if (button.request.auth === 'Bearer') {
-    authFields.push(
-      TextInput({
-        bold: false,
-        value: button.request.token || gettext('**TOKEN**'),
-        placeholder: gettext('token'),
-        subStyle: { color: COLOR_BLACK, fontSize: '14px' },
-        maxLength: 512,
-        onChange: (value) => {
-          const v = unmark(value, '**TOKEN**');
-          if (v.length <= 512) context.editButton('token', v, pindex, rindex, bindex);
-        }
-      })
+  if (auth === 'Bearer') {
+    fields.push(
+      textField(gettext('field_token'), button.request.token, 'token', 512, '**TOKEN**',
+        (v) => context.editButton('token', v, pindex, rindex, bindex))
     );
   }
-
-  return authFields;
+  return fields;
 };
 
 // Compact summary of a collapsed row: the names of the buttons it contains.

@@ -222,3 +222,27 @@ msgstr "Not renamed: a variable with that name already exists"
 
 msgid "var_bad_name"
 msgstr "Not renamed: a variable name can't contain { or }"
+
+msgid "field_url"
+msgstr "URL"
+
+msgid "field_headers"
+msgstr "Headers (JSON)"
+
+msgid "field_body"
+msgstr "Body (JSON)"
+
+msgid "field_parse_result"
+msgstr "Parse result"
+
+msgid "field_user"
+msgstr "User"
+
+msgid "field_pass"
+msgstr "Password"
+
+msgid "field_token"
+msgstr "Token"
+
+msgid "auth_title"
+msgstr "Authentication"
