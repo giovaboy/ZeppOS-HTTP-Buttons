@@ -249,20 +249,60 @@ const keyboardTypes = () => {
   ];
 }
 
-// A color Select. The MuiSelect value display never renders in this framework
-// (it's always blank), so — like the other selects (Method:/Auth:/…) — we show
-// the current selection by appending its palette name to the `title`
-// ("Background Color: teal"). Colors are stored as numbers; onColor gets a
-// number back. Unknown (off-palette) colors just show the bare title.
-const colorSelect = (title, current, onColor) => {
+// A color picker: collapsed, one line (a swatch of the current color, its
+// name, a chevron); open, a grid of swatches, 8 per line, the current one with
+// a blue border and a check. Picking closes it. One picker open at a time in
+// the whole page (ui_color_open holds its id), so the page doesn't grow.
+// Colors are stored as numbers, as before; one off the palette (set in the
+// JSON) shows its own swatch and its hex code.
+const COLOR_OPEN_KEY = 'ui_color_open';
+const COLORS_PER_LINE = 8;
+const isLight = (c) => {
+  const n = Number(c) || 0;
+  return (0.299 * ((n >> 16) & 0xff) + 0.587 * ((n >> 8) & 0xff) + 0.114 * (n & 0xff)) > 160;
+};
+const colorPicker = (context, id, title, current, onColor) => {
+  const storage = context.state.props.settingsStorage;
+  const open = storage.getItem(COLOR_OPEN_KEY) === id;
   const palette = colors();
-  const match = palette.find((c) => c.value === current);
-  return Select({
-    title: title + (match ? ': ' + match.name : ''),
-    value: current != null ? String(current) : undefined,
-    options: palette.map((c) => ({ name: c.name, value: String(c.value) })),
-    onChange: (value) => onColor(Number(value))
-  });
+  const has = current !== undefined && current !== null && current !== '';
+  const value = has ? Number(current) : undefined;
+  const match = palette.find((c) => c.value === value);
+  const name = match ? match.name : (has ? toColor(value) : '—');
+  const header = View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '8px' } }, [
+    View({ style: { width: '26px', minWidth: '26px', height: '26px', borderRadius: '6px', border: '1px solid #999', background: has ? toColor(value) : 'transparent', marginRight: '8px' } }, []),
+    Text({ style: { flex: 1, fontSize: '15px' } }, [title + ': ' + name]),
+    Button({
+      label: open ? '▾' : '◂',
+      style: { fontSize: '16px', fontWeight: '700', minWidth: '30px', width: '30px', height: '30px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
+      onClick: () => open ? storage.removeItem(COLOR_OPEN_KEY) : storage.setItem(COLOR_OPEN_KEY, id)
+    })
+  ]);
+  if (!open) return header;
+  const lines = [];
+  for (let i = 0; i < palette.length; i += COLORS_PER_LINE) lines.push(palette.slice(i, i + COLORS_PER_LINE));
+  const grid = View({ style: { display: 'flex', flexDirection: 'column', marginTop: '4px' } }, lines.map((line) =>
+    View({ style: { display: 'flex', flexDirection: 'row', marginTop: '4px' } }, [
+      ...line.map((c, i) => View({ style: { flex: 1, marginLeft: i ? '4px' : '0' } }, [
+        Button({
+          label: c.value === value ? '✓' : '',
+          onClick: () => {
+            storage.removeItem(COLOR_OPEN_KEY);
+            if (c.value !== value) onColor(c.value);
+          },
+          style: {
+            width: '100%', minWidth: '0', height: '30px', padding: '0', borderRadius: '6px',
+            background: toColor(c.value), color: isLight(c.value) ? '#000' : '#fff',
+            border: c.value === value ? '3px solid ' + CHOICE_ACCENT : '1px solid #bbb',
+            fontSize: '14px', fontWeight: '700'
+          }
+        })
+      ])),
+      // The last line keeps the swatches' width
+      ...Array.from({ length: COLORS_PER_LINE - line.length }, () => View({ style: { flex: 1, marginLeft: '4px' } }, []))
+    ])
+  ));
+  return View({}, [header, grid]);
 }
 
 // A choice among a few options, as in zeppamp's and zhue's settings pages: one
@@ -472,11 +512,9 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
               min: 0, max: 100, step: 1,
               value: button.radius || 0,
               onChange: (value) => context.editButton('radius', value, pindex, rindex, bindex)
-            }),
-            colorSelect(gettext('back_color'), button.back_color, (c) => context.editButton('back_color', c, pindex, rindex, bindex))
+            })
           ]),
           fieldCol([
-            colorSelect(gettext('text_color'), button.text_color, (c) => context.editButton('text_color', c, pindex, rindex, bindex)),
             Select({
               title: gettext('text_size') + (button.text_size != null ? button.text_size : 'default'),
               value: button.text_size,
@@ -484,7 +522,12 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
               onChange: (value) => context.editButton('text_size', value, pindex, rindex, bindex)
             })
           ])
-        ])
+        ]),
+        // The colors full width: open, their grid needs it
+        colorPicker(context, 'btn:' + pindex + ':' + rindex + ':' + bindex + ':back', gettext('back_color'), button.back_color,
+          (c) => context.editButton('back_color', c, pindex, rindex, bindex)),
+        colorPicker(context, 'btn:' + pindex + ':' + rindex + ':' + bindex + ':text', gettext('text_color'), button.text_color,
+          (c) => context.editButton('text_color', c, pindex, rindex, bindex))
       ]),
       // FUNCTIONS (hidden for spacers), below a divider. The URL first, full
       // width; method and timeout side by side; the choices as buttons (auth,
@@ -727,17 +770,10 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
       // Editing controls, only when the page is expanded: page colors. (Add Row
       // lives at the bottom of the row list, like Add Page after the pages.)
       ...(pageOpen ? [
-        View(
-          { style: { display: 'flex', flexDirection: 'row', justifyContent: 'space-evenly', alignItems: 'center', marginTop: '6px' } },
-          [
-            View({ style: { flex: 1 } }, [
-              colorSelect(gettext('back_color'), page.back_color, (c) => context.editPage('back_color', c, pindex))
-            ]),
-            View({ style: { flex: 1 } }, [
-              colorSelect(gettext('text_color'), page.text_color, (c) => context.editPage('text_color', c, pindex))
-            ])
-          ]
-        )
+        colorPicker(context, 'page:' + pindex + ':back', gettext('back_color'), page.back_color,
+          (c) => context.editPage('back_color', c, pindex)),
+        colorPicker(context, 'page:' + pindex + ':text', gettext('text_color'), page.text_color,
+          (c) => context.editPage('text_color', c, pindex))
       ] : [])
     ]
   );
@@ -840,6 +876,7 @@ AppSettingsPage({
   // The pages in `order` (old indexes), their open state with them
   reorderPages(order) {
     const st = this.state.props.settingsStorage;
+    if (st.getItem(COLOR_OPEN_KEY)) st.removeItem(COLOR_OPEN_KEY);
     const pages = this.state.data.pages;
     const before = openUiKeys(st, pages);
     applyUiKeys(st, before, pagesUiAfter(before, pages, order));
@@ -849,6 +886,7 @@ AppSettingsPage({
   // The rows of a page in `order` (old indexes), their open state with them
   reorderRows(pindex, order) {
     const st = this.state.props.settingsStorage;
+    if (st.getItem(COLOR_OPEN_KEY)) st.removeItem(COLOR_OPEN_KEY);
     const page = this.state.data.pages[pindex];
     const before = openUiKeys(st, this.state.data.pages);
     applyUiKeys(st, before, rowsUiAfter(before, this.state.data.pages, pindex, order));
@@ -949,6 +987,7 @@ AppSettingsPage({
   // The buttons of a row in `order` (old indexes), their open state with them
   reorderButtons(pindex, rindex, order) {
     const st = this.state.props.settingsStorage;
+    if (st.getItem(COLOR_OPEN_KEY)) st.removeItem(COLOR_OPEN_KEY);
     const row = this.state.data.pages[pindex].rows[rindex];
     const before = openUiKeys(st, this.state.data.pages);
     applyUiKeys(st, before, buttonsUiAfter(before, pindex, rindex, order));
