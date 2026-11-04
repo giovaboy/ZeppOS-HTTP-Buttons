@@ -676,6 +676,10 @@ const buildAudioFields = (button, pindex, rindex, bindex, context) => {
         gettext((a.send_as || AUDIO_DEFAULT.send_as) === 'json' ? 'audio_note_json' :
           (a.send_as || AUDIO_DEFAULT.send_as) === 'raw' ? 'audio_note_raw' : 'audio_note_multipart')
       ]),
+      // Input on too: the keyboard first, then the recording
+      ...(button.input ? [
+        Text({ align: 'left', paragraph: true, style: AUDIO_NOTE_STYLE }, [gettext('audio_note_input')])
+      ] : []),
       ...(playsAnswer ? [
         Text({ align: 'left', paragraph: true, style: { ...AUDIO_NOTE_STYLE, background: '#fff3cd', color: '#8a6d3b' } }, [gettext('audio_note_no_play')])
       ] : [])

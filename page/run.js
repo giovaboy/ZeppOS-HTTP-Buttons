@@ -160,22 +160,24 @@ Page(
       // Record, then send (request.audio), or the test suite's experiments
       if (button.audio_test || button.audio_last || (button.request && button.request.audio)) return this.runAudio(button)
 
-      if (button.input) {
-        // The typed text fires the button; a cancel goes back to the card
-        if (isSystemKeyboardAvailable()) {
-          return openSystemKeyboard(this, button, w.p, (text) => this.fire(button, text), () => this.close())
-        }
-        // No system keyboard (before API 4.0): the one the app draws, as on
-        // the buttons page (utils/app-keyboard.js)
-        if (LOG_TRACE) devLog(`${this.tag} ${this.label}: no system keyboard, the app's keyboard`)
-        this.appKeyboard = openAppKeyboard({
-          keys: KEYS, keyboardType: button.keyboard_type, y: 0,
-          onSubmit: (text) => { this.appKeyboard = null; this.fire(button, text) },
-          onCancel: () => { this.appKeyboard = null; this.close() },
-        })
-        return
-      }
+      // The typed text fires the button; a cancel goes back
+      if (button.input) return this.askInput(button, (text) => this.fire(button, text))
       this.fire(button, null)
+    },
+
+    // An input button's text: the system keyboard, or before API 4.0 the one
+    // the app draws, as on the buttons page (utils/app-keyboard.js). A cancel
+    // goes back (to the buttons page or the card)
+    askInput(button, onText) {
+      if (isSystemKeyboardAvailable()) {
+        return openSystemKeyboard(this, button, this.where.p, onText, () => this.close())
+      }
+      if (LOG_TRACE) devLog(`${this.tag} ${this.label}: no system keyboard, the app's keyboard`)
+      this.appKeyboard = openAppKeyboard({
+        keys: KEYS, keyboardType: button.keyboard_type, y: 0,
+        onSubmit: (text) => { this.appKeyboard = null; onText(text) },
+        onCancel: () => { this.appKeyboard = null; this.close() },
+      })
     },
 
     // A text or shape on top of the background button must not take its taps
@@ -341,14 +343,24 @@ Page(
         return
       }
       if (button.audio_test) return runAudioTest(this, button, p, this.label, () => this.audioOver('recorded'))
-      // The button's own request (request.audio): the recording screen, then
-      // the request runs as any button's (variables, auth, parse_result, the
-      // notification, a poll), its body built on the phone (audioRequest)
+      // An input button that records: the text first, then the recording; the
+      // text goes in {input} (URL, headers, body: beside {audio} in JSON)
+      if (button.input) return this.askInput(button, (text) => this.recordAndSend(button, secs, text))
+      this.recordAndSend(button, secs, null)
+    },
+
+    // The button's own request (request.audio): the recording screen, then
+    // the request runs as any button's (variables, {input}, auth,
+    // parse_result, the notification, a poll), its body built on the phone
+    // (audioRequest)
+    recordAndSend(button, secs, input) {
+      const p = this.where.p
+      if (input != null && LOG_TRACE) devLog(`${this.tag} ${this.label}: ${String(input).length} chars typed, now the recording`)
       runAudioTest(this, { audio_test: { seconds: secs } }, p, this.label, () => this.audioOver('recorded'), {
         onRecorded: (bytes, run) => {
           this.recording = bytes
           let p2
-          try { p2 = this.executeButtonRequest(button.request, p, null, this.label) } catch (e) { p2 = Promise.reject(e) }
+          try { p2 = this.executeButtonRequest(button.request, p, input, this.label) } catch (e) { p2 = Promise.reject(e) }
           Promise.resolve(p2).then(() => run.finish(null), (e) => {
             warnLog(`${this.tag} ${this.label}: ${errorText(e)}`)
             run.finish(String(errorText(e)), true)
