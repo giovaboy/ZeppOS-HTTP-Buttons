@@ -76,6 +76,7 @@ Page(
       this.where = parseParams(params)
       // Opened by the buttons page (an audio button) or by the card
       this.fromPage = !!(this.where && this.where.from === 'page')
+      this.tag = this.fromPage ? '[run]' : '[card]'
       this.destroyed = false
       this.audio = false
       this.bg = null
@@ -142,7 +143,7 @@ Page(
         }
         // No system keyboard (before API 4.0): the one the app draws, as on
         // the buttons page (utils/app-keyboard.js)
-        if (LOG_TRACE) devLog(`[card] ${this.label}: no system keyboard, the app's keyboard`)
+        if (LOG_TRACE) devLog(`${this.tag} ${this.label}: no system keyboard, the app's keyboard`)
         this.appKeyboard = openAppKeyboard({
           keys: KEYS, keyboardType: button.keyboard_type, y: 0,
           onSubmit: (text) => { this.appKeyboard = null; this.fire(button, text) },
@@ -188,7 +189,7 @@ Page(
         p = Promise.reject(e)
       }
       Promise.resolve(p).then(() => this.finished(t0), (e) => {
-        warnLog(`[card] ${this.label}: ${errorText(e)}`)
+        warnLog(`${this.tag} ${this.label}: ${errorText(e)}`)
         this.showResult(String(errorText(e)), this.where.p, true)
         this.finished(t0)
       })
@@ -215,7 +216,7 @@ Page(
       this.refreshCopy()
       if (this.imageShown) return
       const s = this.shown
-      if (LOG_TRACE) devLog(`[card] ${this.label}: done in ${Date.now() - t0}ms`)
+      if (LOG_TRACE) devLog(`${this.tag} ${this.label}: done in ${Date.now() - t0}ms`)
       this.closeAfter(!s ? DONE_MS : (s.quiet ? DONE_MS : closeDelay(s.text, s.isError)))
     },
 
@@ -224,7 +225,7 @@ Page(
     handleIncomingFile(file) {
       if (!file) return
       const tIn = Date.now()
-      if (LOG_TRACE) devLog(`[card] ${this.label}: image incoming${file.fileSize ? ', ' + file.fileSize + ' B' : ''}`)
+      if (LOG_TRACE) devLog(`${this.tag} ${this.label}: image incoming${file.fileSize ? ', ' + file.fileSize + ' B' : ''}`)
       file.on('change', (e) => {
         const state = e && e.data && e.data.readyState
         if (state === 'transferred') {
@@ -234,14 +235,14 @@ Page(
           this.clearImageSpinner()
           try {
             this.showImage(file.filePath)
-            infoLog(`[card] ${this.label}: image shown, ${Date.now() - tIn}ms after it started to arrive`)
+            infoLog(`${this.tag} ${this.label}: image shown, ${Date.now() - tIn}ms after it started to arrive`)
           } catch (err) {
-            warnLog(`[card] ${this.label}: image not shown: ${errorText(err)}`)
+            warnLog(`${this.tag} ${this.label}: image not shown: ${errorText(err)}`)
           }
           this.closeAfter(IMAGE_STAY_MS)
           this.refreshCopy()
         } else if (state === 'error' || state === 'canceled') {
-          warnLog(`[card] ${this.label}: image transfer ${state} after ${Date.now() - tIn}ms`)
+          warnLog(`${this.tag} ${this.label}: image transfer ${state} after ${Date.now() - tIn}ms`)
           try { if (file.filePath) rmSync({ path: file.filePath }) } catch (err) { /* not there */ }
           this.clearImageSpinner()
         }
@@ -269,7 +270,7 @@ Page(
         const scale = Math.min(W / iw, H / ih)
         const w = Math.round(iw * scale), h = Math.round(ih * scale)
         img.setProperty(prop.MORE, { x: Math.round((W - w) / 2), y: Math.round((H - h) / 2), w, h, auto_scale: true, auto_scale_obj_fit: true })
-        if (LOG_TRACE) devLog(`[card] ${this.label}: image ${iw}x${ih} drawn at ${w}x${h}`)
+        if (LOG_TRACE) devLog(`${this.tag} ${this.label}: image ${iw}x${ih} drawn at ${w}x${h}`)
       } else {
         img.setProperty(prop.MORE, { x: 0, y: 0, w: W, h: H, auto_scale: true, auto_scale_obj_fit: false })
       }
@@ -299,7 +300,7 @@ Page(
       this.clearImageSpinner()
       this.audio = true
       this.setBgEnabled(false)
-      infoLog(`[card] ${this.label}: audio received, ${Date.now() - tIn}ms after it started to arrive`)
+      infoLog(`${this.tag} ${this.label}: audio received, ${Date.now() - tIn}ms after it started to arrive`)
       playAudioFile(this, file.filePath, { tag: '[play] ' + this.label, pageid: this.where.p, remove: true, label: this.buttonText, onEnd: (why) => this.audioOver(why) })
     },
 

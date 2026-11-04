@@ -200,6 +200,7 @@ export function releasePlayerForRecorder(tag) {
   try { player.stop() } catch (e) { /* not playing */ }
   const done = releaseMedia(player, tag, 'player')
   player = null
+  appMedia().player = null
   return done
 }
 
@@ -215,9 +216,30 @@ function dropPending() {
   pending = null
 }
 
+// The media objects kept by the app (globalData), for every page: each page
+// starts its modules afresh, and a recorder made on an earlier page, gone,
+// still held the audio (Cheetah: no player could be made on the next page,
+// "no recorder made yet" there). The same objects are used again instead,
+// as on one page, where the recorder and the player lived together
+export function appMedia() {
+  try {
+    const a = getApp()
+    if (!a.globalData) a.globalData = {}
+    return a.globalData.media || (a.globalData.media = {})
+  } catch (e) {
+    return {}
+  }
+}
+
 // One player for the app, its events handed to the file playing
 function getPlayer(run) {
   if (player) return player
+  const kept = appMedia().player
+  if (kept) {
+    player = kept
+    devLog(`${run.tag}: player from an earlier page used again; ${availableText(player)}`)
+    return listenPlayer(player)
+  }
   try {
     player = create(id.PLAYER)
   } catch (e) {
@@ -238,7 +260,32 @@ function getPlayer(run) {
     if (!player) return null
   }
   devLog(`${run.tag}: player created; its functions: ${mediaMethods(player)}; ${availableText(player)}`)
-  const p = player
+  appMedia().player = player
+  return listenPlayer(player)
+}
+
+// The player made now, on the recorder's page, for the pages after: there a
+// new one could not be made while that recorder lived (Cheetah), but on one
+// page the two lived together. Made after the recorder, never before (on
+// the Balance one object kept the other from being made: the recording
+// comes first)
+export function makePlayerAhead(tag) {
+  if (player || appMedia().player) return
+  let p = null
+  try { p = create(id.PLAYER) } catch (e) { p = null }
+  if (!p) {
+    devLog(`${tag}: no player could be made next to the recorder`)
+    return
+  }
+  player = p
+  appMedia().player = p
+  listenPlayer(p)
+  devLog(`${tag}: player made next to the recorder, for the pages after`)
+}
+
+// This page's listeners on the player (one per event: a page-level player
+// library sets new ones to clear the old)
+function listenPlayer(p) {
   p.addEventListener(p.event.PREPARE, (result) => {
     const r = current
     if (!r || r.done) return
@@ -250,9 +297,10 @@ function getPlayer(run) {
       return
     }
     try { r.duration = p.getDuration() || 0 } catch (e) { r.duration = 0 }
-    let volume = '?'
+    let volume = '?', mute = '?'
     try { volume = p.getVolume() } catch (e) { /* not there */ }
-    devLog(`${r.tag}: PREPARE ok in ${ms}ms, duration ${r.duration}s, volume ${volume}`)
+    try { mute = typeof p.getMute === 'function' ? p.getMute() : 'n/a' } catch (e) { mute = errorText(e) }
+    devLog(`${r.tag}: PREPARE ok in ${ms}ms, duration ${r.duration}s, volume ${volume}, mute ${mute}, ${availableText(p)}`)
     // start() inside PREPARE is fine (field-notes.md)
     try { p.start() } catch (e) { warnLog(`${r.tag}: start() failed: ${errorText(e)}`) }
   })
