@@ -238,9 +238,17 @@ function getPlayer(run) {
   if (player) return player
   const kept = appMedia().player
   if (kept) {
-    player = kept
-    devLog(`${run.tag}: player from an earlier page used again; ${availableText(player)}`)
-    return listenPlayer(player)
+    // An object gone with its page throws ("hmMedia object expected", as the
+    // recorder did): then a new one
+    try {
+      listenPlayer(kept)
+      player = kept
+      devLog(`${run.tag}: player from an earlier page used again; ${availableText(player)}`)
+      return player
+    } catch (e) {
+      warnLog(`${run.tag}: the player kept from an earlier page is gone (${errorText(e)}): a new one`)
+      appMedia().player = null
+    }
   }
   try {
     player = create(id.PLAYER)

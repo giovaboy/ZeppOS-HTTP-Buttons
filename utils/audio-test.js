@@ -18,7 +18,7 @@ import { create, id, codec } from '@zos/media'
 import { statSync, readFileSync, rmSync } from '@zos/fs'
 import { getDeviceInfo } from '@zos/device'
 import { bytesToBase64, hexHead } from './base64.js'
-import { playAudioFile, isAudioPlaying, stopAudioPlay, noteRecorderMade, releasePlayerForRecorder, releaseMedia, mediaMethods, availableText, setRecordingCheck, recordingOver, appMedia, makePlayerAhead } from './audio-play.js'
+import { playAudioFile, isAudioPlaying, stopAudioPlay, noteRecorderMade, releasePlayerForRecorder, releaseMedia, mediaMethods, availableText, setRecordingCheck, recordingOver, makePlayerAhead } from './audio-play.js'
 import { parseOpusFrames } from './opus-frames.js'
 import { COLOR_BLACK, COLOR_WHITE, COLOR_BRIGHT_RED, COLOR_GRAY, SYSTEM_MODAL } from './constants.js'
 import { devLog, infoLog, warnLog } from './remote-log.js'
@@ -163,16 +163,13 @@ export function stopAudioTest() {
 // One recorder: on the watch a second create(id.RECORDER) on the same page
 // gave nothing ("cannot read property 'addEventListener' of undefined").
 // Its events go to the test running
+// One recorder per page, made on the page: a second create(id.RECORDER) on
+// one page gave nothing, and one kept from a page that had gone was no
+// longer an object ("hmMedia object expected" on the Cheetah; the player
+// kept so works: utils/audio-play.js appMedia)
 let recorder = null
 function getRecorder(tag) {
   if (recorder) return recorder
-  // Kept by the app from an earlier page (utils/audio-play.js appMedia)
-  const kept = appMedia().recorder
-  if (kept) {
-    recorder = kept
-    devLog(`${tag}: recorder from an earlier page used again`)
-    return listenRecorder(recorder)
-  }
   let r = create(id.RECORDER)
   // Nothing: the player may hold the audio (on the Balance only one of the two
   // could exist). It lets go (release(), where it has it), and again
@@ -187,11 +184,9 @@ function getRecorder(tag) {
     if (!recorder || current) return false
     const done = releaseMedia(recorder, t, 'recorder')
     recorder = null
-    appMedia().recorder = null
     return done
   })
   devLog(`${tag}: recorder's functions: ${mediaMethods(r)}; ${availableText(r)}`)
-  appMedia().recorder = r
   makePlayerAhead(tag)
   recorder = r
   devLog(`${tag}: recorder created`)
