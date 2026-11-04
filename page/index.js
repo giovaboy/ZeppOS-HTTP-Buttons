@@ -324,9 +324,9 @@ Page(
       // Null-guarded: the custom toast is created lazily, so on a page that
       // never showed one these refs are still empty — deleteWidget(undefined)
       // would throw during teardown.
-      if (layout.refs.customToast) deleteWidget(layout.refs.customToast)
-      if (layout.refs.customToastFillRect) deleteWidget(layout.refs.customToastFillRect)
-      if (layout.refs.customToastText) deleteWidget(layout.refs.customToastText)
+      // The toast's FILL_RECT and TEXT are children of its GROUP: they go with it
+      if (layout.refs.customToast) { try { deleteWidget(layout.refs.customToast) } catch (e) { /* gone */ } }
+      layout.refs.customToast = layout.refs.customToastFillRect = layout.refs.customToastText = null
       if (typeof layout.hideImage === 'function') layout.hideImage()
       // The press queues and the loading animations go with the page: no
       // queued tap fires after it, no tick outlives it

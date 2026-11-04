@@ -243,7 +243,9 @@ export const layout = {
                 // on a busy button waits its turn; the loading animation
                 // (utils/button-loader.js, config loading_style) runs until
                 // the last one is done.
-                const runRequest = (text) => pressButton(vm, pi + '_' + ri + '_' + bi, {
+                // A new press hides the last result: the press's animation,
+                // created now, would be drawn over it (and a new result comes)
+                const runRequest = (text) => this.hideToast() || pressButton(vm, pi + '_' + ri + '_' + bi, {
                   rect: { x: startXforThisBtn, y: startYforThisBtn, w: widthOfTheButton, h: heigthofthebutton, radius: button.radius || BTN_RADIUS },
                   back: button.back_color || COLOR_GRAY,
                   label,
@@ -409,41 +411,13 @@ export const layout = {
       };//rows
     };//pages
 
-    this.refs.customToast = createWidget(widget.GROUP, {
-      x: px(NOTIFICATION_X),
-      y: px(NOTIFICATION_Y),
-      w: px(NOTIFICATION_WIDTH),
-      h: px(NOTIFICATION_H_MIN),
-    })
-
-    this.refs.customToastFillRect = this.refs.customToast.createWidget(widget.FILL_RECT, {
-      x: 0,
-      y: 0,
-      w: px(NOTIFICATION_WIDTH),
-      h: px(NOTIFICATION_H_MIN),
-      radius: 30,
-      color: COLOR_GRAY_TOAST,
-      alpha: 235,
-    })
-
-    this.refs.customToastText = this.refs.customToast.createWidget(widget.TEXT, {
-      x: 10,
-      y: 10,
-      w: px(NOTIFICATION_WIDTH - 20),
-      h: px(NOTIFICATION_H_MIN - 20),
-      color: COLOR_WHITE,
-      text_size: NOTIFICATION_TEXT_SIZE,
-      align_h: align.CENTER_H,
-      align_v: align.CENTER_V,
-      text_style: text_style.WRAP,
-      text: 'Hi'
-    })
-
-    this.refs.customToast.addEventListener(event.CLICK_DOWN, () => {
-      this.refs.customToast.setProperty(prop.VISIBLE, false);
-    })
-
-    this.refs.customToast.setProperty(prop.VISIBLE, false);
+    // The custom toast is created when it shows (showToastBox), not here: on
+    // the watch the widget created last is drawn on top, and a toast made at
+    // the page's start ended up under the loading animation of a button
+    // pressed later
+    this.refs.customToast = null;
+    this.refs.customToastFillRect = null;
+    this.refs.customToastText = null;
 
     /* Fullscreen image overlay (response_style = SHOW_IMAGE) is built lazily in
        showImage() with TOP-LEVEL widgets — IMG does not render as a GROUP child,
@@ -505,6 +479,34 @@ export const layout = {
     this.refs.imageViewImg.addEventListener(event.CLICK_DOWN, () => this.hideImage());
     return drawn;
   },
+  // Hide the custom toast (a new press): it is drawn again at the next result
+  hideToast() {
+    if (this.refs.customToast) this.refs.customToast.setProperty(prop.VISIBLE, false);
+  },
+  // The custom toast, created anew at each result so it is the newest widget
+  // and sits over the loading animations already running (the watch has no
+  // z-order: the widget created last is on top)
+  showToastBox(txt, height, pageid, isError) {
+    if (this.refs.customToast) {
+      try { deleteWidget(this.refs.customToast); } catch (e) { /* gone with the page */ }
+    }
+    const group = createWidget(widget.GROUP, {
+      x: px(NOTIFICATION_X), y: px(NOTIFICATION_Y - height + 20) + (pageid * DEVICE_HEIGHT),
+      w: px(NOTIFICATION_WIDTH), h: height + 20,
+    });
+    this.refs.customToastFillRect = group.createWidget(widget.FILL_RECT, {
+      x: 0, y: 0, w: px(NOTIFICATION_WIDTH), h: height + 20,
+      radius: 30, color: isError ? COLOR_RED : COLOR_GRAY_TOAST, alpha: 235,
+    });
+    this.refs.customToastText = group.createWidget(widget.TEXT, {
+      x: 10, y: 10, w: px(NOTIFICATION_WIDTH - 20), h: height,
+      color: COLOR_WHITE, text_size: NOTIFICATION_TEXT_SIZE,
+      align_h: align.CENTER_H, align_v: align.CENTER_V,
+      text_style: text_style.WRAP, text: txt,
+    });
+    group.addEventListener(event.CLICK_DOWN, () => group.setProperty(prop.VISIBLE, false));
+    this.refs.customToast = group;
+  },
   notifyResult(txt, pageid, isError, type) {
     if (type == SYSTEM_TOAST) {
       showToast({
@@ -518,22 +520,7 @@ export const layout = {
         rows_max: 7
       })
 
-      this.refs.customToast.setProperty(prop.MORE, {
-        x: px(NOTIFICATION_X), y: px(NOTIFICATION_Y - height + 20) + (pageid * DEVICE_HEIGHT), w: px(NOTIFICATION_WIDTH), h: height + 20,
-      });
-      this.refs.customToastFillRect.setProperty(prop.MORE, {
-        x: 0, y: 0, w: px(NOTIFICATION_WIDTH), h: height + 20,
-        color: isError ? COLOR_RED : COLOR_GRAY_TOAST,
-      });
-      this.refs.customToastText.setProperty(prop.MORE, {
-        text: txt,
-        align_h: align.CENTER_H,
-        align_v: align.CENTER_V,
-        text_style: text_style.WRAP,
-        x: 10, y: 10, w: px(NOTIFICATION_WIDTH - 20), h: height,
-      });
-
-      this.refs.customToast.setProperty(prop.VISIBLE, true);
+      this.showToastBox(txt, height, pageid, isError);
 
     } else if (type == SYSTEM_MODAL) {
       let systemModal = createModal({
