@@ -19,12 +19,16 @@ import { requestMethods, parseJSON, capText, cachedSessions, clearSessionCache }
 import { readConfigCopy, writeConfigCopy } from '../utils/config-copy.js'
 import { startLoader, stopAllLoaders, loadingStyle } from '../utils/button-loader.js'
 import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard.js'
+import { openAppKeyboard } from '../utils/app-keyboard.js'
+import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE } from 'zosLoader:./keyboard.[pf].layout.js'
 import { cardAllowed } from '../utils/card.js'
 import { BTN_RADIUS, COLOR_BLACK, COLOR_GRAY, COLOR_WHITE, NO_NOTIFICATION, SHOW_IMAGE } from '../utils/constants.js'
 import { infoLog, warnLog, devLog, LOG_TRACE } from '../utils/remote-log.js'
 import { errorText } from '../utils/memory.js'
 
 const { width: W, height: H, screenShape } = getDeviceInfo()
+// This screen's key layouts, for the keyboard the app draws
+const KEYS = { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE }
 const ROUND = screenShape === SCREEN_SHAPE_ROUND
 
 // The button, as on the buttons page, in the upper part of the screen
@@ -120,9 +124,19 @@ Page(
       if (!cardAllowed(button)) return this.message(getText('run_in_app'), true)
 
       if (button.input) {
-        if (!isSystemKeyboardAvailable()) return this.message(getText('run_keyboard_in_app'), true)
         // The typed text fires the button; a cancel goes back to the card
-        return openSystemKeyboard(this, button, w.p, (text) => this.fire(button, text), () => this.close())
+        if (isSystemKeyboardAvailable()) {
+          return openSystemKeyboard(this, button, w.p, (text) => this.fire(button, text), () => this.close())
+        }
+        // No system keyboard (before API 4.0): the one the app draws, as on
+        // the buttons page (utils/app-keyboard.js)
+        if (LOG_TRACE) devLog(`[card] ${this.label}: no system keyboard, the app's keyboard`)
+        this.appKeyboard = openAppKeyboard({
+          keys: KEYS, keyboardType: button.keyboard_type, y: 0,
+          onSubmit: (text) => { this.appKeyboard = null; this.fire(button, text) },
+          onCancel: () => { this.appKeyboard = null; this.close() },
+        })
+        return
       }
       this.fire(button, null)
     },
@@ -288,6 +302,8 @@ Page(
     onDestroy() {
       if (this.closeTimer) { clearTimeout(this.closeTimer); this.closeTimer = null }
       if (this.imageWaitTimer) { clearTimeout(this.imageWaitTimer); this.imageWaitTimer = null }
+      // The app's keyboard, if the page goes while it is open
+      if (this.appKeyboard) { this.appKeyboard.close(); this.appKeyboard = null }
       // The files go back to the handler there was before (the buttons page's)
       if (this.globalData && this.globalData.onIncomingFile === this.fileHandler) {
         this.globalData.onIncomingFile = this.prevFileHandler || null
