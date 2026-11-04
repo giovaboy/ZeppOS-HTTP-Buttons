@@ -19,6 +19,7 @@ import { statSync, readFileSync, rmSync } from '@zos/fs'
 import { getDeviceInfo } from '@zos/device'
 import { bytesToBase64, hexHead } from './base64.js'
 import { playAudioFile } from './audio-play.js'
+import { parseOpusFrames } from './opus-frames.js'
 import { COLOR_BLACK, COLOR_WHITE, COLOR_BRIGHT_RED, COLOR_GRAY, SYSTEM_MODAL } from './constants.js'
 import { devLog, infoLog, warnLog } from './remote-log.js'
 import { memoryUsage, errorText, sizeText } from './memory.js'
@@ -67,25 +68,13 @@ export function runAudioTest(vm, button, pageid, label, done) {
 
   let recorder
   try {
-    recorder = run.recorder = create(id.RECORDER)
+    recorder = run.recorder = getRecorder(tag)
   } catch (e) {
     warnLog(`${tag}: recorder not created: ${errorText(e)}`)
     // e.g. PERMISSION_DENIED device:os.mic without the app.json permission
     return finish('Recorder not available:\n' + errorText(e), true)
   }
   try {
-    recorder.addEventListener(recorder.event.START, (result) => {
-      run.tStart = Date.now()
-      devLog(`${tag}: START event (result ${result}) ${run.tStart - run.t0}ms after the press, status ${statusText(recorder)}`)
-      if (result === false) {
-        warnLog(`${tag}: the recorder did not start (permission? microphone busy?)`)
-        finish('The recorder did not start', true)
-      }
-    })
-    recorder.addEventListener(recorder.event.STOP, (result) => {
-      devLog(`${tag}: STOP event (result ${result}) ${run.tStop ? Date.now() - run.tStop : '?'}ms after stop()`)
-      afterStop(run, 'STOP event')
-    })
     recorder.setFormat(codec.OPUS, { target_file: 'data://' + AUDIO_FILE })
     recorder.start()
     devLog(`${tag}: start() called, status ${statusText(recorder)}`)
@@ -121,14 +110,51 @@ export function playLastRecording(vm, pageid, label, done) {
   done()
 }
 
-// The page goes away: the recording stops, nothing is sent
+// The page goes away: the recording stops, nothing is sent, the recorder is
+// let go (a new page makes its own)
 export function stopAudioTest() {
   const run = current
-  if (!run) return
-  devLog(`${run.tag}: page closed during the test`)
-  run.finished = true
-  cleanup(run)
-  current = null
+  if (run) {
+    devLog(`${run.tag}: page closed during the test`)
+    run.finished = true
+    cleanup(run)
+    current = null
+  }
+  recorder = null
+}
+
+// One recorder for the page: on the watch a second create(id.RECORDER) on
+// the same page gave nothing ("cannot read property 'addEventListener' of
+// undefined"), a new page's first one worked. Its events go to the test
+// running
+let recorder = null
+function getRecorder(tag) {
+  if (recorder) return recorder
+  const r = create(id.RECORDER)
+  if (!r) throw new Error('create(id.RECORDER) gave nothing')
+  r.addEventListener(r.event.START, (result) => {
+    const run = current
+    if (!run || run.finished) return
+    run.tStart = Date.now()
+    devLog(`${run.tag}: START event (result ${result}) ${run.tStart - run.t0}ms after the press, status ${statusText(r)}`)
+    if (result === false) {
+      warnLog(`${run.tag}: the recorder did not start (permission? microphone busy?)`)
+      run.finish('The recorder did not start', true)
+    }
+  })
+  r.addEventListener(r.event.STOP, (result) => {
+    const run = current
+    if (!run || run.finished) return
+    devLog(`${run.tag}: STOP event (result ${result}) ${run.tStop ? Date.now() - run.tStop : '?'}ms after stop(), file ${fileSize()} B`)
+    afterStop(run, 'STOP event')
+  })
+  recorder = r
+  devLog(`${tag}: recorder created`)
+  return r
+}
+
+function fileSize() {
+  try { const st = statSync({ path: AUDIO_FILE }); return (st && st.size) || 0 } catch (e) { return 0 }
 }
 
 function statusText(recorder) {
@@ -166,6 +192,33 @@ function afterStop(run, why) {
     warnLog(`${run.tag}: recording stopped by itself after ${run.recMs}ms`)
   }
   run.read = true
+  waitForFile(run, why)
+}
+
+// On the watch the file was still being written after the STOP event (67 B
+// read 9 ms after it, 4.7 KB a few seconds later for 3 s): read once its
+// size held for two checks in a row
+const SETTLE_CHECK_MS = 150
+const SETTLE_MAX_MS = 5000
+function waitForFile(run, why) {
+  const t0 = Date.now()
+  const sizes = [fileSize()]
+  let same = 0
+  const check = () => {
+    if (run.finished) return
+    const s = fileSize()
+    if (s !== sizes[sizes.length - 1]) { sizes.push(s); same = 0 } else same++
+    const waited = Date.now() - t0
+    if ((same >= 2 && s > 0) || waited >= SETTLE_MAX_MS) {
+      devLog(`${run.tag}: file ${sizes.join(' → ')} B, ${same >= 2 ? 'settled' : 'still changing'} after ${waited}ms`)
+      return readRecording(run, why)
+    }
+    run.timers.push(setTimeout(check, SETTLE_CHECK_MS))
+  }
+  run.timers.push(setTimeout(check, SETTLE_CHECK_MS))
+}
+
+function readRecording(run, why) {
   const { vm, tag } = run
   const tRead = Date.now()
   let bytes
@@ -188,6 +241,12 @@ function afterStop(run, why) {
   infoLog(`${tag}: recorded ${recS.toFixed(1)}s, ${sizeText(bytes.length)} (${recS > 0 ? Math.round(bytes.length / recS) : '?'} B/s), ` +
     `${ogg ? 'an Ogg file' : 'NOT an Ogg file'}; read in ${Date.now() - tRead}ms (${why})`)
   devLog(`${tag}: first bytes ${hexHead(bytes, 32)}; ${memoryUsage()}`)
+  if (!ogg) {
+    // Length + range + packet, over and over (utils/opus-frames.js)?
+    const f = parseOpusFrames(bytes)
+    devLog(`${tag}: as length-prefixed Opus packets: ${f.packets} packets, ${f.ms} ms of audio, ${f.configs || 'none'}` +
+      `${f.stereo ? ', stereo' : ', mono'}; ${f.parsed === f.total ? 'the whole file reads so' : `breaks at byte ${f.parsed} of ${f.total}`}`)
+  }
   sendParts(run, bytes)
 }
 
@@ -264,7 +323,7 @@ function drawOverlay(run, seconds, onTap) {
     align_h: align.CENTER_H, align_v: align.CENTER_V, text_style: text_style.NONE,
   })
   // A tap on a text is the text's: each one stops
-  run.widgets.forEach((w) => w.addEventListener(event.CLICK_UP, onTap))
+  run.widgets.forEach((w) => w.addEventListener(event.CLICK_DOWN, onTap))
 }
 
 function cleanup(run) {

@@ -29,9 +29,14 @@ let current = null
 // `path`: the file (data://… or a path under /data). `remove`: delete it
 // after (a received file; not the recording, which can be played again)
 export function playAudioFile(vm, path, { tag = '[play]', pageid = 0, remove = false, label = '' } = {}) {
-  if (current) finish(current, 'another file to play')
   const src = String(path || '')
   const dataPath = src.startsWith('data://') ? src.slice('data://'.length) : src.replace(/^\/?data\//, '')
+  if (current) {
+    // The new file came to the same name: removing the old one would remove
+    // it (seen on the watch: "Not audio" found 0 B after a 20 s file)
+    if (current.dataPath === dataPath) current.remove = false
+    finish(current, 'another file to play')
+  }
   const file = 'data://' + dataPath
   const run = current = { vm, tag, pageid, remove, dataPath, t0: Date.now(), tPlay: 0, duration: 0, widgets: [], timers: [], done: false, prepared: false }
 
@@ -201,7 +206,7 @@ function drawOverlay(run, label) {
     text: 'Tap to stop', text_size: Math.round(H * 0.05), color: COLOR_GRAY,
     align_h: align.CENTER_H, align_v: align.CENTER_V, text_style: text_style.NONE,
   })
-  run.widgets.forEach((w) => w.addEventListener(event.CLICK_UP, () => setTimeout(() => finish(run, 'tap'), 0)))
+  run.widgets.forEach((w) => w.addEventListener(event.CLICK_DOWN, () => setTimeout(() => finish(run, 'tap'), 0)))
   run.timers.push(setInterval(() => {
     if (!run.timeText || !run.tPlay) return
     const s = (Date.now() - run.tPlay) / 1000
