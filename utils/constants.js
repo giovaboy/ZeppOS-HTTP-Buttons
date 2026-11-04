@@ -184,6 +184,19 @@ export const TEST_DATA = {
           poll: { url: "https://httpbin.io/get", every: 2000, max: 3, until: "missing" }
         } }
       ] }
+    ] },
+    // EXPERIMENT: record on the watch, POST from the phone in every standard
+    // way (raw bytes, multipart, base64 JSON) to the echo server, and check
+    // what it got (utils/audio-test.js, app-side/audio-test.js). Test mode
+    // only: `audio_test` is not part of the config schema
+    { title: "⑨ Audio (test)", back_color: 856343, text_color: 16777215, rows: [
+      { h: 50, buttons: [
+        { text: "🎤 3 s", w: 50, radius: 14, back_color: 14423100, text_color: 16777215, audio_test: { seconds: 3 }, request: { method: "POST", url: "https://httpbin.io/anything", response_style: 2 } },
+        { text: "🎤 10 s", w: 50, radius: 14, back_color: 9109504, text_color: 16777215, audio_test: { seconds: 10 }, request: { method: "POST", url: "https://httpbin.io/anything", response_style: 2 } }
+      ] },
+      { h: 50, buttons: [
+        { text: "🎤 30 s", w: 100, radius: 14, back_color: 8388736, text_color: 16777215, audio_test: { seconds: 30 }, request: { method: "POST", url: "https://httpbin.io/anything", response_style: 2 } }
+      ] }
     ] }
   ]
 };

@@ -10,6 +10,7 @@ import { getDeviceInfo, SCREEN_SHAPE_ROUND } from '@zos/device'
 import { devLog, infoLog, warnLog, LOG_TRACE } from '../utils/remote-log.js'
 import { memoryUsage, errorText, sizeText } from '../utils/memory.js'
 import { urlForLog, authForLog, styleForLog } from '../utils/log-text.js'
+import { stopAudioTest } from '../utils/audio-test.js'
 
 // Log lines (utils/remote-log.js): one per event, facts with numbers.
 // Running a button (requests, sessions, polling, results): utils/button-request.js
@@ -338,6 +339,8 @@ Page(
       this.imageQueue = null
       if (this.imageWaitTimer) { clearTimeout(this.imageWaitTimer); this.imageWaitTimer = null }
       if (typeof layout.stopLoaders === 'function') layout.stopLoaders()
+      // EXPERIMENT: a recording under way stops, its overlay goes
+      stopAudioTest()
       this.pendingImageRun = null
     },
   })

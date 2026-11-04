@@ -4,6 +4,7 @@ import { parseChallenge, buildDigestAuth, requestUri } from '../utils/digest.js'
 import { logs, logsPrivate, logsEnabled } from '../config.js'
 import { LOG_KEY, LOG_MAX, scrubLog, configSecrets, sizeText } from './log.js'
 import { urlForLog, authForLog } from '../utils/log-text.js'
+import { audioPart, audioTests } from './audio-test.js'
 
 // Where the downloaded snapshot is stored on the phone side before conversion.
 // One fixed name is enough: requests are one-shot and never run in parallel
@@ -354,6 +355,17 @@ AppSideService(
           settingsLib.setItem('data', d)
           plog('[cfg] example config loaded from the watch')
           res(null, { result: d })
+        } else if (method === 'AUDIO_PART') {
+          // EXPERIMENT (test mode): the audio test's recording, part by part
+          // (app-side/audio-test.js)
+          res(null, audioPart(req.params))
+        } else if (method === 'AUDIO_TEST') {
+          audioTests(req.params, { trace: vlog, info: plog })
+            .then((r) => res(null, r))
+            .catch((e) => {
+              wlog(`[audio] phone tests crashed: ${errorText(e)}`)
+              res(null, { ok: false, error: 'Tests crashed on the phone: ' + errorText(e) })
+            })
         } else if (method === 'debug.deviceLog') {
           // The watch's lines (app.js "Remote log"), already filtered by its level
           const params = req.params || {}
