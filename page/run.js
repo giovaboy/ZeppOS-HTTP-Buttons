@@ -86,6 +86,7 @@ Page(
       this.destroyed = false
       this.audio = false
       this.awake = false
+      this.pendingResult = null
       this.bg = null
       this.closed = false
       this.closeTimer = null
@@ -223,6 +224,9 @@ Page(
     // What the buttons page shows as a toast or a modal, shown here under the
     // button (utils/button-request.js reportResult / reportError call it)
     showResult(text, pageid, isError, style) {
+      // Opened by the buttons page: the result goes back to it, shown there in
+      // the button's own style (handOver); here only meanwhile
+      if (this.fromPage) this.pendingResult = { text: capText(text), isError: !!isError, style }
       const quiet = !isError && Number(style) === NO_NOTIFICATION
       this.shown = { text: quiet ? '✓' : capText(text).slice(0, RESULT_MAX), isError: !!isError, quiet }
       this.status.setProperty(prop.MORE, {
@@ -242,6 +246,7 @@ Page(
       if (this.imageShown) return
       const s = this.shown
       if (LOG_TRACE) devLog(`${this.tag} ${this.label}: done in ${Date.now() - t0}ms`)
+      if (this.handOver()) return
       this.closeAfter(!s ? DONE_MS : (s.quiet ? DONE_MS : closeDelay(s.text, s.isError)))
     },
 
@@ -282,7 +287,22 @@ Page(
       stopAllLoaders()
       if (this.imageShown) return
       if (!this.shown) this.showResult(getText('run_no_image'), 0, true)
+      if (this.handOver()) return
       this.closeAfter(closeDelay(this.shown.text, true))
+    },
+
+    // Opened by the buttons page: back to it at once, the result handed over
+    // (globalData.runResult) for the page to show in the button's style, as
+    // any button's (page/index.js showRunResult). From the card: false, the
+    // result stays here (a card shows no toast nor modal)
+    handOver() {
+      if (!this.fromPage || this.destroyed) return false
+      const r = this.pendingResult
+      this.pendingResult = null
+      if (r && this.globalData) this.globalData.runResult = { ...r, page: this.where.p, at: Date.now() }
+      if (LOG_TRACE) devLog(`${this.tag} ${this.label}: back to the buttons page${r ? ', its result to show there' : ''}`)
+      this.close()
+      return true
     },
 
     // Full screen, scaled to fit and centered, as on the buttons page; a tap
@@ -383,6 +403,7 @@ Page(
       if (this.destroyed) return
       this.setBgEnabled(true)
       stopAllLoaders()
+      if (this.handOver()) return
       if (why === 'tap') return this.close()
       if (why === 'complete') return this.closeAfter(DONE_MS)
       const s = this.shown
@@ -408,6 +429,7 @@ Page(
     message(text, isError) {
       this.showResult(text, 0, isError)
       this.refreshCopy()
+      if (this.handOver()) return
       this.closeAfter(closeDelay(text, isError))
     },
 

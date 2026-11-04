@@ -20,6 +20,8 @@ import { urlForLog, authForLog, styleForLog } from '../utils/log-text.js'
 const RELOAD_RETRY_MS = 500
 // The page to come back to (rememberPage) is used within this time
 const RETURN_PAGE_MAX_MS = 10 * 60 * 1000
+// A result handed back by page/run (showRunResult) is shown within this time
+const RUN_RESULT_MAX_MS = 60 * 1000
 
 // The watch's screen, sent with each GET_DATA: the settings page draws its
 // page miniatures with this shape and these proportions
@@ -88,6 +90,7 @@ Page(
           this.state.config = cfg
           layout.render(this)
           this.restorePage()
+          this.showRunResult()
           infoLog(`[cfg] drawn from the watch's copy (${sizeText(copy.length)}) in ${Date.now() - this.buildAt}ms: ${configCounts(cfg)}` +
             `${this.refreshed ? ', just refreshed' : ''}${LOG_TRACE ? `; ${memoryUsage()}` : ''}`)
           if (this.refreshed) return
@@ -157,6 +160,20 @@ Page(
     rememberPage(pageIndex, why) {
       if (!this.globalData || !(pageIndex >= 0)) return
       this.globalData.returnPage = { index: pageIndex, why, at: Date.now() }
+    },
+    // The result of a button that ran on page/run (an audio button), handed
+    // back to this page: shown in the button's style, on its page, as any
+    // button's result. Used once, within a minute
+    showRunResult() {
+      const r = this.globalData && this.globalData.runResult
+      if (!r) return
+      this.globalData.runResult = null
+      if (Date.now() - (r.at || 0) > RUN_RESULT_MAX_MS) return
+      try {
+        layout.notifyResult(r.text, r.page || 0, r.isError, r.style)
+      } catch (e) {
+        warnLog(`[page] the result from page/run not shown: ${errorText(e)}`)
+      }
     },
     restorePage() {
       const r = this.globalData && this.globalData.returnPage
@@ -286,6 +303,7 @@ Page(
             const tRender = Date.now()
             layout.render(this)
             this.restorePage()
+            this.showRunResult()
             this.hideLoading()
             if (LOG_TRACE) devLog(`[page] drawn in ${Date.now() - tRender}ms (${Date.now() - this.buildAt}ms since build): ${memoryUsage()}`)
           }
