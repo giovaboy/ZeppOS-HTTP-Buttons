@@ -151,6 +151,14 @@ export function playLastRecording(vm, pageid, label, done, onEnd) {
 // The page goes away: the recording stops, nothing is sent. The recorder is
 // kept for the next page, as the player is: the player made on one page
 // played on the next one
+// A key stopped it (page/run: SELECT, as a tap): true if a recording was running
+export function stopRecordingNow(why) {
+  const run = current
+  if (!run || run.stopped || run.finished) return false
+  stopRecording(run, why)
+  return true
+}
+
 export function stopAudioTest() {
   const run = current
   if (!run) return

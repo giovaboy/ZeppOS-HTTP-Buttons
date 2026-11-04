@@ -208,6 +208,14 @@ export function releasePlayerForRecorder(tag) {
 
 // Playback stops: the page goes away, or the recorder needs the audio (a
 // recording started during playback left the player refusing the next file)
+// A key stopped it (page/run: SELECT, as a tap): true if a file was playing
+export function stopPlaybackNow() {
+  const r = current
+  if (!r || r.done) return false
+  setTimeout(() => finish(r, 'tap'), 0)
+  return true
+}
+
 export function stopAudioPlay(why = 'page closed') {
   dropPending()
   if (current) finish(current, why)

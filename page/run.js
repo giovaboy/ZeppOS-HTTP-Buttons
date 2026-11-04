@@ -14,6 +14,8 @@ import { createWidget, widget, align, text_style, prop, event } from '@zos/ui'
 import { rmSync } from '@zos/fs'
 import { getDeviceInfo, SCREEN_SHAPE_ROUND } from '@zos/device'
 import { back } from '@zos/router'
+import { setPageBrightTime, resetPageBrightTime, pauseDropWristScreenOff, resetDropWristScreenOff } from '@zos/display'
+import { onKey, offKey, KEY_SELECT, KEY_EVENT_CLICK } from '@zos/interaction'
 import { getText } from '@zos/i18n'
 import { requestMethods, parseJSON, capText, cachedSessions, clearSessionCache } from '../utils/button-request.js'
 import { readConfigCopy, writeConfigCopy } from '../utils/config-copy.js'
@@ -22,8 +24,8 @@ import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard
 import { openAppKeyboard } from '../utils/app-keyboard.js'
 import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE } from 'zosLoader:./keyboard.[pf].layout.js'
 import { cardAllowed } from '../utils/card.js'
-import { runAudioTest, playLastRecording, stopAudioTest } from '../utils/audio-test.js'
-import { playAudioFile, stopAudioPlay } from '../utils/audio-play.js'
+import { runAudioTest, playLastRecording, stopAudioTest, stopRecordingNow } from '../utils/audio-test.js'
+import { playAudioFile, stopAudioPlay, stopPlaybackNow } from '../utils/audio-play.js'
 import { BTN_RADIUS, COLOR_BLACK, COLOR_GRAY, COLOR_WHITE, NO_NOTIFICATION, SHOW_IMAGE } from '../utils/constants.js'
 import { infoLog, warnLog, devLog, LOG_TRACE } from '../utils/remote-log.js'
 import { errorText } from '../utils/memory.js'
@@ -53,6 +55,10 @@ const COLOR_DIM = 0x9e9e9e
 const DONE_MS = 1000
 // A picture is looked at: it stays until a tap, at most this long
 const IMAGE_STAY_MS = 30000
+// The screen kept on (keepAwake): after a recording's longest time, for
+// sending it and showing the result; for a playback
+const AWAKE_AFTER_RECORDING_S = 90
+const AWAKE_PLAYBACK_MS = 5 * 60 * 1000
 const closeDelay = (text, isError) =>
   Math.min(8000, 2500 + 40 * String(text || '').length) + (isError ? 1500 : 0)
 
@@ -79,6 +85,7 @@ Page(
       this.tag = this.fromPage ? '[run]' : '[card]'
       this.destroyed = false
       this.audio = false
+      this.awake = false
       this.bg = null
       this.closed = false
       this.closeTimer = null
@@ -106,6 +113,21 @@ Page(
     build() {
       // Under everything: a black button the size of the screen, so a tap
       // anywhere goes back (texts and shapes on top are made not to take taps)
+      // EXPERIMENT (audio): SELECT stops a recording (and sends it) or a
+      // playback, as a tap does. Other keys keep their default; while audio
+      // runs they are logged, to learn the codes of each watch's keys
+      onKey({
+        callback: (key, keyEvent) => {
+          if (!this.audio) return false
+          if (key === KEY_SELECT && keyEvent === KEY_EVENT_CLICK) {
+            const stopped = stopRecordingNow('SELECT key') || stopPlaybackNow()
+            if (LOG_TRACE) devLog(`${this.tag} ${this.label}: SELECT ${stopped ? 'stopped it' : 'with nothing to stop'}`)
+            return stopped
+          }
+          if (LOG_TRACE) devLog(`${this.tag} ${this.label}: key ${key} event ${keyEvent} during audio (left to the system)`)
+          return false
+        },
+      })
       this.bg = createWidget(widget.BUTTON, {
         x: 0, y: 0, w: W, h: H, text: '', radius: 0,
         normal_color: COLOR_BLACK, press_color: COLOR_BLACK,
@@ -286,6 +308,10 @@ Page(
       this.audio = true
       this.setBgEnabled(false)
       const p = this.where.p
+      // A recording: its longest time, then sending and the result; a
+      // playback: a few minutes (the page goes back at its end anyway)
+      const secs = button.audio_test ? Math.min(30, Math.max(1, Number(button.audio_test.seconds) || 5)) : 0
+      this.keepAwake(button.audio_test ? (secs + AWAKE_AFTER_RECORDING_S) * 1000 : AWAKE_PLAYBACK_MS)
       if (button.audio_last) {
         if (!playLastRecording(this, p, this.label, () => {}, (why) => this.audioOver(why))) this.audioOver('nothing to play')
         return
@@ -299,6 +325,7 @@ Page(
       this.imageShown = true // the media came: finished() and the wait leave it be
       this.clearImageSpinner()
       this.audio = true
+      this.keepAwake(AWAKE_PLAYBACK_MS)
       this.setBgEnabled(false)
       infoLog(`${this.tag} ${this.label}: audio received, ${Date.now() - tIn}ms after it started to arrive`)
       playAudioFile(this, file.filePath, { tag: '[play] ' + this.label, pageid: this.where.p, remove: true, label: this.buttonText, onEnd: (why) => this.audioOver(why) })
@@ -314,6 +341,17 @@ Page(
       if (why === 'complete') return this.closeAfter(DONE_MS)
       const s = this.shown
       this.closeAfter(s ? closeDelay(s.text, s.isError) : DONE_MS)
+    },
+
+    // The screen stays on while audio runs: on the Balance the watch went to
+    // rest during a recording, and a 20 s playback ended at 13.7 s with the
+    // page. Lowering the wrist doesn't turn it off either. Both back to the
+    // system's in onDestroy
+    keepAwake(ms) {
+      try { setPageBrightTime({ brightTime: ms }) } catch (e) { warnLog(`${this.tag} ${this.label}: setPageBrightTime failed: ${errorText(e)}`) }
+      try { if (typeof pauseDropWristScreenOff === 'function') pauseDropWristScreenOff({ duration: ms }) } catch (e) { warnLog(`${this.tag} ${this.label}: pauseDropWristScreenOff failed: ${errorText(e)}`) }
+      this.awake = true
+      if (LOG_TRACE) devLog(`${this.tag} ${this.label}: screen kept on for ${Math.round(ms / 1000)} s`)
     },
 
     setBgEnabled(on) {
@@ -357,6 +395,11 @@ Page(
 
     onDestroy() {
       this.destroyed = true
+      try { offKey() } catch (e) { /* older API */ }
+      if (this.awake) {
+        try { resetPageBrightTime() } catch (e) { /* older API */ }
+        try { if (typeof resetDropWristScreenOff === 'function') resetDropWristScreenOff() } catch (e) { /* older API */ }
+      }
       // EXPERIMENT: a recording stops and nothing is sent (a swipe back
       // cancels it); playback stops (stop + release)
       stopAudioTest()
