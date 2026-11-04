@@ -34,6 +34,17 @@ export function audioPart(params) {
   return { ok: true }
 }
 
+// The recording sent under `id`, for a button's own request
+// (app-side/audio-request.js): { bytes, parts } or { error }. Taken once
+export function takeUpload(id) {
+  const up = upload
+  if (!up || up.id !== id) return { error: 'No recording on the phone' }
+  upload = null
+  const missing = up.parts.findIndex((p) => typeof p !== 'string')
+  if (missing !== -1) return { error: `Part ${missing + 1}/${up.n} missing` }
+  return { bytes: base64ToBytes(up.parts.join('')), parts: up.n }
+}
+
 // The tests, one after the other. Resolves { ok, allOk, summary } for the watch
 export async function audioTests(params, log) {
   const { id, size, url, field = 'file', ogg } = params || {}

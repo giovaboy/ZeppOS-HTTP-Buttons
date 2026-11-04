@@ -12,6 +12,7 @@ import { openAppKeyboard } from '../utils/app-keyboard.js'
 import { pressButton } from '../utils/press-queue.js'
 import { push } from '@zos/router'
 import { runParams } from '../utils/card.js'
+import { isAudioButton } from '../utils/constants.js'
 import { stopAllLoaders } from '../utils/button-loader.js'
 import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_GRAY, COLOR_RED, COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE, KB_TYPE_CHAR, KB_TYPE_NUMERIC } from '../utils/constants.js';
 
@@ -227,11 +228,12 @@ export const layout = {
               click_func: () => {
                 // Names the button in the log lines (page, row, button, label)
                 const label = 'p' + pi + 'r' + ri + 'b' + bi + (button.text ? ' ' + String(button.text).slice(0, 20) : '')
-                // EXPERIMENT (test mode): an audio button (record, play the
-                // last recording, play a file from a call) runs on its own
-                // page, as from the shortcut card (page/run.js): its screen,
-                // one audio object at a time, all of it stopped when it goes
-                if (button.audio_test || button.audio_last || (button.request && button.request.audio_play)) {
+                // An audio button (record and send: request.audio; play a file:
+                // PLAY_AUDIO; the test suite's audio_test / audio_last /
+                // audio_play) runs on its own page, as from the shortcut card
+                // (page/run.js): its screen, one audio object at a time, all of
+                // it stopped when it goes
+                if (isAudioButton(button)) {
                   this.hideToast()
                   // Back here on this page afterwards (page/index.js restorePage)
                   if (typeof vm.rememberPage === 'function') vm.rememberPage(pi, 'page/run')

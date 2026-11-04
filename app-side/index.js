@@ -5,6 +5,7 @@ import { logs, logsPrivate, logsEnabled } from '../config.js'
 import { LOG_KEY, LOG_MAX, scrubLog, configSecrets, sizeText } from './log.js'
 import { urlForLog, authForLog } from '../utils/log-text.js'
 import { audioPart, audioTests } from './audio-test.js'
+import { audioRequest } from './audio-request.js'
 
 // Where the downloaded snapshot is stored on the phone side before conversion.
 // One fixed name is enough: requests are one-shot and never run in parallel
@@ -366,6 +367,16 @@ AppSideService(
           // EXPERIMENT (test mode): the audio test's recording, part by part
           // (app-side/audio-test.js)
           res(null, audioPart(req.params))
+        } else if (method === 'AUDIO_REQUEST') {
+          // A recording button's request (request.audio): the recording sent
+          // in parts before, sent with the button's settings
+          // (app-side/audio-request.js)
+          audioRequest(req.params, { trace: vlog, info: plog })
+            .then((r) => res(null, r))
+            .catch((e) => {
+              wlog(`[audio] request crashed: ${errorText(e)}`)
+              res(null, { error: 'Failed on the phone: ' + errorText(e) })
+            })
         } else if (method === 'AUDIO_TEST') {
           audioTests(req.params, { trace: vlog, info: plog })
             .then((r) => res(null, r))

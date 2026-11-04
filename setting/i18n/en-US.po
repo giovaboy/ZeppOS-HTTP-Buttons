@@ -270,3 +270,36 @@ msgstr "on card"
 
 msgid "card_full"
 msgstr "The watch card holds 6 buttons: take one off first"
+
+msgid "play_audio"
+msgstr "Play audio"
+
+msgid "record_audio"
+msgstr "Record audio before sending"
+
+msgid "audio_seconds"
+msgstr "Longest recording"
+
+msgid "audio_send_as"
+msgstr "Send the recording as"
+
+msgid "audio_field"
+msgstr "Form field of the file"
+
+msgid "insert_audio_field"
+msgstr "file"
+
+msgid "audio_note_multipart"
+msgstr "The watch records when you press the button (a tap or the select key stops, back cancels). The recording goes as recording.ogg (Ogg Opus, audio/ogg) in this form field, with the URL, method, headers and auth above."
+
+msgid "audio_note_raw"
+msgstr "The watch records when you press the button (a tap or the select key stops, back cancels). The body is the recording itself: Ogg Opus, Content-Type audio/ogg (unless the headers set another)."
+
+msgid "audio_note_json"
+msgstr "The watch records when you press the button (a tap or the select key stops, back cancels). Put {audio} in the body: it becomes the recording (Ogg Opus) in base64, e.g. {\"audio\":\"{audio}\",\"lang\":\"en\"}. Without it the body is {\"audio\":\"…\"}."
+
+msgid "audio_note_play"
+msgstr "The answer is an audio file (MP3) that the watch downloads and plays."
+
+msgid "audio_note_no_play"
+msgstr "A recording button shows its answer as text: \"Play audio\" is for a button that downloads an MP3."

@@ -24,9 +24,9 @@ import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard
 import { openAppKeyboard } from '../utils/app-keyboard.js'
 import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE } from 'zosLoader:./keyboard.[pf].layout.js'
 import { cardAllowed } from '../utils/card.js'
-import { runAudioTest, playLastRecording, stopAudioTest, stopRecordingNow } from '../utils/audio-test.js'
+import { runAudioTest, playLastRecording, stopAudioTest, stopRecordingNow, sendAudioParts } from '../utils/audio-test.js'
 import { playAudioFile, stopAudioPlay, stopPlaybackNow } from '../utils/audio-play.js'
-import { BTN_RADIUS, COLOR_BLACK, COLOR_GRAY, COLOR_WHITE, NO_NOTIFICATION, SHOW_IMAGE } from '../utils/constants.js'
+import { BTN_RADIUS, COLOR_BLACK, COLOR_GRAY, COLOR_WHITE, NO_NOTIFICATION, SHOW_IMAGE, PLAY_AUDIO, AUDIO_DEFAULT, REQUEST_TIMEOUT_RPC_MARGIN_MS } from '../utils/constants.js'
 import { infoLog, warnLog, devLog, LOG_TRACE } from '../utils/remote-log.js'
 import { errorText } from '../utils/memory.js'
 
@@ -156,7 +156,8 @@ Page(
       if (!cardAllowed(button)) return this.message(getText('run_in_app'), true)
 
       // EXPERIMENT (test mode): record and send, or play the last recording
-      if (button.audio_test || button.audio_last) return this.runAudio(button)
+      // Record, then send (request.audio), or the test suite's experiments
+      if (button.audio_test || button.audio_last || (button.request && button.request.audio)) return this.runAudio(button)
 
       if (button.input) {
         // The typed text fires the button; a cancel goes back to the card
@@ -201,7 +202,9 @@ Page(
 
     fire(button, input) {
       const t0 = Date.now()
-      this.isImage = Number(button.request && button.request.response_style) === SHOW_IMAGE
+      // A file comes after the answer: an image, or an audio file to play
+      const style = Number(button.request && button.request.response_style)
+      this.isImage = style === SHOW_IMAGE || style === PLAY_AUDIO || !!(button.request && button.request.audio_play)
       this.status.setProperty(prop.TEXT, getText('run_sending'))
       startLoader(loadingStyle(this.state.config), this.rect, this.rect.back)
       let p
@@ -310,13 +313,56 @@ Page(
       const p = this.where.p
       // A recording: its longest time, then sending and the result; a
       // playback: a few minutes (the page goes back at its end anyway)
-      const secs = button.audio_test ? Math.min(30, Math.max(1, Number(button.audio_test.seconds) || 5)) : 0
-      this.keepAwake(button.audio_test ? (secs + AWAKE_AFTER_RECORDING_S) * 1000 : AWAKE_PLAYBACK_MS)
+      const rec = button.audio_test || (button.request && button.request.audio)
+      const secs = rec ? Math.min(30, Math.max(1, Number(rec.seconds) || AUDIO_DEFAULT.seconds)) : 0
+      this.keepAwake(rec ? (secs + AWAKE_AFTER_RECORDING_S) * 1000 : AWAKE_PLAYBACK_MS)
       if (button.audio_last) {
         if (!playLastRecording(this, p, this.label, () => {}, (why) => this.audioOver(why))) this.audioOver('nothing to play')
         return
       }
-      runAudioTest(this, button, p, this.label, () => this.audioOver('recorded'))
+      if (button.audio_test) return runAudioTest(this, button, p, this.label, () => this.audioOver('recorded'))
+      // The button's own request (request.audio): the recording screen, then
+      // the request runs as any button's (variables, auth, parse_result, the
+      // notification, a poll), its body built on the phone (audioRequest)
+      runAudioTest(this, { audio_test: { seconds: secs } }, p, this.label, () => this.audioOver('recorded'), {
+        onRecorded: (bytes, run) => {
+          this.recording = bytes
+          let p2
+          try { p2 = this.executeButtonRequest(button.request, p, null, this.label) } catch (e) { p2 = Promise.reject(e) }
+          Promise.resolve(p2).then(() => run.finish(null), (e) => {
+            warnLog(`${this.tag} ${this.label}: ${errorText(e)}`)
+            run.finish(String(errorText(e)), true)
+          })
+        },
+      })
+    },
+
+    // The request of a recording button (utils/button-request.js
+    // performRequest, d.audio): the recording to the phone in parts, then the
+    // request; the phone wraps it in Ogg, builds the body (multipart / raw /
+    // JSON) and sends it with the button's headers and auth. Resolves the
+    // answer as an ordinary request does ({ status, headers, body })
+    audioRequest(d, { headers, timeout }) {
+      const bytes = this.recording
+      if (!bytes || !bytes.length) return Promise.reject(new Error('No recording'))
+      const a = Object.assign({}, AUDIO_DEFAULT, d.audio || {})
+      const tag = '[audio] ' + this.label
+      return sendAudioParts(this, bytes, tag, () => this.destroyed).then((id) => {
+        const t0 = Date.now()
+        return this.request({
+          method: 'AUDIO_REQUEST',
+          params: {
+            id, size: bytes.length,
+            url: d.url, method: d.method || 'POST', headers, body: d.body,
+            auth: d.auth, user: d.user, pass: d.pass, token: d.token,
+            timeout, send_as: a.send_as, field: a.field,
+          },
+        }, { timeout: timeout + REQUEST_TIMEOUT_RPC_MARGIN_MS + 15000 }).then((r) => {
+          if (!r || r.error) throw new Error((r && r.error) || 'No answer from the phone')
+          if (LOG_TRACE) devLog(`${tag}: the phone answered HTTP ${r.status} in ${Date.now() - t0}ms`)
+          return r
+        })
+      })
     },
 
     // An audio file from the button's call (request.audio_play), as the phone

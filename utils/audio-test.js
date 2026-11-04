@@ -45,7 +45,10 @@ let current = null
 // meanwhile a file to play waits (utils/audio-play.js)
 setRecordingCheck(() => !!current && !current.finished && !current.read)
 
-export function runAudioTest(vm, button, pageid, label, done) {
+// `hooks.onRecorded(bytes, run)`: a button's own request takes the recording
+// (page/run) instead of the echo-server tests; it ends the run with
+// run.finish(text, isError), text null when the request showed its result
+export function runAudioTest(vm, button, pageid, label, done, hooks = {}) {
   if (current) {
     warnLog(`[audio] ${label}: another recording is running`)
     vm.showResult('A recording is already running', pageid, true, SYSTEM_MODAL)
@@ -54,7 +57,7 @@ export function runAudioTest(vm, button, pageid, label, done) {
   const opts = button.audio_test || {}
   const seconds = Math.min(MAX_SECONDS, Math.max(1, Number(opts.seconds) || DEFAULT_SECONDS))
   const tag = `[audio] ${label}`
-  const run = current = { vm, tag, button, pageid, t0: Date.now(), tStart: 0, tStop: 0, stopped: false, finished: false, widgets: [], timers: [], recorder: null }
+  const run = current = { vm, tag, button, pageid, onRecorded: hooks.onRecorded || null, t0: Date.now(), tStart: 0, tStop: 0, stopped: false, finished: false, widgets: [], timers: [], recorder: null }
   devLog(`${tag}: test asked, ${seconds}s max; ${memoryUsage()}`)
 
   const finish = (text, isError) => {
@@ -327,7 +330,42 @@ function readRecording(run, why) {
     devLog(`${tag}: as length-prefixed Opus packets: ${f.packets} packets, ${f.ms} ms of audio, ${f.configs || 'none'}` +
       `${f.stereo ? ', stereo' : ', mono'}; ${f.parsed === f.total ? 'the whole file reads so' : `breaks at byte ${f.parsed} of ${f.total}`}`)
   }
+  if (run.onRecorded) {
+    try { run.onRecorded(bytes, run) } catch (e) { run.finish('Sending failed:\n' + errorText(e), true) }
+    return
+  }
   sendParts(run, bytes)
+}
+
+// The recording to the phone, part after part (base64 in ZML messages).
+// Resolves the id the phone keeps it under
+export function sendAudioParts(vm, bytes, tag, isGone = () => false) {
+  const total = bytes.length
+  const n = Math.ceil(total / PART_BYTES)
+  const id = String(Date.now())
+  const tSend = Date.now()
+  devLog(`${tag}: sending ${sizeText(total)} in ${n} parts`)
+  let chain = Promise.resolve()
+  for (let i = 0; i < n; i++) {
+    chain = chain.then(() => {
+      if (isGone()) throw new Error('page closed')
+      const from = i * PART_BYTES
+      const data = bytesToBase64(bytes, from, Math.min(total, from + PART_BYTES))
+      const tPart = Date.now()
+      return vm.request({ method: 'AUDIO_PART', params: { id, i, n, data } }).then((r) => {
+        if (!r || !r.ok) throw new Error((r && r.error) || 'refused')
+        devLog(`${tag}: part ${i + 1}/${n} (${sizeText(data.length)} base64) in ${Date.now() - tPart}ms`)
+      }, (e) => {
+        warnLog(`${tag}: part ${i + 1}/${n} failed after ${Date.now() - tPart}ms: ${errorText(e)}`)
+        throw new Error(`Sending to the phone failed (part ${i + 1}/${n})`)
+      })
+    })
+  }
+  return chain.then(() => {
+    const ms = Date.now() - tSend
+    infoLog(`${tag}: ${sizeText(total)} on the phone in ${ms}ms (${ms > 0 ? Math.round(total * 1000 / ms) : '?'} B/s)`)
+    return id
+  })
 }
 
 // The recording to the phone, one part after the other

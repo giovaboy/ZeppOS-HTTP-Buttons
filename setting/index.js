@@ -10,7 +10,8 @@ import { DEFAULT_BUTTON, DEFAULT_ROW, DEFAULT_DATA, DEFAULT_PAGE,
   COLOR_PURPLE, COLOR_MAGENTA, COLOR_LAVENDER,
   COLOR_BROWN, COLOR_TAN, COLOR_BEIGE,
   COLOR_LIGHT_GRAY, COLOR_DARK_GRAY, COLOR_SILVER,
-  SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE,
+  SYSTEM_TOAST, CUSTOM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE, PLAY_AUDIO,
+  AUDIO_DEFAULT, AUDIO_SECONDS,
   KB_TYPE_CHAR, KB_TYPE_NUMERIC, DEFAULT_REQUEST_TIMEOUT_MS,
   LOADING_STYLE_BORDER, LOADING_STYLE_PULSE, LOADING_STYLE_CORNER } from '../utils/constants.js'
 import { LOG_KEY } from '../app-side/log.js'
@@ -239,7 +240,8 @@ const responseStyles = () => [
   { name: gettext('custom_toast'), value: CUSTOM_TOAST },
   { name: gettext('no_notification'), value: NO_NOTIFICATION },
   { name: gettext('system_modal'), value: SYSTEM_MODAL },
-  { name: gettext('show_image'), value: SHOW_IMAGE }
+  { name: gettext('show_image'), value: SHOW_IMAGE },
+  { name: gettext('play_audio'), value: PLAY_AUDIO }
 ];
 // The stored style as a number, for the choice; unset is what the watch then
 // shows, a system toast
@@ -434,7 +436,9 @@ const buttonSummary = (button) => {
   const r = button.request || {};
   // A long URL (a whole paragraph in a query) filled the card: cut
   const url = r.url || '—';
-  return (r.method || 'GET') + ' ' + (url.length > 70 ? url.slice(0, 67) + '…' : url) +
+  // A recording button, or one that plays its answer, says so first
+  const audio = r.audio ? '🎤 ' : Number(r.response_style) === PLAY_AUDIO ? '🔊 ' : '';
+  return audio + (r.method || 'GET') + ' ' + (url.length > 70 ? url.slice(0, 67) + '…' : url) +
     (button.card && cardAllowed(button) ? '  ·  ' + gettext('on_card') : '');
 };
 
@@ -597,6 +601,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
             (v) => context.editButton('body', v, pindex, rindex, bindex)),
           textField(gettext('field_parse_result'), button.request.parse_result, 'insert_parse_result', 200, '**parse_result**',
             (v) => context.editButton('parse_result', v, pindex, rindex, bindex)),
+          ...buildAudioFields(button, pindex, rindex, bindex, context),
           // No style set: the watch shows a system toast
           fieldLabel(gettext('response_style')),
           choice(responseStyles(), responseStyleValue(button.request.response_style),
@@ -633,6 +638,52 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
       ]) // ---- end of the open card ----
     ]
   );
+};
+
+// Record before sending (request.audio): the switch, then how long, how the
+// recording goes in the request, the form field. The watch records on its own
+// screen when the button is pressed, the phone wraps the recording in an Ogg
+// Opus file and sends it with the button's URL, method, headers and auth
+const AUDIO_NOTE_STYLE = { fontSize: '12px', color: '#555', background: '#eef4fb', borderRadius: '6px', padding: '4px 6px', margin: '4px 0 0' };
+const buildAudioFields = (button, pindex, rindex, bindex, context) => {
+  const a = button.request.audio;
+  const edit = (key, value) => context.editButton(key, value, pindex, rindex, bindex);
+  const playsAnswer = Number(button.request.response_style) === PLAY_AUDIO;
+  return [
+    View({ style: { marginTop: '6px' } }, [
+      Toggle({
+        label: gettext('record_audio'),
+        value: !!a,
+        subStyle: { color: '#333', fontSize: '10px' },
+        onChange: (value) => edit('audio_on', value)
+      })
+    ]),
+    ...(a ? [
+      fieldLabel(gettext('audio_seconds')),
+      choice(AUDIO_SECONDS.map((n) => ({ name: n + ' s', value: n })), Number(a.seconds) || AUDIO_DEFAULT.seconds,
+        (value) => edit('audio_seconds', value)),
+      fieldLabel(gettext('audio_send_as')),
+      choice([
+        { name: 'multipart', value: 'multipart' },
+        { name: 'raw', value: 'raw' },
+        { name: 'JSON', value: 'json' }
+      ], a.send_as || AUDIO_DEFAULT.send_as, (value) => edit('audio_send_as', value)),
+      ...((a.send_as || AUDIO_DEFAULT.send_as) === 'multipart' ? [
+        textField(gettext('audio_field'), a.field, 'insert_audio_field', 40, '**file**',
+          (v) => edit('audio_field', v.trim() || null))
+      ] : []),
+      Text({ align: 'left', paragraph: true, style: AUDIO_NOTE_STYLE }, [
+        gettext((a.send_as || AUDIO_DEFAULT.send_as) === 'json' ? 'audio_note_json' :
+          (a.send_as || AUDIO_DEFAULT.send_as) === 'raw' ? 'audio_note_raw' : 'audio_note_multipart')
+      ]),
+      ...(playsAnswer ? [
+        Text({ align: 'left', paragraph: true, style: { ...AUDIO_NOTE_STYLE, background: '#fff3cd', color: '#8a6d3b' } }, [gettext('audio_note_no_play')])
+      ] : [])
+    ] : []),
+    ...(!a && playsAnswer ? [
+      Text({ align: 'left', paragraph: true, style: AUDIO_NOTE_STYLE }, [gettext('audio_note_play')])
+    ] : [])
+  ];
 };
 
 // Auth as choice buttons ("—" none, Basic, Bearer, Digest; none is stored as
@@ -1085,6 +1136,20 @@ AppSettingsPage({
       case 'body': btn.request.body = val; break;
       case 'parse_result': btn.request.parse_result = val; break;
       case 'response_style': btn.request.response_style = val; break;
+      // Recording: the block only while it's on (a config without it stays as
+      // it was); on, a GET or HEAD becomes POST (the recording is a body)
+      case 'audio_on':
+        if (val) {
+          btn.request.audio = { ...AUDIO_DEFAULT };
+          const m = String(btn.request.method || 'GET').toUpperCase();
+          if (m === 'GET' || m === 'HEAD') btn.request.method = 'POST';
+        } else {
+          delete btn.request.audio;
+        }
+        break;
+      case 'audio_seconds': if (btn.request.audio) btn.request.audio.seconds = val; break;
+      case 'audio_send_as': if (btn.request.audio) btn.request.audio.send_as = val; break;
+      case 'audio_field': if (btn.request.audio) { if (val) btn.request.audio.field = val; else btn.request.audio.field = AUDIO_DEFAULT.field } break;
       // undefined (the "default" choice) is dropped by JSON.stringify in
       // setItem, so the key disappears from the config instead of lingering.
       case 'timeout': btn.request.timeout = val; break;

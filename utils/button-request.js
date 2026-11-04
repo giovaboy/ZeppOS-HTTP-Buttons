@@ -4,7 +4,7 @@
 // shortcut card opens (page/run.js): a page spreads requestMethods into its
 // BasePage definition and provides showResult(text, pageid, isError, style).
 import { digestRequest, basicRequest, bearerRequest } from './auth-request.js'
-import { CUSTOM_TOAST, SHOW_IMAGE, DEFAULT_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS, MAX_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_RPC_MARGIN_MS, RESULT_TEXT_MAX } from './constants.js'
+import { CUSTOM_TOAST, SHOW_IMAGE, PLAY_AUDIO, DEFAULT_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS, MAX_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_RPC_MARGIN_MS, RESULT_TEXT_MAX } from './constants.js'
 import { devLog, infoLog, warnLog, LOG_TRACE } from './remote-log.js'
 import { memoryUsage, errorText, sizeText } from './memory.js'
 import { urlForLog, authForLog, styleForLog } from './log-text.js'
@@ -195,6 +195,8 @@ function pickDescriptor(src) {
   // Numeric, so outside DESCRIPTOR_FIELDS (no placeholder substitution): the
   // per-request timeout override, honored by performRequest.
   if (src.timeout !== undefined) d.timeout = src.timeout;
+  // The recording settings (an object: no placeholders in it)
+  if (src.audio && typeof src.audio === 'object') d.audio = src.audio;
   return d;
 }
 
@@ -224,6 +226,14 @@ function performRequest(ctx, d) {
   const method = d.method;
   const url = d.url;
   const headers = d.headers ? parseJSON(d.headers) : undefined;
+  // A recording to send (request.audio): page/run recorded it, the phone builds
+  // the body and sends it with the button's auth (ctx.audioRequest). The body
+  // goes as the template it is: the phone puts the recording in {audio}
+  if (d.audio) {
+    if (typeof ctx.audioRequest !== 'function') return Promise.reject(new Error('Audio buttons run on their own page'))
+    const timeout = normalizeTimeout(d.timeout) || ctx.globalTimeoutMs || DEFAULT_REQUEST_TIMEOUT_MS
+    return ctx.audioRequest(d, { headers, timeout })
+  }
   const body = d.body ? parseJSON(d.body) : undefined;
   const timeout = normalizeTimeout(d.timeout) || ctx.globalTimeoutMs || DEFAULT_REQUEST_TIMEOUT_MS;
 
@@ -254,6 +264,11 @@ function performRequestLogged(ctx, d, what) {
     throw e
   })
 }
+
+// A file the phone downloads and pushes to the watch: an image to show, or
+// an audio file to play (PLAY_AUDIO, or the test suite's audio_play flag)
+const isAudioStyle = (r) => !!r && (Number(r.response_style) === PLAY_AUDIO || !!r.audio_play)
+const isMediaStyle = (r) => !!r && (Number(r.response_style) === SHOW_IMAGE || isAudioStyle(r))
 
 // Pages, rows and buttons (spacers left out) of a config, for a log line
 export function configCounts(cfg) {
@@ -550,11 +565,11 @@ export const requestMethods = {
           ? applyReplacements({ url: request.url }, replacements.filter(([s]) => s !== '{input}')).url
           : main.url
         devLog(`${run.tag}: ${String(main.method || 'GET').trim()} ${urlForLog(shownUrl)} auth=${authForLog(main.auth)} timeout=${timeout}ms` +
-          `${request.response_style === SHOW_IMAGE ? (request.audio_play ? ' audio' : ' image') : ''}${request.session ? ' session' : ''}${request.poll ? ' poll' : ''}` +
+          `${isMediaStyle(request) ? (isAudioStyle(request) ? ' audio' : ' image') : ''}${request.audio ? ' recording' : ''}${request.session ? ' session' : ''}${request.poll ? ' poll' : ''}` +
           `${input != null ? `, input of ${String(input).length} chars` : ''}, ${this.inFlight} in flight`)
       }
 
-      if (request.response_style === SHOW_IMAGE) {
+      if (isMediaStyle(request) && !request.audio) {
         // Delegate the whole download → convert → push pipeline to the phone
         // side; the image itself comes back over the file-transfer channel
         // (see onReceivedFile). Errors are surfaced as a custom toast since the
@@ -578,7 +593,7 @@ export const requestMethods = {
             timeout,
             // EXPERIMENT (test mode): an audio file, sent as is and played
             // (utils/audio-play.js)
-            kind: request.audio_play ? 'audio' : undefined
+            kind: isAudioStyle(request) ? 'audio' : undefined
           }
         }, { timeout: timeout + 45000 }).then((resp) => {
           if (!resp || !resp.ok) {

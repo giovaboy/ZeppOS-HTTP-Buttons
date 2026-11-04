@@ -219,6 +219,23 @@ export const TEST_DATA = {
         { text: "🔊 20 s", w: 50, radius: 14, back_color: 8388736, text_color: 16777215, request: { method: "GET", url: TEST_AUDIO + "melody-20s-64k-mono-22khz.mp3", response_style: 4, audio_play: true } },
         { text: "Not audio", w: 50, radius: 14, back_color: 9109504, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/html", response_style: 4, audio_play: true } }
       ] }
+    ] },
+    // Recording and playing as a user sets them up in the settings
+    // (request.audio, PLAY_AUDIO): the button's own request, its answer through
+    // parse_result. httpbin.io echoes what it got: the size of the multipart
+    // body, the raw body's type, a field of the JSON body
+    { title: "⑪ Audio buttons", back_color: 856343, text_color: 16777215, rows: [
+      { h: 33, buttons: [
+        { text: "🎤 multipart", w: 50, radius: 14, back_color: 14423100, text_color: 16777215, request: { method: "POST", url: "https://httpbin.io/anything", audio: { seconds: 10, send_as: "multipart", field: "file" }, parse_result: "headers.Content-Length[0]", response_style: 2 } },
+        { text: "🎤 raw", w: 50, radius: 14, back_color: 14423100, text_color: 16777215, request: { method: "POST", url: "https://httpbin.io/anything", audio: { seconds: 10, send_as: "raw" }, parse_result: "headers.Content-Type[0]", response_style: 2 } }
+      ] },
+      { h: 33, buttons: [
+        { text: "🎤 JSON", w: 50, radius: 14, back_color: 8388736, text_color: 16777215, request: { method: "POST", url: "https://httpbin.io/anything", body: '{"audio":"{audio}","lang":"it"}', audio: { seconds: 10, send_as: "json" }, parse_result: "json.lang", response_style: 2 } },
+        { text: "🎤 Bearer", w: 50, radius: 14, back_color: 8388736, text_color: 16777215, request: { method: "POST", url: "https://httpbin.io/bearer", auth: "Bearer", token: "demo123", audio: { seconds: 5, send_as: "raw" }, parse_result: "authenticated", response_style: 2 } }
+      ] },
+      { h: 34, buttons: [
+        { text: "🔊 Play audio", w: 100, radius: 14, back_color: 558288, text_color: 16777215, request: { method: "GET", url: TEST_AUDIO + "chime-64k-mono-22khz.mp3", response_style: 5 } }
+      ] }
     ] }
   ]
 };
@@ -308,6 +325,20 @@ export const SYSTEM_TOAST = 1
 export const SYSTEM_MODAL = 2
 export const NO_NOTIFICATION = 3
 export const SHOW_IMAGE = 4 // GET an image (PNG/JPEG/…), convert it on the phone side, push it to the watch and show it fullscreen
+// GET an audio file (MP3), push it to the watch as it is and play it (page/run)
+export const PLAY_AUDIO = 5
+
+// request.audio: record on the watch before sending, the recording (as an Ogg
+// Opus file) in the body. send_as: 'multipart' (the file in the form field
+// `field`), 'raw' (the body is the file, audio/ogg) or 'json' (the button's
+// body with {audio} replaced by the file in base64)
+export const AUDIO_SEND_AS = ['multipart', 'raw', 'json']
+export const AUDIO_DEFAULT = { seconds: 15, send_as: 'multipart', field: 'file' }
+export const AUDIO_SECONDS = [5, 10, 15, 30]
+// A button that records (request.audio) or plays (PLAY_AUDIO, or the test
+// suite's flags): it runs on page/run, its own screen
+export const isAudioButton = (b) => !!b && !b.spacer && !!(b.audio_test || b.audio_last ||
+  (b.request && (b.request.audio || b.request.audio_play || Number(b.request.response_style) === PLAY_AUDIO)))
 
 /** HELPERS */
 
