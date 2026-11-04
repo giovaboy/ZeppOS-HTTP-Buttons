@@ -193,9 +193,10 @@ Page(
 
     // Waiting for a file to play (opened by the buttons page): "♪ name",
     // "Loading…", as the player's screen then shows them
-    // (utils/progress-screen.js, as the player's: the empty bar, a tap goes back)
+    // (utils/progress-screen.js, as the player's: the empty bar; a swipe back
+    // cancels, a tap does nothing)
     drawLoading() {
-      progressScreen({ title: '♪ ' + (this.buttonText || ''), value: 'Loading…', note: 'Getting the file from the phone', onTap: () => this.close() })
+      progressScreen({ title: '♪ ' + (this.buttonText || ''), value: 'Loading…', note: 'Getting the file from the phone' })
     },
 
     // The pressed button, with its colors, radius and text

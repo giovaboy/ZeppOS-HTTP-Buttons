@@ -414,14 +414,15 @@ function finish(run, why) {
 // The player's screen (utils/progress-screen.js, the design guide's
 // horizontal progress): the name, the time big, the bar when the duration is
 // known (an MP3, or the watch's recording with its length worked out), how to
-// stop it, and "Stop"; a tap anywhere stops
+// stop it, and "Stop". Only Stop (and the select key, page/run) stops: a
+// tap elsewhere does nothing
 function drawOverlay(run, label) {
   const screen = run.screen = progressScreen({
     title: '♪ ' + (label || 'Playing'),
     value: 'Loading…',
-    note: 'Tap or press select to stop',
+    note: 'Stop or select to end',
     stop: 'Stop',
-    onTap: () => setTimeout(() => finish(run, 'tap'), 0),
+    onStop: () => setTimeout(() => finish(run, 'tap'), 0),
   })
   run.widgets.push(...screen.widgets)
   run.timeText = true

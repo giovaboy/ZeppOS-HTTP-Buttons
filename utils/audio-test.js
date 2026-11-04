@@ -20,7 +20,7 @@ import { bytesToBase64, hexHead } from './base64.js'
 import { progressScreen } from './progress-screen.js'
 import { playAudioFile, isAudioPlaying, stopAudioPlay, noteRecorderMade, releasePlayerForRecorder, releaseMedia, mediaMethods, availableText, setRecordingCheck, recordingOver, makePlayerAhead } from './audio-play.js'
 import { parseOpusFrames } from './opus-frames.js'
-import { COLOR_BRIGHT_RED, SYSTEM_MODAL } from './constants.js'
+import { SYSTEM_MODAL } from './constants.js'
 import { devLog, infoLog, warnLog } from './remote-log.js'
 import { memoryUsage, errorText, sizeText } from './memory.js'
 
@@ -256,6 +256,7 @@ function stopRecording(run, why) {
   run.recMs = recMs
   devLog(`${run.tag}: stop (${why}) after ${recMs}ms of recording${run.tStart ? '' : ' (no START event yet)'}`)
   if (run.screen) {
+    run.screen.stopBlink(false)
     run.screen.setValue('Sending…')
     run.screen.setNote('')
     run.screen.setStop('')
@@ -444,22 +445,24 @@ function resultText(run, total, sendMs, r) {
 
 // Full screen while recording: the time, and a tap anywhere stops
 // The recording's screen (utils/progress-screen.js, the design guide's
-// horizontal progress): "● name" in red, the time big, the bar up to the
-// longest time, how to stop or cancel, "Stop"; a tap anywhere stops
-function drawOverlay(run, seconds, onTap) {
+// horizontal progress): "REC" with its red dot blinking, the time big, the
+// bar up to the longest time, how to send or cancel, "Stop". Only Stop (and
+// the select key, page/run) stops and sends: a tap elsewhere does nothing
+function drawOverlay(run, seconds, onStop) {
   const screen = run.screen = progressScreen({
-    title: '● ' + (run.title || 'REC'),
-    titleColor: COLOR_BRIGHT_RED,
+    title: 'REC',
+    dot: true,
     value: `0.0 / ${seconds} s`,
-    note: 'Tap or select: stop and send. Back: cancel',
+    note: 'Stop or select: send. Back: cancel',
     stop: 'Stop',
-    onTap,
+    onStop,
   })
   run.widgets.push(...screen.widgets)
   run.timeText = true
 }
 
 function cleanup(run, keepScreen = false) {
+  if (run.screen) run.screen.stopBlink(false)
   run.timers.forEach((t) => { clearTimeout(t); clearInterval(t) })
   run.timers = []
   if (run.recorder && !run.stopped) {

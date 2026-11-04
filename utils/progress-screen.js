@@ -9,8 +9,10 @@
 //   0.938), top at 0.41; "Stop" a capsule (y 0.79–0.96)
 // The track is #333333 (the guide's grey, color_sys_item; greys 1–46 are to
 // be avoided). Text sizes as measured: value 48, title 40, note 34, Stop 36.
-// The whole screen takes the tap (onTap); its texts don't eat it.
-import { createWidget, widget, prop, align, text_style, event } from '@zos/ui'
+// Only "Stop" takes a tap (onStop); the rest of the screen swallows taps (a
+// widget without a listener lets them through to what is under it).
+// `dot`: a red dot left of the title, blinking (a recording's "● REC").
+import { createWidget, widget, prop, align, text_style, event, getTextLayout } from '@zos/ui'
 import { getDeviceInfo, SCREEN_SHAPE_ROUND } from '@zos/device'
 
 const COLOR_BLACK = 0x000000
@@ -18,8 +20,11 @@ const COLOR_WHITE = 0xffffff
 const COLOR_NOTE = 0xdddddd
 const COLOR_TRACK = 0x333333
 const COLOR_STOP = 0x333333
+const COLOR_DOT = 0xff3b30
+// The dot's blink: on, then off, this long each
+const BLINK_MS = 600
 
-export function progressScreen({ title = '', titleColor = COLOR_WHITE, value = '', note = '', stop = '', onTap = null } = {}) {
+export function progressScreen({ title = '', titleColor = COLOR_WHITE, value = '', note = '', stop = '', onStop = null, dot = false } = {}) {
   const { width: W, height: H, screenShape } = getDeviceInfo()
   const round = screenShape === SCREEN_SHAPE_ROUND
   const widgets = []
@@ -30,11 +35,30 @@ export function progressScreen({ title = '', titleColor = COLOR_WHITE, value = '
   const barH = Math.max(6, Math.round(H * (round ? 10 / 318 : 10 / 298)))
   const bar = { x: Math.round(W * L.barX), y: Math.round(H * L.barY), w: Math.round(W * L.barW), h: barH, radius: Math.floor(barH / 2) }
 
-  add(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: COLOR_BLACK })
+  const back = add(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: COLOR_BLACK })
+  back.addEventListener(event.CLICK_DOWN, () => {})
   const text = (o) => add(widget.TEXT, { x: 0, w: W, align_h: align.CENTER_H, align_v: align.CENTER_V, ...o })
   const titleW = Math.round(W * (round ? 0.64 : 0.84))
-  const titleText = text({ x: Math.round((W - titleW) / 2), w: titleW, y: Math.round(H * L.titleY), h: Math.round(H * L.titleH),
-    text: title, text_size: 40, color: titleColor, text_style: text_style.ELLIPSIS })
+  // The dot (a recording): left of the title, the two centred together, the
+  // title drawn where it goes (no move after: a TEXT's MORE resets it)
+  const titleY = Math.round(H * L.titleY), titleH = Math.round(H * L.titleH)
+  let titleBox = { x: Math.round((W - titleW) / 2), w: titleW, align_h: align.CENTER_H }
+  let dotWidget = null, blinkTimer = null
+  if (dot) {
+    let tw = 0
+    try { tw = (getTextLayout(title, { text_size: 40, text_width: 0, wrapped: 0 }) || {}).width || 0 } catch (e) { tw = 0 }
+    if (!(tw > 0)) tw = Math.round(String(title).length * 24)
+    const d = 26, gap = 14, left = Math.round((W - (d + gap + tw)) / 2)
+    dotWidget = add(widget.FILL_RECT, { x: left, y: Math.round(titleY + titleH / 2 - d / 2), w: d, h: d, radius: d / 2, color: COLOR_DOT })
+    titleBox = { x: left + d + gap, w: tw + 6, align_h: align.LEFT }
+    let on = true
+    blinkTimer = setInterval(() => { on = !on; dotWidget.setProperty(prop.VISIBLE, on) }, BLINK_MS)
+  }
+  const titleText = text({ ...titleBox, y: titleY, h: titleH, text: title, text_size: 40, color: titleColor, text_style: text_style.ELLIPSIS })
+  const stopBlink = (show = false) => {
+    if (blinkTimer) { clearInterval(blinkTimer); blinkTimer = null }
+    if (dotWidget) dotWidget.setProperty(prop.VISIBLE, !!show)
+  }
   const valueText = text({ y: Math.round(H * L.valueY), h: Math.round(H * L.valueH), text: value, text_size: 48, color: COLOR_WHITE, text_style: text_style.NONE })
   add(widget.FILL_RECT, { ...bar, color: COLOR_TRACK })
   const fill = add(widget.FILL_RECT, { ...bar, w: bar.h, color: COLOR_WHITE })
@@ -54,11 +78,13 @@ export function progressScreen({ title = '', titleColor = COLOR_WHITE, value = '
   const showStop = (on) => { stopBack.setProperty(prop.VISIBLE, !!on); stopText.setProperty(prop.VISIBLE, !!on) }
   showStop(!!stop)
 
-  if (typeof onTap === 'function') widgets.forEach((w) => w.addEventListener(event.CLICK_DOWN, onTap))
+  // Stop: only its band (or capsule) and its label
+  if (typeof onStop === 'function') { stopBack.addEventListener(event.CLICK_DOWN, onStop); stopText.addEventListener(event.CLICK_DOWN, onStop) }
 
   let lastFill = -1
   return {
     widgets,
+    stopBlink,
     setTitle: (t) => titleText.setProperty(prop.TEXT, t),
     setValue: (t) => valueText.setProperty(prop.TEXT, t),
     setNote: (t) => noteText.setProperty(prop.TEXT, t),
