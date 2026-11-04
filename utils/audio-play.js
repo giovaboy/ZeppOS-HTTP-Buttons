@@ -80,7 +80,9 @@ function runPending() {
 export function playAudioFile(vm, path, opts = {}) {
   // onEnd(why): playback is over ('complete', 'tap', 'failed', 'page closed',
   // 'another file to play', …), called just after (page/run goes back)
-  const { tag = '[play]', pageid = 0, remove = false, label = '', onEnd = null } = opts
+  // duration (seconds): when the caller knows it (the watch's recording, for
+  // which getDuration() gives 0), for the progress bar
+  const { tag = '[play]', pageid = 0, remove = false, label = '', onEnd = null, duration = 0 } = opts
   const src = String(path || '')
   const dataPath = src.startsWith('data://') ? src.slice('data://'.length) : src.replace(/^\/?data\//, '')
   // A recording running: the file waits for its end (on the Cheetah the
@@ -111,7 +113,7 @@ export function playAudioFile(vm, path, opts = {}) {
     finish(current, 'another file to play')
   }
   const file = 'data://' + dataPath
-  const run = current = { vm, tag, pageid, remove, dataPath, onEnd, t0: Date.now(), tPlay: 0, duration: 0, widgets: [], timers: [], done: false, prepared: false }
+  const run = current = { vm, tag, pageid, remove, dataPath, onEnd, durationHint: Number(duration) || 0, t0: Date.now(), tPlay: 0, duration: 0, widgets: [], timers: [], done: false, prepared: false }
 
   let size = 0
   try {
@@ -297,6 +299,8 @@ function listenPlayer(p) {
       return
     }
     try { r.duration = p.getDuration() || 0 } catch (e) { r.duration = 0 }
+    // 0 for the watch's own recording: the length the caller worked out
+    if (!r.duration && r.durationHint) r.duration = r.durationHint
     let volume = '?', mute = '?'
     try { volume = p.getVolume() } catch (e) { /* not there */ }
     try { mute = typeof p.getMute === 'function' ? p.getMute() : 'n/a' } catch (e) { mute = errorText(e) }

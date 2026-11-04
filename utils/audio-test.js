@@ -132,7 +132,18 @@ export function playLastRecording(vm, pageid, label, done, onEnd) {
     done()
     return false
   }
-  playAudioFile(vm, 'data://' + AUDIO_FILE, { tag: `[play] ${label}`, pageid, remove: false, label: 'Last recording', onEnd })
+  // Its length from its packets: the player gives 0 for the watch's own
+  // recording, and the progress bar needs it
+  let duration = 0
+  try {
+    const buf = readFileSync({ path: AUDIO_FILE })
+    const f = buf ? parseOpusFrames(new Uint8Array(buf)) : null
+    if (f && f.packets && f.parsed === f.total) duration = f.ms / 1000
+    devLog(`[play] ${label}: the recording reads as ${f ? `${f.packets} packets, ${f.ms} ms` : 'nothing'}`)
+  } catch (e) {
+    devLog(`[play] ${label}: the recording's length not worked out: ${errorText(e)}`)
+  }
+  playAudioFile(vm, 'data://' + AUDIO_FILE, { tag: `[play] ${label}`, pageid, remove: false, label: 'Last recording', onEnd, duration })
   done()
   return true
 }
