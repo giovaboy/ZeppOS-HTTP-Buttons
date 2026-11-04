@@ -256,7 +256,9 @@ function stopRecording(run, why) {
   run.recMs = recMs
   devLog(`${run.tag}: stop (${why}) after ${recMs}ms of recording${run.tStart ? '' : ' (no START event yet)'}`)
   if (run.screen) {
+    // Sending: no more REC (nor its dot); the bar stays where it got
     run.screen.stopBlink(false)
+    run.screen.setTitle('')
     run.screen.setValue('Sending…')
     run.screen.setNote('')
     run.screen.setStop('')
