@@ -32,6 +32,8 @@ const SWITCH_WAIT_MS = 400
 
 // A file asked while another loads waits this long at most for its PLAY
 const LOAD_WAIT_MS = 3000
+// A file asked during a recording waits for its end, this long at most
+const RECORDING_WAIT_MS = 60000
 
 let player = null
 let current = null
@@ -76,6 +78,16 @@ export function playAudioFile(vm, path, opts = {}) {
   const { tag = '[play]', pageid = 0, remove = false, label = '' } = opts
   const src = String(path || '')
   const dataPath = src.startsWith('data://') ? src.slice('data://'.length) : src.replace(/^\/?data\//, '')
+  // A recording running: the file waits for its end (on the Cheetah the
+  // player refused two files, PREPARE false, while the recorder ran)
+  if (isRecording && isRecording()) {
+    if (!pending) devLog(`${tag}: waits for the recording to end`)
+    else devLog(`${tag}: waits for the recording to end (in place of the file waiting)`)
+    if (pendingTimer) clearTimeout(pendingTimer)
+    pendingTimer = setTimeout(runPending, RECORDING_WAIT_MS)
+    pending = [vm, path, opts]
+    return
+  }
   // One load at a time: this file waits for the one loading to play
   if (current && !current.done && current.loading && !current.tPlay) {
     if (!pending) {
@@ -150,6 +162,30 @@ let recorderMade = false
 let releaseRecorder = null
 export const noteRecorderMade = (release) => { recorderMade = true; releaseRecorder = release || null }
 
+// Whether a recording runs (utils/audio-test.js sets it), and its end: a
+// file that waited for it plays then, a moment later
+let isRecording = null
+export const setRecordingCheck = (fn) => { isRecording = fn }
+export function recordingOver() {
+  if (!pending) return
+  if (pendingTimer) clearTimeout(pendingTimer)
+  pendingTimer = setTimeout(runPending, SWITCH_WAIT_MS)
+}
+
+// checkAvailable() (not in the API docs; the recorder and the player both
+// have it on the Cheetah): what it says, for the log
+export function availableText(o) {
+  if (!o || typeof o.checkAvailable !== 'function') return 'no checkAvailable'
+  try {
+    const r = o.checkAvailable()
+    let s
+    try { s = JSON.stringify(r) } catch (e) { s = String(r) }
+    return `checkAvailable() → ${typeof r} ${String(s).slice(0, 80)}`
+  } catch (e) {
+    return `checkAvailable() threw: ${errorText(e)}`
+  }
+}
+
 // The recorder could not be made: the player lets go of the audio (on the
 // Balance only one of the two could exist). True if it was released
 export function releasePlayerForRecorder(tag) {
@@ -196,7 +232,7 @@ function getPlayer(run) {
     }
     if (!player) return null
   }
-  devLog(`${run.tag}: player created; its functions: ${mediaMethods(player)}`)
+  devLog(`${run.tag}: player created; its functions: ${mediaMethods(player)}; ${availableText(player)}`)
   const p = player
   p.addEventListener(p.event.PREPARE, (result) => {
     const r = current

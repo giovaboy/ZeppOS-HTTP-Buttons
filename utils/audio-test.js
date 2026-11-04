@@ -18,7 +18,7 @@ import { create, id, codec } from '@zos/media'
 import { statSync, readFileSync, rmSync } from '@zos/fs'
 import { getDeviceInfo } from '@zos/device'
 import { bytesToBase64, hexHead } from './base64.js'
-import { playAudioFile, isAudioPlaying, stopAudioPlay, noteRecorderMade, releasePlayerForRecorder, releaseMedia, mediaMethods } from './audio-play.js'
+import { playAudioFile, isAudioPlaying, stopAudioPlay, noteRecorderMade, releasePlayerForRecorder, releaseMedia, mediaMethods, availableText, setRecordingCheck, recordingOver } from './audio-play.js'
 import { parseOpusFrames } from './opus-frames.js'
 import { COLOR_BLACK, COLOR_WHITE, COLOR_BRIGHT_RED, COLOR_GRAY, SYSTEM_MODAL } from './constants.js'
 import { devLog, infoLog, warnLog } from './remote-log.js'
@@ -41,6 +41,10 @@ const TESTS_RPC_MS = 120000
 // holds the others), so the page's onDestroy can stop it
 let current = null
 
+// The recorder holds the microphone from the start until its file is read:
+// meanwhile a file to play waits (utils/audio-play.js)
+setRecordingCheck(() => !!current && !current.finished && !current.read)
+
 export function runAudioTest(vm, button, pageid, label, done) {
   if (current) {
     warnLog(`[audio] ${label}: another recording is running`)
@@ -58,6 +62,7 @@ export function runAudioTest(vm, button, pageid, label, done) {
     run.finished = true
     cleanup(run)
     if (current === run) current = null
+    recordingOver()
     if (text) vm.showResult(text, pageid, isError, SYSTEM_MODAL)
     done()
   }
@@ -163,7 +168,7 @@ function getRecorder(tag) {
     recorder = null
     return done
   })
-  devLog(`${tag}: recorder's functions: ${mediaMethods(r)}`)
+  devLog(`${tag}: recorder's functions: ${mediaMethods(r)}; ${availableText(r)}`)
   r.addEventListener(r.event.START, (result) => {
     const run = current
     if (!run || run.finished) return
@@ -262,6 +267,8 @@ function waitForFile(run, why) {
 function readRecording(run, why) {
   const { vm, tag } = run
   const tRead = Date.now()
+  // The file is final: the microphone is free, a file waiting can play
+  recordingOver()
   let bytes
   try {
     const st = statSync({ path: AUDIO_FILE })
