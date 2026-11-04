@@ -9,7 +9,7 @@ import { getLogger } from '../utils/logger.js'
 import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE } from 'zosLoader:./keyboard.[pf].layout.js'
 import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard.js'
 import { pressButton } from '../utils/press-queue.js'
-import { runAudioTest } from '../utils/audio-test.js'
+import { runAudioTest, playLastRecording } from '../utils/audio-test.js'
 import { stopAllLoaders } from '../utils/button-loader.js'
 import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_GRAY, COLOR_RED, COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE, KB_TYPE_CHAR, KB_TYPE_NUMERIC } from '../utils/constants.js';
 
@@ -253,7 +253,10 @@ export const layout = {
                   back: button.back_color || COLOR_GRAY,
                   label,
                   start: (t, done) => {
-                    if (button.audio_test) {
+                    if (button.audio_last) {
+                      // EXPERIMENT (test mode): play the last recording
+                      playLastRecording(vm, pi, label, done)
+                    } else if (button.audio_test) {
                       // EXPERIMENT (test mode): record and POST audio (utils/audio-test.js)
                       runAudioTest(vm, button, pi, label, done)
                     } else if (button.request && button.request.response_style === SHOW_IMAGE) {

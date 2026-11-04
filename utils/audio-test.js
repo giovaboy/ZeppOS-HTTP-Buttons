@@ -18,6 +18,7 @@ import { create, id, codec } from '@zos/media'
 import { statSync, readFileSync, rmSync } from '@zos/fs'
 import { getDeviceInfo } from '@zos/device'
 import { bytesToBase64, hexHead } from './base64.js'
+import { playAudioFile } from './audio-play.js'
 import { COLOR_BLACK, COLOR_WHITE, COLOR_BRIGHT_RED, COLOR_GRAY, SYSTEM_MODAL } from './constants.js'
 import { devLog, infoLog, warnLog } from './remote-log.js'
 import { memoryUsage, errorText, sizeText } from './memory.js'
@@ -69,7 +70,8 @@ export function runAudioTest(vm, button, pageid, label, done) {
     recorder = run.recorder = create(id.RECORDER)
   } catch (e) {
     warnLog(`${tag}: recorder not created: ${errorText(e)}`)
-    return finish('No recorder on this watch:\n' + errorText(e), true)
+    // e.g. PERMISSION_DENIED device:os.mic without the app.json permission
+    return finish('Recorder not available:\n' + errorText(e), true)
   }
   try {
     recorder.addEventListener(recorder.event.START, (result) => {
@@ -100,6 +102,23 @@ export function runAudioTest(vm, button, pageid, label, done) {
     if (run.timeText) run.timeText.setProperty(prop.TEXT, `${s.toFixed(1)} s / ${seconds} s`)
     if (s >= seconds) stopRecording(run, 'limit')
   }, 200))
+}
+
+// The last recording, played on the watch: the player with the watch's own
+// OPUS, no phone involved (utils/audio-play.js)
+export function playLastRecording(vm, pageid, label, done) {
+  if (current) {
+    vm.showResult('A recording is running', pageid, true, SYSTEM_MODAL)
+    return done()
+  }
+  let st = null
+  try { st = statSync({ path: AUDIO_FILE }) } catch (e) { st = null }
+  if (!st || !st.size) {
+    vm.showResult('No recording yet: record one with 🎤 first', pageid, true, SYSTEM_MODAL)
+    return done()
+  }
+  playAudioFile(vm, 'data://' + AUDIO_FILE, { tag: `[play] ${label}`, pageid, remove: false, label: 'Last recording' })
+  done()
 }
 
 // The page goes away: the recording stops, nothing is sent

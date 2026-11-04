@@ -14,6 +14,9 @@ import { audioPart, audioTests } from './audio-test.js'
 // box; field-notes.md, "Messaging"). The real path is read from the event.
 const IMAGE_DOWNLOAD_NAME = 'httpbtn_snapshot.png'
 const IMAGE_DOWNLOAD_PATH = 'data://download/' + IMAGE_DOWNLOAD_NAME
+// EXPERIMENT (test mode): an audio file to play, by the address's extension
+// (the watch's player takes MP3 and the watch's own OPUS)
+const audioDownloadName = (url) => /\.opus(\?|#|$)/i.test(String(url)) ? 'httpbtn_clip.opus' : 'httpbtn_clip.mp3'
 
 // ── Logs box ──────────────────────────────────────────────────
 // Three levels (config.js LOG_LEVEL): vlog (trace: diagnostics), plog (info:
@@ -120,7 +123,7 @@ function buildImageAuthHeaders({ auth, user, pass, token }) {
 // common raster formats (PNG, JPEG, …); a genuinely unsupported/corrupt file
 // fails the .catch. `t0` is when the watch's request arrived, for the timings;
 // `end` lets the next queued image start once this one's transfer is over.
-function startImageDownload(ctx, url, reqHeaders, res, timeout, t0, end) {
+function startImageDownload(ctx, url, reqHeaders, res, timeout, t0, end, kind) {
   const tDl = Date.now()
   // Let the downloader pick the destination and tell us where it landed, rather
   // than forcing a custom path (convert was reporting the forced path as "not
@@ -128,7 +131,7 @@ function startImageDownload(ctx, url, reqHeaders, res, timeout, t0, end) {
   const task = ctx.download(url, {
     timeout,
     headers: reqHeaders,
-    filePath: IMAGE_DOWNLOAD_NAME,
+    filePath: kind === 'audio' ? audioDownloadName(url) : IMAGE_DOWNLOAD_NAME,
   })
 
   task.onFail = (e) => {
@@ -144,10 +147,14 @@ function startImageDownload(ctx, url, reqHeaders, res, timeout, t0, end) {
       return
     }
 
-    const srcPath = (event && (event.filePath || event.tempFilePath)) || IMAGE_DOWNLOAD_PATH
+    const srcPath = (event && (event.filePath || event.tempFilePath)) || (kind === 'audio' ? 'data://download/' + audioDownloadName(url) : IMAGE_DOWNLOAD_PATH)
     vlog(`[img] downloaded in ${dlMs}ms: HTTP ${event && event.statusCode}, at ${srcPath} (fields ${fieldsOf(event)})`)
     const tConv = Date.now()
-    ctx.convert({ filePath: srcPath })
+    // EXPERIMENT (test mode): an audio file goes as it is (the watch plays MP3)
+    const converted = kind === 'audio'
+      ? Promise.resolve({ targetFilePath: srcPath, options: 'audio, not converted' })
+      : ctx.convert({ filePath: srcPath })
+    converted
       .then((result) => {
         const target = result && result.targetFilePath
         // `options` is what convert worked with: it may tell how to ask for a
@@ -166,7 +173,7 @@ function startImageDownload(ctx, url, reqHeaders, res, timeout, t0, end) {
         vlog(`[img] #${seq} sending${lastSend ? `, previous #${lastSend.seq} ${lastSend.state} ${Date.now() - lastSend.at}ms ago` : ''}`)
         let file
         try {
-          file = ctx.sendFile(target, { type: 'image', name: 'snapshot' })
+          file = ctx.sendFile(target, kind === 'audio' ? { type: 'audio', name: 'clip' } : { type: 'image', name: 'snapshot' })
         } catch (e) {
           wlog(`[img] not sent to the watch: ${errorText(e)}`)
           res(null, { ok: false, error: 'Image not sent' })
@@ -197,7 +204,7 @@ function startImageDownload(ctx, url, reqHeaders, res, timeout, t0, end) {
         } else {
           end()
         }
-        plog(`[img] ready in ${Date.now() - t0}ms (download ${dlMs}ms), sending it to the watch`)
+        plog(`[img] ${kind === 'audio' ? 'audio ' : ''}ready in ${Date.now() - t0}ms (download ${dlMs}ms), sending it to the watch`)
         res(null, { ok: true })
       })
       .catch((err) => {
@@ -219,7 +226,7 @@ function readHeader(headers, name) {
 
 // `timeout` arrives already resolved by the watch (button → global → default);
 // the fallback only covers a request from an older page version.
-function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, timeout = DEFAULT_REQUEST_TIMEOUT_MS }, res, end) {
+function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, timeout = DEFAULT_REQUEST_TIMEOUT_MS, kind }, res, end) {
   const t0 = Date.now()
   const baseHeaders = { ...(headers || {}) }
   plog(`[img] asked: GET ${urlForLog(url)} auth=${authForLog(auth)} timeout=${timeout}ms`)
@@ -236,12 +243,12 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, 
           const challenge = parseChallenge(wa)
           const uri = requestUri(url)
           const authHeader = buildDigestAuth({ username: user, password: pass, method: 'GET', uri, challenge })
-          startImageDownload(ctx, url, { ...baseHeaders, Authorization: authHeader }, res, timeout, t0, end)
+          startImageDownload(ctx, url, { ...baseHeaders, Authorization: authHeader }, res, timeout, t0, end, kind)
         } else {
           // No challenge surfaced (already open, or headers not exposed) — just
           // download; the downloader's statusCode reports the truth (e.g. 401).
           vlog(`[img] digest: no challenge from the probe (HTTP ${probe && probe.status}) in ${Date.now() - t0}ms`)
-          startImageDownload(ctx, url, baseHeaders, res, timeout, t0, end)
+          startImageDownload(ctx, url, baseHeaders, res, timeout, t0, end, kind)
         }
       })
       .catch((e) => {
@@ -251,7 +258,7 @@ function fetchConvertAndPush(ctx, { url, headers = {}, auth, user, pass, token, 
     return
   }
 
-  startImageDownload(ctx, url, { ...baseHeaders, ...buildImageAuthHeaders({ auth, user, pass, token }) }, res, timeout, t0, end)
+  startImageDownload(ctx, url, { ...baseHeaders, ...buildImageAuthHeaders({ auth, user, pass, token }) }, res, timeout, t0, end, kind)
 }
 
 // Images one at a time: each one downloads and converts into the same fixed

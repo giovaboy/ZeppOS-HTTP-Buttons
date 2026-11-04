@@ -550,7 +550,7 @@ export const requestMethods = {
           ? applyReplacements({ url: request.url }, replacements.filter(([s]) => s !== '{input}')).url
           : main.url
         devLog(`${run.tag}: ${String(main.method || 'GET').trim()} ${urlForLog(shownUrl)} auth=${authForLog(main.auth)} timeout=${timeout}ms` +
-          `${request.response_style === SHOW_IMAGE ? ' image' : ''}${request.session ? ' session' : ''}${request.poll ? ' poll' : ''}` +
+          `${request.response_style === SHOW_IMAGE ? (request.audio_play ? ' audio' : ' image') : ''}${request.session ? ' session' : ''}${request.poll ? ' poll' : ''}` +
           `${input != null ? `, input of ${String(input).length} chars` : ''}, ${this.inFlight} in flight`)
       }
 
@@ -575,7 +575,10 @@ export const requestMethods = {
             url: main.url,
             headers: main.headers ? parseJSON(main.headers) : undefined,
             auth: main.auth, user: main.user, pass: main.pass, token: main.token,
-            timeout
+            timeout,
+            // EXPERIMENT (test mode): an audio file, sent as is and played
+            // (utils/audio-play.js)
+            kind: request.audio_play ? 'audio' : undefined
           }
         }, { timeout: timeout + 45000 }).then((resp) => {
           if (!resp || !resp.ok) {

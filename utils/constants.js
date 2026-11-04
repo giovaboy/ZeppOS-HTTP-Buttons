@@ -23,6 +23,9 @@ export const DEFAULT_PAGE = { back_color: 856343, text_color: 16777215, rows: [
 
 export const DEFAULT_DATA = {"variables":{"city":"London"},"pages":[{"title":"👋 Welcome","back_color":856343,"text_color":16777215,"rows":[{"h":50,"buttons":[{"text":"🐱 Cat fact","w":50,"radius":18,"back_color":32896,"text_color":16777215,"request":{"method":"GET","url":"https://catfact.ninja/fact","parse_result":"fact","response_style":0}},{"text":"😂 Dad joke","w":50,"radius":18,"back_color":16766720,"text_color":856343,"request":{"method":"GET","url":"https://icanhazdadjoke.com/","headers":"{\"Accept\": \"application/json\"}","parse_result":"joke","response_style":0}}]},{"h":50,"buttons":[{"text":"⌨ Echo your text","w":100,"radius":18,"back_color":558288,"text_color":16777215,"input":true,"keyboard_type":0,"request":{"method":"GET","url":"https://httpbin.io/anything/{input}","parse_result":"url","response_style":0}}]}]},{"title":"⚙ Features","back_color":856343,"text_color":16777215,"rows":[{"h":25,"buttons":[{"text":"GET","w":33,"radius":18,"back_color":3978097,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/get","parse_result":"url","response_style":1}},{"text":"POST","w":33,"radius":18,"back_color":16542032,"text_color":16777215,"request":{"method":"POST","url":"https://httpbin.io/post","body":"{\"hello\": \"world\"}","parse_result":"json","response_style":1}},{"text":"UUID","w":34,"radius":18,"back_color":8388736,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/uuid","parse_result":"uuid","response_style":2}}]},{"h":25,"buttons":[{"spacer":true,"w":25,"request":{}},{"text":"City = {city}","w":75,"radius":18,"back_color":4915330,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/anything/{city}","parse_result":"url","response_style":0}}]},{"h":25,"buttons":[{"text":"🎯 JSON path","w":100,"radius":18,"back_color":6970061,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/json","parse_result":"slideshow.slides[1].title","response_style":0}}]},{"h":25,"buttons":[{"text":"My headers","w":100,"radius":18,"back_color":14423100,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/headers","headers":"{\"X-Demo\": \"HTTP-Buttons\"}","parse_result":"headers","response_style":0}}]}]},{"title":"🔐 Auth","back_color":856343,"text_color":16777215,"rows":[{"h":50,"buttons":[{"text":"Digest","w":50,"radius":18,"back_color":15631086,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/digest-auth/auth/user/pass","auth":"Digest","user":"user","pass":"pass","response_style":2}},{"text":"Basic","w":50,"radius":18,"back_color":16776960,"text_color":8421504,"request":{"method":"GET","url":"https://httpbin.io/basic-auth/user/pass","auth":"Basic","user":"user","pass":"pass","response_style":2}}]},{"h":50,"buttons":[{"text":"Bearer","w":100,"radius":18,"back_color":558288,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/bearer","auth":"Bearer","token":"demo123","response_style":2}}]}]},{"title":"🖼️ Image","back_color":856343,"text_color":16777215,"rows":[{"h":100,"buttons":[{"text":"📷 Load PNG","w":100,"radius":18,"back_color":3978097,"text_color":16777215,"request":{"method":"GET","url":"https://httpbin.io/image/png","response_style":4}}]}]}]};
 
+// EXPERIMENT: the test MP3s of this repo (test-audio/), as the watch downloads them
+const TEST_AUDIO = "https://raw.githubusercontent.com/giovaboy/ZeppOS-HTTP-Buttons/main/test-audio/";
+
 // Hardcoded test suite loaded on the watch when the "Test mode" switch is ON
 // (see setting/index.js). Exercises methods, auth (incl. Digest with query
 // string + SHA-256), response styles, images (PNG/JPEG, landscape/portrait for
@@ -195,7 +198,26 @@ export const TEST_DATA = {
         { text: "🎤 10 s", w: 50, radius: 14, back_color: 9109504, text_color: 16777215, audio_test: { seconds: 10 }, request: { method: "POST", url: "https://httpbin.io/anything", response_style: 2 } }
       ] },
       { h: 50, buttons: [
-        { text: "🎤 30 s", w: 100, radius: 14, back_color: 8388736, text_color: 16777215, audio_test: { seconds: 30 }, request: { method: "POST", url: "https://httpbin.io/anything", response_style: 2 } }
+        { text: "🎤 30 s", w: 50, radius: 14, back_color: 8388736, text_color: 16777215, audio_test: { seconds: 30 }, request: { method: "POST", url: "https://httpbin.io/anything", response_style: 2 } },
+        { text: "🔊 Last rec", w: 50, radius: 14, back_color: 3978097, text_color: 16777215, audio_last: true, request: { method: "GET", url: "", response_style: 3 } }
+      ] }
+    ] },
+    // EXPERIMENT: an audio file from an HTTP call, played on the watch. Down
+    // the image path (one file at a time), not converted: request.audio_play
+    // (utils/audio-play.js). The files are this repo's test-audio/ (tones
+    // made for the test), at the bitrates and sample rates to try
+    { title: "⑩ Play (test)", back_color: 856343, text_color: 16777215, rows: [
+      { h: 33, buttons: [
+        { text: "🔊 32k 16kHz", w: 50, radius: 14, back_color: 558288, text_color: 16777215, request: { method: "GET", url: TEST_AUDIO + "chime-32k-mono-16khz.mp3", response_style: 4, audio_play: true } },
+        { text: "🔊 64k 22kHz", w: 50, radius: 14, back_color: 558288, text_color: 16777215, request: { method: "GET", url: TEST_AUDIO + "chime-64k-mono-22khz.mp3", response_style: 4, audio_play: true } }
+      ] },
+      { h: 33, buttons: [
+        { text: "🔊 128k st.", w: 50, radius: 14, back_color: 3978097, text_color: 16777215, request: { method: "GET", url: TEST_AUDIO + "chime-128k-stereo-44khz.mp3", response_style: 4, audio_play: true } },
+        { text: "🔊 320k st.", w: 50, radius: 14, back_color: 3978097, text_color: 16777215, request: { method: "GET", url: TEST_AUDIO + "chime-320k-stereo-44khz.mp3", response_style: 4, audio_play: true } }
+      ] },
+      { h: 34, buttons: [
+        { text: "🔊 20 s", w: 50, radius: 14, back_color: 8388736, text_color: 16777215, request: { method: "GET", url: TEST_AUDIO + "melody-20s-64k-mono-22khz.mp3", response_style: 4, audio_play: true } },
+        { text: "Not audio", w: 50, radius: 14, back_color: 9109504, text_color: 16777215, request: { method: "GET", url: "https://httpbin.io/html", response_style: 4, audio_play: true } }
       ] }
     ] }
   ]
