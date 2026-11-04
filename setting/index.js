@@ -805,7 +805,24 @@ const buildPageSummary = (page, screen) => {
 // Page header. Title (editable, with the page's own colors as a preview) sits
 // above the reorder select (hidden when there's a single page), with a collapse
 // chevron on the right. The color/delete/add-row controls show only when open.
-const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
+const buildPageView = (page, pindex, context, pageOpen, pageCount, screen) => {
+  const chevron = Button({
+    label: pageOpen ? '▾' : '◂',
+    style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
+    onClick: () => context.state.props.settingsStorage.setItem('ui_page_' + pindex, pageOpen ? 'false' : 'true')
+  });
+  // Collapsed: only the miniature (it shows the title in its colors), with
+  // delete and the chevron beside it; the title field, Move to… and the
+  // colors are for the open page
+  if (!pageOpen) {
+    return View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
+      View({ style: { flex: 1 } }, [buildPageSummary(page, screen)]),
+      View({ style: { display: 'flex', flexDirection: 'column', alignItems: 'center' } }, [
+        deleteX(context, 'page:' + pindex, { marginLeft: '4px' }),
+        View({ style: { marginTop: '8px' } }, [chevron])
+      ])
+    ]);
+  }
   return View(
     {
       style: {
@@ -853,13 +870,8 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount) => {
             })
           ] : [])
         ]),
-        // Delete page — always visible (even when the page is collapsed).
         deleteX(context, 'page:' + pindex, { marginLeft: '4px' }),
-        Button({
-          label: pageOpen ? '▾' : '◂',
-          style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
-          onClick: () => context.state.props.settingsStorage.setItem('ui_page_' + pindex, pageOpen ? 'false' : 'true')
-        })
+        chevron
       ]),
       // Editing controls, only when the page is expanded: page colors. (Add Row
       // lives at the bottom of the row list, like Add Page after the pages.)
@@ -1438,7 +1450,7 @@ AppSettingsPage({
       for (let [pindex, page] of pages.entries()) {
         const pageOpen = this.state.props.settingsStorage.getItem('ui_page_' + pindex) === 'true';
         const pageChildren = [
-          buildPageView(page, pindex, this, pageOpen, pages.length),
+          buildPageView(page, pindex, this, pageOpen, pages.length, watchScreen(props.settingsStorage)),
           ...confirmBar(this, 'page:' + pindex, gettext('delete_page') + quoted(page.title || String(pindex + 1)) + '?', gettext('delete_action'), () => this.deletePage(pindex))
         ];
         if (pageOpen) {
@@ -1482,8 +1494,6 @@ AppSettingsPage({
               })
             ])
           );
-        } else {
-          pageChildren.push(buildPageSummary(page, watchScreen(props.settingsStorage)));
         }
         contentItems.push(
           Section({ style: { marginBottom: '12px', padding: '8px', border: '1px solid #d5d5d5', borderRadius: '12px', background: '#ffffff' }}, pageChildren)
