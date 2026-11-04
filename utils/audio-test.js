@@ -18,7 +18,7 @@ import { create, id, codec } from '@zos/media'
 import { statSync, readFileSync, rmSync } from '@zos/fs'
 import { getDeviceInfo } from '@zos/device'
 import { bytesToBase64, hexHead } from './base64.js'
-import { playAudioFile, isAudioPlaying, stopAudioPlay } from './audio-play.js'
+import { playAudioFile, isAudioPlaying, stopAudioPlay, noteRecorderMade } from './audio-play.js'
 import { parseOpusFrames } from './opus-frames.js'
 import { COLOR_BLACK, COLOR_WHITE, COLOR_BRIGHT_RED, COLOR_GRAY, SYSTEM_MODAL } from './constants.js'
 import { devLog, infoLog, warnLog } from './remote-log.js'
@@ -33,6 +33,7 @@ const MAX_SECONDS = 30
 const PART_BYTES = 9000
 // No STOP event this long after stop(): the file is read anyway
 const STOP_WAIT_MS = 3000
+const NO_EVENTS_WAIT_MS = 800
 // The phone's tests (several POSTs of the recording): the RPC window
 const TESTS_RPC_MS = 120000
 
@@ -148,6 +149,7 @@ function getRecorder(tag) {
   if (recorder) return recorder
   const r = create(id.RECORDER)
   if (!r) throw new Error('create(id.RECORDER) gave nothing')
+  noteRecorderMade()
   r.addEventListener(r.event.START, (result) => {
     const run = current
     if (!run || run.finished) return
@@ -200,8 +202,11 @@ function stopRecording(run, why) {
   if (run.timeText) run.timeText.setProperty(prop.TEXT, 'Sending…')
   if (run.hintText) run.hintText.setProperty(prop.TEXT, '')
   try { run.recorder.stop() } catch (e) { warnLog(`${run.tag}: stop() failed: ${errorText(e)}`) }
-  // The file is read on the STOP event, or after this wait without one
-  run.timers.push(setTimeout(() => afterStop(run, `no STOP event in ${STOP_WAIT_MS}ms`), STOP_WAIT_MS))
+  // The file is read on the STOP event, or after this wait without one. A
+  // recorder that sent no START sends no STOP either (an API 3 watch, whose
+  // recorder has no getStatus): a short wait, then the size must hold
+  const wait = run.tStart ? STOP_WAIT_MS : NO_EVENTS_WAIT_MS
+  run.timers.push(setTimeout(() => afterStop(run, `no STOP event in ${wait}ms`), wait))
 }
 
 function afterStop(run, why) {

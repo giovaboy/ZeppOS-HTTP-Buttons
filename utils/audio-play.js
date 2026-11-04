@@ -90,6 +90,11 @@ export function playAudioFile(vm, path, { tag = '[play]', pageid = 0, remove = f
 // A file is playing (or loading)
 export const isAudioPlaying = () => !!current
 
+// The recorder was made (utils/audio-test.js), for the log when no player
+// can be made after it
+let recorderMade = false
+export const noteRecorderMade = () => { recorderMade = true }
+
 // Playback stops: the page goes away, or the recorder needs the audio (a
 // recording started during playback left the player refusing the next file)
 export function stopAudioPlay(why = 'page closed') {
@@ -106,10 +111,11 @@ function getPlayer(run) {
     player = null
     return null
   }
-  // Seen once on the watch: create() gave nothing (no throw), as the
-  // recorder did when made twice on a page
+  // create() gave nothing (no throw): on an API 3 watch every time once the
+  // recorder had been made, and once on the Cheetah. The recorder can't be
+  // let go (no API for it)
   if (!player) {
-    warnLog(`${run.tag}: create(id.PLAYER) gave nothing`)
+    warnLog(`${run.tag}: create(id.PLAYER) gave nothing${recorderMade ? ' (the recorder was made before it, in this run of the app)' : ' (no recorder made yet)'}`)
     return null
   }
   devLog(`${run.tag}: player created`)

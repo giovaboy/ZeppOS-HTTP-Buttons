@@ -1,5 +1,5 @@
 // The app's memory, for trace lines (getPerformance, API 4.0; this app is
-// compatible down to 3.0, where the export is missing: '' then). The limit an
+// compatible down to 3.0, where the export is missing: "mem n/a"). The limit an
 // app meets is the system's memory, not a share per app (field-notes.md,
 // "Memory").
 import { getPerformance } from '@zos/app'
@@ -19,13 +19,14 @@ export function errorText(e) {
   try { return JSON.stringify(e).slice(0, 200) } catch (x) { return String(e) }
 }
 
-// "mem 312 KB (peak 480), system 3100/5120 KB", or '' when not available
+// "mem 312 KB (peak 480), system 3100/5120 KB", or "mem n/a" before API 4.0
+// (lines read "build: " with nothing after it on an API 3 watch)
 export function memoryUsage() {
   try {
-    if (typeof getPerformance !== 'function') return ''
+    if (typeof getPerformance !== 'function') return 'mem n/a'
     const memory = getPerformance('memory')
     const m = memory && memory.memory
-    if (!m) return ''
+    if (!m) return 'mem n/a'
     const apps = m.app || []
     const app = apps.find((a) => Number(a.appid) === APP_ID) || (apps.length === 1 ? apps[0] : null)
     let line = app ? `mem ${KB(app.used)} KB (peak ${KB(app.peak)})` : `mem: app not listed`
