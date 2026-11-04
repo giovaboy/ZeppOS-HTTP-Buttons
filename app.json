@@ -13,7 +13,8 @@
     "description": "Some buttons firing HTTP requests"
   },
   "permissions": [
-    "data:os.device.info"
+    "data:os.device.info",
+    "device:os.mic"
   ],
   "runtime": {
     "apiVersion": {
