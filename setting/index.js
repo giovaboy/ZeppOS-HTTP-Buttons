@@ -21,7 +21,7 @@ import { CARD_MAX, cardAllowed, cardButtons } from '../utils/card.js'
 // package.json / app.json when bumping the app version. Calendar versions
 // (since 2026.11.0, after 1.6.0): YEAR.MONTH.N, N from 0 within the month;
 // app.json version.code goes up by one at every release.
-const APP_VERSION = '2026.11.0';
+const APP_VERSION = '2026.11.1';
 const GITHUB_URL = 'https://github.com/giovaboy/ZeppOS-HTTP-Buttons';
 
 // === UTILITY FUNCTIONS ===
