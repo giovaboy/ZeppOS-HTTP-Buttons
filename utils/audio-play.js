@@ -10,7 +10,12 @@
 //
 // The player is commanded outside its own events (field-notes.md, "App
 // service"): a stop/setSource/prepare inside an event killed zeppamp's
-// service; start() inside PREPARE is fine.
+// service; start() inside PREPARE is fine. One file loads at a time (zeppamp:
+// two loads overlapping gave silence): a file asked while one loads waits for
+// its PLAY, at most 3 s, the latest wins. After each stop, release() (not in
+// the API docs; a page-level player library calls it after every stop and
+// after a refused file, and its "sound wasn't playing after the first play"
+// fix): called only where the object has it, and logged.
 import { createWidget, deleteWidget, widget, prop, align, text_style, event } from '@zos/ui'
 import { create, id } from '@zos/media'
 import { statSync, openSync, readSync, closeSync, rmSync, O_RDONLY } from '@zos/fs'
@@ -25,14 +30,61 @@ const PREPARE_WAIT_MS = 10000
 // After a stop, before the next file is set (see playAudioFile)
 const SWITCH_WAIT_MS = 400
 
+// A file asked while another loads waits this long at most for its PLAY
+const LOAD_WAIT_MS = 3000
+
 let player = null
 let current = null
+let pending = null
+let pendingTimer = null
+
+// The functions a media object really has, for the log: the API docs list
+// some, the objects may have more (release)
+export function mediaMethods(o) {
+  const names = new Set()
+  try {
+    for (let p = o; p && p !== Object.prototype; p = Object.getPrototypeOf(p)) {
+      Object.getOwnPropertyNames(p).forEach((n) => { try { if (n !== 'constructor' && typeof o[n] === 'function') names.add(n) } catch (e) { /* getter */ } })
+    }
+  } catch (e) { return `? (${errorText(e)})` }
+  return [...names].sort().join(',') || 'none'
+}
+
+// release() where the object has it
+export function releaseMedia(o, tag, what) {
+  if (!o || typeof o.release !== 'function') return false
+  try {
+    o.release()
+    devLog(`${tag}: ${what}.release() called`)
+    return true
+  } catch (e) {
+    warnLog(`${tag}: ${what}.release() failed: ${errorText(e)}`)
+    return false
+  }
+}
+
+function runPending() {
+  if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null }
+  const p = pending
+  pending = null
+  if (p) playAudioFile(...p)
+}
 
 // `path`: the file (data://… or a path under /data). `remove`: delete it
 // after (a received file; not the recording, which can be played again)
-export function playAudioFile(vm, path, { tag = '[play]', pageid = 0, remove = false, label = '' } = {}) {
+export function playAudioFile(vm, path, opts = {}) {
+  const { tag = '[play]', pageid = 0, remove = false, label = '' } = opts
   const src = String(path || '')
   const dataPath = src.startsWith('data://') ? src.slice('data://'.length) : src.replace(/^\/?data\//, '')
+  // One load at a time: this file waits for the one loading to play
+  if (current && !current.done && current.loading && !current.tPlay) {
+    if (!pending) {
+      devLog(`${tag}: waits for the file loading (${LOAD_WAIT_MS} ms at most)`)
+      pendingTimer = setTimeout(runPending, LOAD_WAIT_MS)
+    }
+    pending = [vm, path, opts]
+    return
+  }
   let switching = false
   if (current) {
     // The new file came to the same name: removing the old one would remove
@@ -70,6 +122,7 @@ export function playAudioFile(vm, path, { tag = '[play]', pageid = 0, remove = f
       let info = {}
       try { info = p.getMediaInfo() || {} } catch (e) { /* not there */ }
       devLog(`${tag}: source set, status ${before} → ${statusText(p)}${info.title ? `, title of ${String(info.title).length} chars` : ''}`)
+      run.loading = true
       p.prepare()
     } catch (e) {
       warnLog(`${tag}: setSource/prepare failed: ${errorText(e)}`)
@@ -90,15 +143,35 @@ export function playAudioFile(vm, path, { tag = '[play]', pageid = 0, remove = f
 // A file is playing (or loading)
 export const isAudioPlaying = () => !!current
 
-// The recorder was made (utils/audio-test.js), for the log when no player
-// can be made after it
+// The recorder was made (utils/audio-test.js): for the log when no player can
+// be made after it, and to let it go then (`release`: releases the recorder,
+// true if it could)
 let recorderMade = false
-export const noteRecorderMade = () => { recorderMade = true }
+let releaseRecorder = null
+export const noteRecorderMade = (release) => { recorderMade = true; releaseRecorder = release || null }
+
+// The recorder could not be made: the player lets go of the audio (on the
+// Balance only one of the two could exist). True if it was released
+export function releasePlayerForRecorder(tag) {
+  if (!player) return false
+  dropPending()
+  if (current) finish(current, 'the recorder needs the audio')
+  try { player.stop() } catch (e) { /* not playing */ }
+  const done = releaseMedia(player, tag, 'player')
+  player = null
+  return done
+}
 
 // Playback stops: the page goes away, or the recorder needs the audio (a
 // recording started during playback left the player refusing the next file)
 export function stopAudioPlay(why = 'page closed') {
+  dropPending()
   if (current) finish(current, why)
+}
+
+function dropPending() {
+  if (pendingTimer) { clearTimeout(pendingTimer); pendingTimer = null }
+  pending = null
 }
 
 // One player for the app, its events handed to the file playing
@@ -111,14 +184,19 @@ function getPlayer(run) {
     player = null
     return null
   }
-  // create() gave nothing (no throw): on an API 3 watch every time once the
-  // recorder had been made, and once on the Cheetah. The recorder can't be
-  // let go (no API for it)
+  // create() gave nothing (no throw): on the Balance every time once the
+  // recorder had been made, and once on the Cheetah. The recorder lets go of
+  // the audio (release(), where it has it), and the player is asked again
   if (!player) {
     warnLog(`${run.tag}: create(id.PLAYER) gave nothing${recorderMade ? ' (the recorder was made before it, in this run of the app)' : ' (no recorder made yet)'}`)
-    return null
+    if (releaseRecorder && releaseRecorder(run.tag)) {
+      try { player = create(id.PLAYER) } catch (e) { player = null }
+      if (player) devLog(`${run.tag}: player made after the recorder's release()`)
+      else warnLog(`${run.tag}: still no player after the recorder's release()`)
+    }
+    if (!player) return null
   }
-  devLog(`${run.tag}: player created`)
+  devLog(`${run.tag}: player created; its functions: ${mediaMethods(player)}`)
   const p = player
   p.addEventListener(p.event.PREPARE, (result) => {
     const r = current
@@ -143,6 +221,8 @@ function getPlayer(run) {
     r.tPlay = Date.now()
     infoLog(`${r.tag}: playing (PLAY ${result}) ${r.tPlay - r.t0}ms after the file was ready, ${r.duration}s long`)
     if (result === false) setTimeout(() => fail(r, 'Playback did not start'), 0)
+    // A file asked while this one loaded: now, out of this event
+    else if (pending) setTimeout(runPending, 0)
   })
   p.addEventListener(p.event.COMPLETE, () => {
     const r = current
@@ -202,10 +282,11 @@ function finish(run, why) {
   if (current === run) current = null
   run.timers.forEach((t) => { clearTimeout(t); clearInterval(t) })
   run.timers = []
-  if (player && why !== 'complete' && why !== 'failed') {
-    try { player.stop() } catch (e) { warnLog(`${run.tag}: stop() failed: ${errorText(e)}`) }
-  } else if (player && why === 'complete') {
-    try { player.stop() } catch (e) { /* already stopped */ }
+  // stop(), then release() (where the player has it), after whatever was
+  // loaded: played to the end, refused, stopped
+  if (player && run.loading) {
+    try { player.stop() } catch (e) { if (why !== 'complete' && why !== 'failed') warnLog(`${run.tag}: stop() failed: ${errorText(e)}`) }
+    releaseMedia(player, run.tag, 'player')
   }
   run.widgets.forEach((w) => { try { deleteWidget(w) } catch (e) { /* gone */ } })
   run.widgets = []
@@ -214,6 +295,8 @@ function finish(run, why) {
     try { rmSync({ path: run.dataPath }) } catch (e) { /* not there */ }
   }
   devLog(`${run.tag}: playback over (${why}) ${Date.now() - run.t0}ms after the file was ready${run.remove ? ', file removed' : ''}; ${memoryUsage()}`)
+  // A file waiting for this one (refused or stopped before playing)
+  if (pending && why !== 'another file to play') setTimeout(runPending, 0)
 }
 
 function drawOverlay(run, label) {

@@ -18,7 +18,7 @@ import { create, id, codec } from '@zos/media'
 import { statSync, readFileSync, rmSync } from '@zos/fs'
 import { getDeviceInfo } from '@zos/device'
 import { bytesToBase64, hexHead } from './base64.js'
-import { playAudioFile, isAudioPlaying, stopAudioPlay, noteRecorderMade } from './audio-play.js'
+import { playAudioFile, isAudioPlaying, stopAudioPlay, noteRecorderMade, releasePlayerForRecorder, releaseMedia, mediaMethods } from './audio-play.js'
 import { parseOpusFrames } from './opus-frames.js'
 import { COLOR_BLACK, COLOR_WHITE, COLOR_BRIGHT_RED, COLOR_GRAY, SYSTEM_MODAL } from './constants.js'
 import { devLog, infoLog, warnLog } from './remote-log.js'
@@ -147,9 +147,23 @@ export function stopAudioTest() {
 let recorder = null
 function getRecorder(tag) {
   if (recorder) return recorder
-  const r = create(id.RECORDER)
+  let r = create(id.RECORDER)
+  // Nothing: the player may hold the audio (on the Balance only one of the two
+  // could exist). It lets go (release(), where it has it), and again
+  if (!r && releasePlayerForRecorder(tag)) {
+    r = create(id.RECORDER)
+    devLog(`${tag}: ${r ? 'recorder made after the player\'s release()' : 'still no recorder after the player\'s release()'}`)
+  }
   if (!r) throw new Error('create(id.RECORDER) gave nothing')
-  noteRecorderMade()
+  // The player, if it can't be made later, has the recorder let go: then a
+  // new recorder is made for the next test
+  noteRecorderMade((t) => {
+    if (!recorder || current) return false
+    const done = releaseMedia(recorder, t, 'recorder')
+    recorder = null
+    return done
+  })
+  devLog(`${tag}: recorder's functions: ${mediaMethods(r)}`)
   r.addEventListener(r.event.START, (result) => {
     const run = current
     if (!run || run.finished) return
