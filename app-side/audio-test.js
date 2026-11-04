@@ -6,9 +6,9 @@
 //   raw   the bytes are the body (Content-Type audio/ogg)
 //   multi multipart/form-data: a text field and the file
 //   json  base64 inside a JSON body
-// The raw and multipart bodies go as a Uint8Array and as an ArrayBuffer (the
-// side fetch documents string bodies only: does it take bytes?), and the raw
-// one also as a "binary string" (one char per byte: does fetch keep it?).
+// What is sent: the recording wrapped in an Ogg Opus file (app-side/ogg-opus.js).
+// The raw and multipart bodies go as an ArrayBuffer, the only body type the
+// side fetch sends byte for byte (field-notes.md, "Audio").
 //
 // How the echo is checked: a raw body comes back as a data: URL in base64,
 // compared byte by byte. A multipart file comes back as text, its bytes that
@@ -18,6 +18,7 @@
 // proven by the raw test with the same body type (Uint8Array, ArrayBuffer).
 // Logged: sizes, times, statuses, verdicts. Never the audio.
 import { base64ToBytes, bytesToBase64, hexHead } from '../utils/base64.js'
+import { oggFromWatchOpus } from './ogg-opus.js'
 
 const FETCH_TIMEOUT_MS = 20000
 const BOUNDARY = '----httpbuttons-audio-test-7f3a'
@@ -43,23 +44,43 @@ export async function audioTests(params, log) {
   if (missing !== -1) return { ok: false, error: `Part ${missing + 1}/${up.n} missing` }
   if (!url || !/^https?:\/\//i.test(String(url))) return { ok: false, error: 'No test URL' }
 
-  const b64 = up.parts.join('')
-  const bytes = base64ToBytes(b64)
-  log.trace(`[audio] phone: ${up.n} parts joined, ${bytes.length} B (watch said ${size}), first bytes ${hexHead(bytes, 8)}`)
-  if (bytes.length !== size) return { ok: false, error: `Got ${bytes.length} B, the watch sent ${size}` }
+  const watchBytes = base64ToBytes(up.parts.join(''))
+  log.trace(`[audio] phone: ${up.n} parts joined, ${watchBytes.length} B (watch said ${size}), first bytes ${hexHead(watchBytes, 8)}`)
+  if (watchBytes.length !== size) return { ok: false, error: `Got ${watchBytes.length} B, the watch sent ${size}` }
 
-  const type = ogg ? 'audio/ogg' : 'application/octet-stream'
-  const filename = ogg ? 'recording.ogg' : 'recording.opus'
+  // The watch's packets in an Ogg Opus file (app-side/ogg-opus.js): what a
+  // service takes as audio/ogg. Not wrapped: the watch's bytes as they are
+  let bytes = watchBytes
+  let isOgg = !!ogg
+  let wrapNote = ogg ? 'already Ogg' : ''
+  if (!ogg) {
+    const t0 = Date.now()
+    const w = oggFromWatchOpus(watchBytes)
+    if (w.error) {
+      wrapNote = 'not wrapped'
+      log.info(`[audio] phone: not wrapped in Ogg (${w.error}); the watch's bytes go as they are`)
+    } else {
+      bytes = w.ogg
+      isOgg = true
+      wrapNote = `Ogg ${w.pages} pages`
+      log.info(`[audio] phone: Ogg Opus built in ${Date.now() - t0}ms: ${w.packets} packets, ${w.ms} ms, ${w.channels} channel(s), ${w.pages} pages, ${watchBytes.length} → ${bytes.length} B`)
+    }
+  }
+  const b64 = bytesToBase64(bytes)
+
+  const type = isOgg ? 'audio/ogg' : 'application/octet-stream'
+  const filename = isOgg ? 'recording.ogg' : 'recording.opus'
   const multi = multipartBytes(bytes, field, filename, type)
   const asBuffer = (u8) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.length)
 
+  // Uint8Array and string bodies are out: on the watch's phone the side fetch
+  // sent a Uint8Array as JSON ({"0":0,"1":0,…}; multipart HTTP 400) and a
+  // string as UTF-8 (chars 128–255 → 2 bytes), every run. The bytes go as an
+  // ArrayBuffer
   const tests = [
-    { name: 'raw u8', mode: 'raw', type, body: () => bytes, sent: bytes.length },
-    { name: 'raw ab', mode: 'raw', type, body: () => asBuffer(bytes), sent: bytes.length },
-    { name: 'raw str', mode: 'raw', type, body: () => binaryString(bytes), sent: bytes.length, info: true },
-    { name: 'multi u8', mode: 'multi', type: `multipart/form-data; boundary=${BOUNDARY}`, body: () => multi, sent: multi.length, bytesBy: 'raw u8' },
-    { name: 'multi ab', mode: 'multi', type: `multipart/form-data; boundary=${BOUNDARY}`, body: () => asBuffer(multi), sent: multi.length, bytesBy: 'raw ab' },
-    { name: 'b64 json', mode: 'json', type: 'application/json', body: () => JSON.stringify({ audio: b64, format: ogg ? 'ogg' : 'opus' }), sent: null },
+    { name: 'raw', mode: 'raw', type, body: () => asBuffer(bytes), sent: bytes.length },
+    { name: 'multipart', mode: 'multi', type: `multipart/form-data; boundary=${BOUNDARY}`, body: () => asBuffer(multi), sent: multi.length, bytesBy: 'raw' },
+    { name: 'base64 JSON', mode: 'json', type: 'application/json', body: () => JSON.stringify({ audio: b64, format: isOgg ? 'ogg' : 'opus' }), sent: null },
   ]
 
   const results = []
@@ -81,14 +102,12 @@ export async function audioTests(params, log) {
   }
 
   // A way works if one of its bodies arrived intact
-  const works = (mode) => results.some(({ t, r }) => t.mode === mode && !t.info && r.ok)
+  const works = (mode) => results.some(({ t, r }) => t.mode === mode && r.ok)
   const modes = { raw: works('raw'), multi: works('multi'), json: works('json') }
   const allOk = modes.raw && modes.multi && modes.json
   log.info(`[audio] phone verdict: raw ${modes.raw ? 'works' : 'NO'}, multipart ${modes.multi ? 'works' : 'NO'}, base64 JSON ${modes.json ? 'works' : 'NO'}` +
     ` → ${allOk ? 'all three ways work' : 'not all ways work'}`)
-  // "raw str" is not one of the ways: it only tells whether fetch keeps a
-  // string's chars as bytes (·)
-  const summary = results.map(({ t, r }) => `${t.info ? '·' : r.ok ? '✓' : '✗'} ${t.name}: ${r.short}`).join('\n')
+  const summary = [`sent as ${isOgg ? 'audio/ogg' : 'raw Opus'} (${wrapNote}), ${bytes.length} B`].concat(results.map(({ t, r }) => `${r.ok ? '✓' : '✗'} ${t.name}: ${r.short}`)).join('\n')
   return { ok: true, allOk, summary }
 }
 
@@ -120,8 +139,6 @@ async function runOne(t, url, bytes, b64, field, log) {
   const line = `[audio] ${t.name}: HTTP ${status} in ${ms}ms, ${sizes}, type ${gotType.split(';')[0] || '?'}; ${check.what}`
   if (check.ok) log.trace(line)
   else log.info(line)
-  // A string grown by about half: fetch sent it as UTF-8 (chars 128–255 → 2 bytes)
-  if (t.info && !check.ok && got > t.sent) check.short = `sent as UTF-8 (${got}/${t.sent} B)`
   return { ok: check.ok, short: check.ok ? `ok ${ms}ms` : check.short || check.what }
 }
 
@@ -171,13 +188,6 @@ function multipartBytes(bytes, field, filename, type) {
   out.set(bytes, head.length)
   for (let i = 0; i < tail.length; i++) out[head.length + bytes.length + i] = tail.charCodeAt(i)
   return out
-}
-
-// One char per byte (0–255)
-function binaryString(bytes) {
-  let s = ''
-  for (let i = 0; i < bytes.length; i += 4096) s += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + 4096)))
-  return s
 }
 
 // The bytes as UTF-8 text, each byte that isn't part of a valid sequence
@@ -230,4 +240,4 @@ function errText(e) {
 }
 
 // For the module's own check (tests)
-export const _test = { multipartBytes, lossyUtf8, binaryString, checkData, checkFile, bytesToBase64 }
+export const _test = { multipartBytes, lossyUtf8, checkData, checkFile, bytesToBase64 }

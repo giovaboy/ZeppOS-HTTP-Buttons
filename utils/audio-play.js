@@ -22,6 +22,8 @@ import { memoryUsage, errorText, sizeText } from './memory.js'
 
 // No PREPARE event this long after prepare(): given up
 const PREPARE_WAIT_MS = 10000
+// After a stop, before the next file is set (see playAudioFile)
+const SWITCH_WAIT_MS = 400
 
 let player = null
 let current = null
@@ -31,10 +33,12 @@ let current = null
 export function playAudioFile(vm, path, { tag = '[play]', pageid = 0, remove = false, label = '' } = {}) {
   const src = String(path || '')
   const dataPath = src.startsWith('data://') ? src.slice('data://'.length) : src.replace(/^\/?data\//, '')
+  let switching = false
   if (current) {
     // The new file came to the same name: removing the old one would remove
     // it (seen on the watch: "Not audio" found 0 B after a 20 s file)
     if (current.dataPath === dataPath) current.remove = false
+    switching = true
     finish(current, 'another file to play')
   }
   const file = 'data://' + dataPath
@@ -56,28 +60,40 @@ export function playAudioFile(vm, path, { tag = '[play]', pageid = 0, remove = f
   }
 
   drawOverlay(run, label)
-  const p = getPlayer(run)
-  if (!p) return fail(run, 'No player on this watch')
-  try {
-    p.setSource(p.source.FILE, { file })
-    let info = {}
-    try { info = p.getMediaInfo() || {} } catch (e) { /* not there */ }
-    devLog(`${tag}: source set, status ${statusText(p)}${info.title ? `, title of ${String(info.title).length} chars` : ''}`)
-    p.prepare()
-  } catch (e) {
-    warnLog(`${tag}: setSource/prepare failed: ${errorText(e)}`)
-    return fail(run, 'Player failed: ' + errorText(e))
+  const load = () => {
+    if (run.done) return
+    const p = getPlayer(run)
+    if (!p) return fail(run, 'No player available')
+    try {
+      const before = statusText(p)
+      p.setSource(p.source.FILE, { file })
+      let info = {}
+      try { info = p.getMediaInfo() || {} } catch (e) { /* not there */ }
+      devLog(`${tag}: source set, status ${before} → ${statusText(p)}${info.title ? `, title of ${String(info.title).length} chars` : ''}`)
+      p.prepare()
+    } catch (e) {
+      warnLog(`${tag}: setSource/prepare failed: ${errorText(e)}`)
+      return fail(run, 'Player failed: ' + errorText(e))
+    }
+    run.timers.push(setTimeout(() => {
+      if (run.prepared || run.done) return
+      warnLog(`${tag}: no PREPARE event in ${PREPARE_WAIT_MS}ms (status ${statusText(p)})`)
+      fail(run, 'The player did not load the file')
+    }, PREPARE_WAIT_MS))
   }
-  run.timers.push(setTimeout(() => {
-    if (run.prepared || run.done) return
-    warnLog(`${tag}: no PREPARE event in ${PREPARE_WAIT_MS}ms (status ${statusText(p)})`)
-    fail(run, 'The player did not load the file')
-  }, PREPARE_WAIT_MS))
+  // Right after stopping a file, the next one was refused (status 7 after
+  // setSource, then PREPARE false): give the player a moment
+  if (switching) run.timers.push(setTimeout(load, SWITCH_WAIT_MS))
+  else load()
 }
 
-// The page goes away: playback stops
-export function stopAudioPlay() {
-  if (current) finish(current, 'page closed')
+// A file is playing (or loading)
+export const isAudioPlaying = () => !!current
+
+// Playback stops: the page goes away, or the recorder needs the audio (a
+// recording started during playback left the player refusing the next file)
+export function stopAudioPlay(why = 'page closed') {
+  if (current) finish(current, why)
 }
 
 // One player for the app, its events handed to the file playing
@@ -90,6 +106,13 @@ function getPlayer(run) {
     player = null
     return null
   }
+  // Seen once on the watch: create() gave nothing (no throw), as the
+  // recorder did when made twice on a page
+  if (!player) {
+    warnLog(`${run.tag}: create(id.PLAYER) gave nothing`)
+    return null
+  }
+  devLog(`${run.tag}: player created`)
   const p = player
   p.addEventListener(p.event.PREPARE, (result) => {
     const r = current

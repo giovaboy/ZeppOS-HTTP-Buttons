@@ -18,7 +18,7 @@ import { create, id, codec } from '@zos/media'
 import { statSync, readFileSync, rmSync } from '@zos/fs'
 import { getDeviceInfo } from '@zos/device'
 import { bytesToBase64, hexHead } from './base64.js'
-import { playAudioFile } from './audio-play.js'
+import { playAudioFile, isAudioPlaying, stopAudioPlay } from './audio-play.js'
 import { parseOpusFrames } from './opus-frames.js'
 import { COLOR_BLACK, COLOR_WHITE, COLOR_BRIGHT_RED, COLOR_GRAY, SYSTEM_MODAL } from './constants.js'
 import { devLog, infoLog, warnLog } from './remote-log.js'
@@ -28,8 +28,9 @@ const AUDIO_FILE = 'audio_test.opus'
 const DEFAULT_SECONDS = 5
 const MAX_SECONDS = 30
 // Bytes per message to the phone (a multiple of 3: the parts' base64 joins
-// into one text). ~6 KB of base64 each
-const PART_BYTES = 4500
+// into one text). ~12 KB of base64 each: 6 KB parts took 0.7–3 s each, the
+// time going to the messages more than their size
+const PART_BYTES = 9000
 // No STOP event this long after stop(): the file is read anyway
 const STOP_WAIT_MS = 3000
 // The phone's tests (several POSTs of the recording): the RPC window
@@ -74,22 +75,39 @@ export function runAudioTest(vm, button, pageid, label, done) {
     // e.g. PERMISSION_DENIED device:os.mic without the app.json permission
     return finish('Recorder not available:\n' + errorText(e), true)
   }
-  try {
-    recorder.setFormat(codec.OPUS, { target_file: 'data://' + AUDIO_FILE })
-    recorder.start()
-    devLog(`${tag}: start() called, status ${statusText(recorder)}`)
-  } catch (e) {
-    warnLog(`${tag}: recording failed to start: ${errorText(e)}`)
-    return finish('Recording failed to start:\n' + errorText(e), true)
+  const start = () => {
+    if (run.finished) return
+    try {
+      recorder.setFormat(codec.OPUS, { target_file: 'data://' + AUDIO_FILE })
+      recorder.start()
+      devLog(`${tag}: start() called, status ${statusText(recorder)}`)
+    } catch (e) {
+      warnLog(`${tag}: recording failed to start: ${errorText(e)}`)
+      return finish('Recording failed to start:\n' + errorText(e), true)
+    }
+    // The stop at the limit, from the start (the START event resets it). A
+    // 10 s test stopped at 14.4 s on the 200 ms ticks below while a file
+    // was coming in: its own timer
+    run.limitTimer = setTimeout(() => stopRecording(run, 'limit'), seconds * 1000)
+    run.timers.push(run.limitTimer)
   }
+  // Playing while the recorder starts: the player then refused the next
+  // file (status 7). Playback stops first, the recorder starts a moment later
+  if (isAudioPlaying()) {
+    devLog(`${tag}: playback stopped for the recording`)
+    stopAudioPlay('a recording starts')
+    run.timers.push(setTimeout(start, 400))
+  } else {
+    start()
+  }
+  run.seconds = seconds
 
-  // The timer on screen, and the stop at the limit
+  // The time on screen
   run.timers.push(setInterval(() => {
     if (run.stopped) return
     const from = run.tStart || run.t0
-    const s = (Date.now() - from) / 1000
+    const s = Math.min(seconds, (Date.now() - from) / 1000)
     if (run.timeText) run.timeText.setProperty(prop.TEXT, `${s.toFixed(1)} s / ${seconds} s`)
-    if (s >= seconds) stopRecording(run, 'limit')
   }, 200))
 }
 
@@ -110,23 +128,21 @@ export function playLastRecording(vm, pageid, label, done) {
   done()
 }
 
-// The page goes away: the recording stops, nothing is sent, the recorder is
-// let go (a new page makes its own)
+// The page goes away: the recording stops, nothing is sent. The recorder is
+// kept for the next page, as the player is: the player made on one page
+// played on the next one
 export function stopAudioTest() {
   const run = current
-  if (run) {
-    devLog(`${run.tag}: page closed during the test`)
-    run.finished = true
-    cleanup(run)
-    current = null
-  }
-  recorder = null
+  if (!run) return
+  devLog(`${run.tag}: page closed during the test`)
+  run.finished = true
+  cleanup(run)
+  current = null
 }
 
-// One recorder for the page: on the watch a second create(id.RECORDER) on
-// the same page gave nothing ("cannot read property 'addEventListener' of
-// undefined"), a new page's first one worked. Its events go to the test
-// running
+// One recorder: on the watch a second create(id.RECORDER) on the same page
+// gave nothing ("cannot read property 'addEventListener' of undefined").
+// Its events go to the test running
 let recorder = null
 function getRecorder(tag) {
   if (recorder) return recorder
@@ -139,7 +155,13 @@ function getRecorder(tag) {
     devLog(`${run.tag}: START event (result ${result}) ${run.tStart - run.t0}ms after the press, status ${statusText(r)}`)
     if (result === false) {
       warnLog(`${run.tag}: the recorder did not start (permission? microphone busy?)`)
-      run.finish('The recorder did not start', true)
+      return run.finish('The recorder did not start', true)
+    }
+    // The limit counts from here
+    if (run.limitTimer && !run.stopped) {
+      clearTimeout(run.limitTimer)
+      run.limitTimer = setTimeout(() => stopRecording(run, 'limit'), (run.seconds || DEFAULT_SECONDS) * 1000)
+      run.timers.push(run.limitTimer)
     }
   })
   r.addEventListener(r.event.STOP, (result) => {
