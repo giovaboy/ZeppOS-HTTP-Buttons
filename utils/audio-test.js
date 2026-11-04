@@ -372,14 +372,31 @@ function runTests(run, testId, total, sendMs) {
   }, { timeout: TESTS_RPC_MS })
     .then((r) => {
       devLog(`${tag}: phone tests answered in ${Date.now() - tTests}ms; ${memoryUsage()}`)
-      const head = `${((run.recMs || 0) / 1000).toFixed(1)}s, ${sizeText(total)}, ${run.ogg ? 'Ogg' : 'not Ogg'}\nto phone ${(sendMs / 1000).toFixed(1)}s`
-      if (!r || !r.ok) return run.finish(`${head}\n${(r && r.error) || 'Tests failed on the phone'}`, true)
-      run.finish(`${head}\n${r.summary || ''}`, !r.allOk)
+      run.finish(resultText(run, total, sendMs, r), !r || !r.ok || !r.allOk)
     })
     .catch((e) => {
       warnLog(`${tag}: phone tests failed after ${Date.now() - tTests}ms: ${errorText(e)}`)
       run.finish('Phone tests failed:\n' + errorText(e), true)
     })
+}
+
+// The result on the watch: a few short lines (a round screen narrows at the
+// bottom; the long version was cut after its 4th line). The details, bytes
+// and times of each POST, are in the log
+//   ✓ raw  ✓ multi  ✓ JSON
+//   3.0 s · Ogg 5.8 KB
+//   to phone 2.7 s
+// and, for each way that failed, "multi: HTTP 400"
+function resultText(run, total, sendMs, r) {
+  const rec = `${((run.recMs || 0) / 1000).toFixed(1)} s`
+  const phone = `to phone ${(sendMs / 1000).toFixed(1)} s`
+  if (!r || !r.ok) return `${(r && r.error) || 'Tests failed on the phone'}\n${rec} · ${sizeText(total)}`
+  // An older phone side: its own text
+  if (!Array.isArray(r.results)) return `${rec} · ${sizeText(total)}\n${phone}\n${r.summary || ''}`
+  const marks = r.results.map((x) => `${x.ok ? '✓' : '✗'} ${x.name}`).join('  ')
+  const sent = `${rec} · ${r.isOgg ? 'Ogg' : 'Opus'} ${sizeText(r.sentBytes || total)}`
+  const fails = r.results.filter((x) => !x.ok).map((x) => `${x.name}: ${x.short}`)
+  return [marks, sent, phone].concat(fails).join('\n')
 }
 
 // Full screen while recording: the time, and a tap anywhere stops

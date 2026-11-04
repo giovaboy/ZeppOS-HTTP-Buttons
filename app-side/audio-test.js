@@ -108,7 +108,13 @@ export async function audioTests(params, log) {
   log.info(`[audio] phone verdict: raw ${modes.raw ? 'works' : 'NO'}, multipart ${modes.multi ? 'works' : 'NO'}, base64 JSON ${modes.json ? 'works' : 'NO'}` +
     ` → ${allOk ? 'all three ways work' : 'not all ways work'}`)
   const summary = [`sent as ${isOgg ? 'audio/ogg' : 'raw Opus'} (${wrapNote}), ${bytes.length} B`].concat(results.map(({ t, r }) => `${r.ok ? '✓' : '✗'} ${t.name}: ${r.short}`)).join('\n')
-  return { ok: true, allOk, summary }
+  // For the watch's screen, which builds its own few short lines from these
+  const short = { raw: 'raw', multi: 'multi', json: 'JSON' }
+  return {
+    ok: true, allOk, summary,
+    results: results.map(({ t, r }) => ({ name: short[t.mode] || t.name, ok: !!r.ok, short: r.short })),
+    sentBytes: bytes.length, isOgg,
+  }
 }
 
 async function runOne(t, url, bytes, b64, field, log) {
