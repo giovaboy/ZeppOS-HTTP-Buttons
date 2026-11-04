@@ -227,8 +227,13 @@ Page(
     // button (utils/button-request.js reportResult / reportError call it)
     showResult(text, pageid, isError, style) {
       // Opened by the buttons page: the result goes back to it, shown there in
-      // the button's own style (handOver); here only meanwhile
-      if (this.fromPage) this.pendingResult = { text: capText(text), isError: !!isError, style }
+      // the button's own style (handOver). Not drawn here: it flashed under
+      // the button just before going back
+      if (this.fromPage) {
+        this.pendingResult = { text: capText(text), isError: !!isError, style }
+        this.shown = { text: '', isError: !!isError, quiet: true }
+        return
+      }
       const quiet = !isError && Number(style) === NO_NOTIFICATION
       this.shown = { text: quiet ? '✓' : capText(text).slice(0, RESULT_MAX), isError: !!isError, quiet }
       this.status.setProperty(prop.MORE, {
