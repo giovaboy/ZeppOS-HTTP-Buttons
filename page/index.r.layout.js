@@ -231,6 +231,8 @@ export const layout = {
                 // one audio object at a time, all of it stopped when it goes
                 if (button.audio_test || button.audio_last || (button.request && button.request.audio_play)) {
                   this.hideToast()
+                  // Back here on this page afterwards (page/index.js restorePage)
+                  if (typeof vm.rememberPage === 'function') vm.rememberPage(pi, 'page/run')
                   push({ url: 'page/run', params: runParams(pi, ri, bi, 'page') })
                   return
                 }

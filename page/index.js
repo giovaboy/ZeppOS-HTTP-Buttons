@@ -6,6 +6,7 @@ import { CUSTOM_TOAST } from '../utils/constants.js'
 import { requestMethods, parseJSON, configCounts, cachedSessions, clearSessionCache } from '../utils/button-request.js'
 import { readConfigCopy, writeConfigCopy, removeConfigCopy } from '../utils/config-copy.js'
 import { replace } from '@zos/router'
+import { swipeToIndex, getSwiperIndex, SCROLL_ANIMATION_NONE } from '@zos/page'
 import { getDeviceInfo, SCREEN_SHAPE_ROUND } from '@zos/device'
 import { devLog, infoLog, warnLog, LOG_TRACE } from '../utils/remote-log.js'
 import { memoryUsage, errorText, sizeText } from '../utils/memory.js'
@@ -17,6 +18,8 @@ import { urlForLog, authForLog, styleForLog } from '../utils/log-text.js'
 // While a press runs, a changed config waits this long between checks before
 // redrawing (a redraw would cut the press short)
 const RELOAD_RETRY_MS = 500
+// The page to come back to (rememberPage) is used within this time
+const RETURN_PAGE_MAX_MS = 10 * 60 * 1000
 
 // The watch's screen, sent with each GET_DATA: the settings page draws its
 // page miniatures with this shape and these proportions
@@ -84,6 +87,7 @@ Page(
         if (cfg && cfg.pages) {
           this.state.config = cfg
           layout.render(this)
+          this.restorePage()
           infoLog(`[cfg] drawn from the watch's copy (${sizeText(copy.length)}) in ${Date.now() - this.buildAt}ms: ${configCounts(cfg)}` +
             `${this.refreshed ? ', just refreshed' : ''}${LOG_TRACE ? `; ${memoryUsage()}` : ''}`)
           if (this.refreshed) return
@@ -144,7 +148,33 @@ Page(
         }, RELOAD_RETRY_MS)
         return
       }
+      this.rememberPage(currentPage(), 'redraw')
       replace({ url: 'page/index', params: 'refreshed=1' })
+    },
+    // The buttons page shown, to come back to it: after page/run (an audio
+    // button) and after a redraw, the page was drawn again on its first
+    // screen. Kept by the app (globalData), used once
+    rememberPage(pageIndex, why) {
+      if (!this.globalData || !(pageIndex >= 0)) return
+      this.globalData.returnPage = { index: pageIndex, why, at: Date.now() }
+    },
+    restorePage() {
+      const r = this.globalData && this.globalData.returnPage
+      if (!r) return
+      this.globalData.returnPage = null
+      // Left by a press long ago (this page wasn't drawn again then): not
+      // where the user is now
+      if (Date.now() - (r.at || 0) > RETURN_PAGE_MAX_MS) return
+      const pages = (this.state.config && this.state.config.pages) || []
+      const index = Math.min(r.index, pages.length - 1)
+      if (!(index > 0)) return
+      try {
+        // swipeToIndex counts from 0, getSwiperIndex from 1 (API docs)
+        swipeToIndex({ index, animation: SCROLL_ANIMATION_NONE })
+        if (LOG_TRACE) devLog(`[page] back on page ${index} (${r.why}): getSwiperIndex() ${getSwiperIndex()}`)
+      } catch (e) {
+        warnLog(`[page] page ${index} not restored (${r.why}): ${errorText(e)}`)
+      }
     },
     // Not ZML's page onReceivedFile: a page defining it gets offFile() in its
     // onDestroy, which detaches the file inbox for the whole app (a replace
@@ -255,6 +285,7 @@ Page(
             else removeConfigCopy()
             const tRender = Date.now()
             layout.render(this)
+            this.restorePage()
             this.hideLoading()
             if (LOG_TRACE) devLog(`[page] drawn in ${Date.now() - tRender}ms (${Date.now() - this.buildAt}ms since build): ${memoryUsage()}`)
           }
@@ -363,5 +394,16 @@ function downloadFolderText(filePath) {
     return `${dir}: ${names.length} files, ${sizeText(bytes)}`
   } catch (e) {
     return `folder not read: ${errorText(e)}`
+  }
+}
+
+// The buttons page on screen, counting from 0 (getSwiperIndex counts from 1),
+// or -1 when unknown
+function currentPage() {
+  try {
+    const i = getSwiperIndex()
+    return typeof i === 'number' && i >= 1 ? i - 1 : -1
+  } catch (e) {
+    return -1
   }
 }
