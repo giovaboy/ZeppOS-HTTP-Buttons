@@ -17,6 +17,7 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 ## Features
 
 - **Multiple Pages** — Swipe between different button layouts
+- **Shortcut card** — Up to 6 buttons on a watch card (the widgets beside the watch face): a tap runs the button and comes back to the card, without opening the app
 - **Customizable Buttons** — Set colors, sizes, radius, and text for each button
 - **HTTP Methods** — Support for GET, POST, PUT, DELETE, PATCH, and more
 - **Authentication** — Basic, Bearer, and Digest authentication support, plus an optional two-step (session) flow: login → token → reuse → logout
@@ -26,7 +27,9 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 - **Image Display** — Fetch a remote image (PNG/JPEG) and show it fullscreen on the watch
 - **JSON Parsing** — Extract specific fields from API responses, with path expressions like `choices[0].message.content`, `[*]` wildcards and `[?field==value]` filters
 - **Timeouts** — Global and per-button request timeouts (5–60 s) for slow endpoints
-- **Shortcut card** — Up to 6 buttons on a watch card (the widgets beside the watch face): a tap runs the button and comes back to the card
+- **Async jobs** — A button can start a long job and check back until the result is ready
+- **Settings with previews** — Every page shown as a preview in your watch's shape (round or square), with the real sizes, colors and spacing
+- **Test mode** — A built-in suite of example buttons that tries every feature, without touching your config
 - **Fast start** — The watch keeps a copy of the config and shows the buttons at once, then checks with the phone whether it changed (the copy, credentials included, stays in the app's own storage on the watch)
 - **Loading feedback** — A pressed button shows an animation until its request is done; taps on a busy button wait their turn
 - **Logs box (test builds)** — The settings page shows the latest watch and phone log lines, ready to copy into a bug report (passwords, tokens and variable values removed). Release builds log nothing and have no Logs box: if something doesn't work, open an issue and we can send you a test build with the logs on
@@ -35,17 +38,24 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 
 1. Install the app from the Zepp App Store
 2. Open the Zepp app on your phone
-3. Go to the app settings to configure your buttons
+3. Go to the app settings to configure your buttons (the example pages work right away)
+4. Open the app once on the watch: it keeps a copy of your buttons from then on
+5. Optionally, add the **HTTP-Buttons** card from the watch's list of cards
 
 ## Configuration
 
-All configuration is done through the companion app on your phone. You can:
+All configuration is done in the app's settings page on your phone:
 
-- Add/remove pages, rows, and buttons
-- Set button properties (text, colors, size)
-- Configure HTTP requests (URL, method, headers, body)
-- Define global variables for reuse across buttons
-- Choose response notification style
+- **Pages, rows and buttons** open and close: a closed page shows a preview in your watch's shape (once the watch has connected), a closed row a strip of its buttons, a closed button one line saying what it does (method and URL)
+- **Add Page**, **Add Row** and **Add Button** sit under what they add to; a new page starts with two colored buttons, centered
+- **Button style**: width, radius, text size, and colors picked from a grid of swatches
+- **Request**: URL, method, timeout, authentication (with user and password, or a token, hidden on screen), headers and body as JSON, the value to show (`parse_result`), how the result shows (toast, custom toast, modal, nothing, image), an input keyboard, and whether the button goes on the watch card
+- **Variables**, the global **Request timeout** and the **Loading animation** for every button
+- Deleting a page, row, button or variable, and **Re-Init configuration** (back to the example), ask for confirmation in the page
+- **Configuration** holds the whole config as JSON: copy it for a backup, or paste one back (only a config with a `"pages"` list is saved)
+- **Test mode** loads a built-in test suite instead of your buttons; your config comes back when it is off
+
+Buttons with a `session` or `poll` block (see below) say so on their card: those blocks are edited in the JSON.
 
 ### Global Variables
 
@@ -126,7 +136,7 @@ One request runs at a time per button: tapping a button that is still busy queue
 
 Up to 6 buttons can also sit on the app's **shortcut card**, among the cards beside the watch face. In the settings, open a button and switch on **Show on the watch card**; a collapsed button card then says "on card". Add the card from the watch's list of cards (it is called HTTP-Buttons).
 
-A tap on a button of the card shows it, runs it like the app does (variables, authentication, sessions, polling, the typed text of an input button) and shows the result for a moment, then goes back to the card by itself; a tap goes back at once. An image button shows its picture full screen until a tap (at most 30 s). The card draws itself from the copy of the config the watch keeps, so open the app once after installing it. In the JSON, a card button has `"card": true`.
+A tap on a button of the card shows it, runs it like the app does (variables, authentication, sessions, polling, the typed text of an input button) and shows the result for a moment, then goes back to the card by itself; a tap goes back at once. An image button shows its picture full screen until a tap (at most 30 s). The card draws itself from the copy of the config the watch keeps, so open the app once after installing it. In the JSON, a card button has `"card": true`. An input button on the card needs the system keyboard (API_LEVEL 4.0 watches); on older ones the card says to open the app. In test mode the card shows six buttons of the test suite.
 
 ### Image Display
 
@@ -207,7 +217,7 @@ Some endpoints take longer than the platform allows (see the ~10 s silence limit
 - **`max`** — attempts before giving up with `Poll: not ready…` (default 30, up to 120).
 - **`until`** — path that must yield a non-empty value in a poll response for it to count as the result. Without it, the first 2xx response wins. Not-ready responses (404, errors) just schedule the next attempt.
 
-The button's `parse_result` and `response_style` apply to the **final** poll response, and the button spinner runs until the poll settles. Polling only runs while the app is open on the watch; leaving the page cancels pending attempts. Image buttons ignore a `poll` block.
+The button's `parse_result` and `response_style` apply to the **final** poll response, and the button's loading animation runs until the poll settles. Polling only runs while the app is open on the watch; leaving the page cancels pending attempts. Image buttons ignore a `poll` block.
 
 Server-side, any backend or automation platform can implement the matching pair: the start endpoint replies immediately (`{"id": "..."}`) and kicks off the work; the result endpoint returns `{}` while the job is running and `{"answer": "..."}` when done.
 
@@ -262,13 +272,14 @@ Server-side, any backend or automation platform can implement the matching pair:
 - **Home Automation** — Control lights, thermostats, and smart devices
 - **Camera Snapshots** — View an IP-camera still on your wrist
 - **Media Control** — Play/pause, volume, channel switching
-- **IoT Devices** — Trigger actions on Raspberry Pi, ESP32, etc.
+- **IoT Devices** — Trigger actions on single-board computers and microcontrollers on your network
 - **API Testing** — Quick endpoint testing from your wrist
-- **Shortcuts** — Execute webhooks and automations (IFTTT, Home Assistant, etc.)
+- **Shortcuts** — Run webhooks and automations on your home-automation hub or automation service
+- **AI agents** — Ask a question and wait for the answer with an async job
 
 ## Compatibility
 
-Works with ZeppOS 3.0+ devices including:
+Works with ZeppOS 3.0+ devices (input buttons use the system keyboard on API_LEVEL 4.0 watches and the app's own keyboard on older ones; on the card they need API_LEVEL 4.0), including:
 - Amazfit GTR/GTS series
 - Amazfit Balance, Cheetah, T-Rex Ultra
 - And other ZeppOS compatible watches
