@@ -1,7 +1,11 @@
-// The page the shortcut card opens for one button (app-widget/index.js): it
-// shows the button, runs its request like the buttons page does
-// (utils/button-request.js), shows the result and goes back to the card by
-// itself (a tap goes back at once). The button is read from the watch's copy
+// The page that runs one button: opened by the shortcut card
+// (app-widget/index.js) for any button, and by the buttons page for an audio
+// button (from: 'page'). From the card: the button's name as the title, the
+// app's loading animation while its request runs (utils/button-request.js,
+// as on the buttons page), then the result in the page's body (a check for
+// "no notification"), and back to the card by itself (a tap goes back at
+// once). From the buttons page: only the audio screens, the result handed
+// back to that page (handOver). The button is read from the watch's copy
 // of the config: nothing to wait for before the press. Once the result is
 // shown the phone is asked for its config, to keep the copy (and so the card)
 // up to date; asked before, it held up the press in the queue.
@@ -10,7 +14,7 @@
 // open, the buttons page's handler put back after); it shows full screen until
 // a tap, or IMAGE_STAY_MS.
 import { BasePage } from '@zeppos/zml/base-page'
-import { createWidget, widget, align, text_style, prop, event } from '@zos/ui'
+import { createWidget, deleteWidget, widget, align, text_style, prop, event, anim_status, getTextLayout } from '@zos/ui'
 import { rmSync } from '@zos/fs'
 import { getDeviceInfo, SCREEN_SHAPE_ROUND } from '@zos/device'
 import { back } from '@zos/router'
@@ -19,7 +23,7 @@ import { onKey, offKey, KEY_SELECT, KEY_EVENT_CLICK } from '@zos/interaction'
 import { getText } from '@zos/i18n'
 import { requestMethods, parseJSON, capText, cachedSessions, clearSessionCache } from '../utils/button-request.js'
 import { readConfigCopy, writeConfigCopy } from '../utils/config-copy.js'
-import { startLoader, stopAllLoaders, loadingStyle } from '../utils/button-loader.js'
+import { stopAllLoaders } from '../utils/button-loader.js'
 import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard.js'
 import { openAppKeyboard } from '../utils/app-keyboard.js'
 import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE } from 'zosLoader:./keyboard.[pf].layout.js'
@@ -27,7 +31,7 @@ import { cardAllowed } from '../utils/card.js'
 import { progressScreen } from '../utils/progress-screen.js'
 import { runAudioTest, playLastRecording, stopAudioTest, stopRecordingNow, sendAudioParts } from '../utils/audio-test.js'
 import { playAudioFile, stopAudioPlay, stopPlaybackNow } from '../utils/audio-play.js'
-import { BTN_RADIUS, COLOR_BLACK, COLOR_GRAY, COLOR_WHITE, NO_NOTIFICATION, SHOW_IMAGE, PLAY_AUDIO, AUDIO_DEFAULT, REQUEST_TIMEOUT_RPC_MARGIN_MS } from '../utils/constants.js'
+import { COLOR_BLACK, COLOR_WHITE, NO_NOTIFICATION, SHOW_IMAGE, PLAY_AUDIO, AUDIO_DEFAULT, REQUEST_TIMEOUT_RPC_MARGIN_MS } from '../utils/constants.js'
 import { infoLog, warnLog, devLog, LOG_TRACE } from '../utils/remote-log.js'
 import { errorText } from '../utils/memory.js'
 
@@ -36,20 +40,25 @@ const { width: W, height: H, screenShape } = getDeviceInfo()
 const KEYS = { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE }
 const ROUND = screenShape === SCREEN_SHAPE_ROUND
 
-// The button, as on the buttons page, in the upper part of the screen
-const BTN_W = Math.round(W * 0.7)
-const BTN_H = Math.round(H * 0.24)
-const BTN_X = Math.round((W - BTN_W) / 2)
-const BTN_Y = Math.round(H * 0.17)
-// The result under it (narrower on a round screen, whose bottom is narrower)
-const TEXT_X = Math.round(W * (ROUND ? 0.14 : 0.08))
-const TEXT_W = W - 2 * TEXT_X
-const TEXT_Y = BTN_Y + BTN_H + 18
-const TEXT_H = Math.round(H * (ROUND ? 0.84 : 0.92)) - TEXT_Y
-const TEXT_SIZE = Math.round(W / 17)
+// The page, as the audio screens (utils/progress-screen.js) and the design
+// guide: the button's name as the title at the top, the waiting animation in
+// the middle with "Sending…" under it, then the result in the page's body
+const TITLE_Y = Math.round(H * (ROUND ? 0.10 : 0.07))
+const TITLE_H = Math.round(H * 0.08)
+const TITLE_W = Math.round(W * (ROUND ? 0.64 : 0.84))
+const BODY_X = Math.round(W * (ROUND ? 0.10 : 0.06))
+const BODY_W = W - 2 * BODY_X
+const BODY_Y = Math.round(H * 0.22)
+const BODY_H = Math.round(H * (ROUND ? 0.62 : 0.70))
+const RESULT_SIZE = 34
+// The app's loading animation (assets/anim/loading_*.png, as at the app's
+// start): its frames are 155 px, not scaled
+const SPIN = 155
+const SPIN_Y = Math.round(H * 0.42 - SPIN / 2)
 const RESULT_MAX = 300           // characters shown (a few lines)
 const COLOR_ERROR = 0xff5a5a
-const COLOR_DIM = 0x9e9e9e
+const COLOR_DONE = 0x3cb371
+const COLOR_NOTE = 0xdddddd
 
 // How long the result stays before going back: a short "done", or a time
 // that grows with the text (a tap goes back at once)
@@ -135,10 +144,11 @@ Page(
         normal_color: COLOR_BLACK, press_color: COLOR_BLACK,
         click_func: () => this.close()
       })
+      // The result, in the page's body (showResult)
       this.status = this.passThrough(createWidget(widget.TEXT, {
-        x: TEXT_X, y: TEXT_Y, w: TEXT_W, h: TEXT_H,
-        color: COLOR_DIM, text_size: TEXT_SIZE,
-        align_h: align.CENTER_H, align_v: align.TOP,
+        x: BODY_X, y: BODY_Y, w: BODY_W, h: BODY_H,
+        color: COLOR_WHITE, text_size: RESULT_SIZE,
+        align_h: align.CENTER_H, align_v: align.CENTER_V,
         text_style: text_style.WRAP, text: ''
       }))
 
@@ -157,8 +167,7 @@ Page(
       // Opened by the buttons page (an audio button): no screen of its own,
       // only the audio's (REC, player), kept until it goes back; drawn
       // here, the button flashed between the audio screen and the way back
-      if (this.fromPage) this.rect = { x: BTN_X, y: BTN_Y, w: BTN_W, h: BTN_H, radius: BTN_RADIUS, back: COLOR_GRAY }
-      else this.drawButton(button, page)
+      if (!this.fromPage) this.drawTitle(button)
       if (!cardAllowed(button)) return this.message(getText('run_in_app'), true)
 
       // EXPERIMENT (test mode): record and send, or play the last recording
@@ -200,20 +209,37 @@ Page(
     },
 
     // The pressed button, with its colors, radius and text
-    drawButton(button, page) {
-      const radius = Math.min(button.radius != null ? Number(button.radius) : BTN_RADIUS, BTN_H / 2)
-      this.passThrough(createWidget(widget.FILL_RECT, {
-        x: BTN_X, y: BTN_Y, w: BTN_W, h: BTN_H, radius,
-        color: button.back_color != null ? Number(button.back_color) : COLOR_GRAY
-      }))
+    // The button's name, as the audio screens' title
+    drawTitle(button) {
       this.passThrough(createWidget(widget.TEXT, {
-        x: BTN_X + 8, y: BTN_Y, w: BTN_W - 16, h: BTN_H,
-        color: button.text_color != null ? Number(button.text_color) : COLOR_WHITE,
-        text_size: button.text_size || Math.round(W / 15),
+        x: Math.round((W - TITLE_W) / 2), y: TITLE_Y, w: TITLE_W, h: TITLE_H,
+        color: COLOR_WHITE, text_size: 40,
         align_h: align.CENTER_H, align_v: align.CENTER_V,
         text_style: text_style.ELLIPSIS, text: button.text || ''
       }))
-      this.rect = { x: BTN_X, y: BTN_Y, w: BTN_W, h: BTN_H, radius, back: button.back_color != null ? Number(button.back_color) : COLOR_GRAY }
+    },
+
+    // Waiting for the answer: the app's loading animation, "Sending…" under it
+    showSpinner() {
+      this.spinner = this.passThrough(createWidget(widget.IMG_ANIM, {
+        anim_path: 'anim', anim_prefix: 'loading', anim_ext: 'png', anim_fps: 24, anim_size: 54,
+        repeat_count: 0, anim_status: anim_status.START,
+        x: Math.round((W - SPIN) / 2), y: SPIN_Y
+      }))
+      this.spinnerText = this.passThrough(createWidget(widget.TEXT, {
+        x: BODY_X, y: SPIN_Y + SPIN + 12, w: BODY_W, h: Math.round(H * 0.1),
+        color: COLOR_NOTE, text_size: RESULT_SIZE,
+        align_h: align.CENTER_H, align_v: align.CENTER_V,
+        text_style: text_style.NONE, text: getText('run_sending')
+      }))
+    },
+    hideSpinner() {
+      if (this.spinner) {
+        try { this.spinner.setProperty(prop.ANIM_STATUS, anim_status.STOP) } catch (e) { /* gone */ }
+        try { deleteWidget(this.spinner) } catch (e) { /* gone */ }
+        this.spinner = null
+      }
+      if (this.spinnerText) { try { deleteWidget(this.spinnerText) } catch (e) { /* gone */ } this.spinnerText = null }
     },
 
     fire(button, input) {
@@ -224,10 +250,7 @@ Page(
       // From the buttons page (a file to play): its screen at once, the
       // player's look, while the phone fetches the file
       if (this.fromPage) this.drawLoading()
-      else {
-        this.status.setProperty(prop.TEXT, getText('run_sending'))
-        startLoader(loadingStyle(this.state.config), this.rect, this.rect.back)
-      }
+      else this.showSpinner()
       let p
       try {
         p = this.executeButtonRequest(button.request, this.where.p, input, this.label)
@@ -252,12 +275,24 @@ Page(
         this.shown = { text: '', isError: !!isError, quiet: true }
         return
       }
+      this.hideSpinner()
+      // "Nothing": a big check, for done; otherwise the text in the page's
+      // body, red for an error. A long one makes its box taller and the page
+      // scrolls
       const quiet = !isError && Number(style) === NO_NOTIFICATION
       this.shown = { text: quiet ? '✓' : capText(text).slice(0, RESULT_MAX), isError: !!isError, quiet }
+      let h = BODY_H
+      if (!quiet) {
+        try {
+          const l = getTextLayout(this.shown.text, { text_size: RESULT_SIZE, text_width: BODY_W, wrapped: 1 })
+          if (l && l.height > BODY_H) h = l.height + RESULT_SIZE
+        } catch (e) { /* the box as it is */ }
+      }
       this.status.setProperty(prop.MORE, {
+        x: BODY_X, y: BODY_Y, w: BODY_W, h,
         text: this.shown.text,
-        color: isError ? COLOR_ERROR : COLOR_WHITE,
-        text_size: quiet ? TEXT_SIZE * 2 : TEXT_SIZE
+        color: quiet ? COLOR_DONE : isError ? COLOR_ERROR : COLOR_WHITE,
+        text_size: quiet ? 96 : RESULT_SIZE
       })
     },
 
@@ -287,6 +322,7 @@ Page(
           if (this.closed) return
           if ((file.params || {}).type === 'audio') return this.playReceived(file, tIn)
           this.imageShown = true
+          this.hideSpinner()
           this.clearImageSpinner()
           try {
             this.showImage(file.filePath)
@@ -426,6 +462,7 @@ Page(
     // sent it: played, then removed
     playReceived(file, tIn) {
       this.imageShown = true // the media came: finished() and the wait leave it be
+      this.hideSpinner()
       this.clearImageSpinner()
       this.audio = true
       this.keepAwake(AWAKE_PLAYBACK_MS)
@@ -500,6 +537,7 @@ Page(
 
     onDestroy() {
       this.destroyed = true
+      this.hideSpinner()
       try { offKey() } catch (e) { /* older API */ }
       if (this.awake) {
         try { resetPageBrightTime() } catch (e) { /* older API */ }
