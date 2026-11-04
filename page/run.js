@@ -153,7 +153,11 @@ Page(
       this.state.config = config
       this.label = (this.fromPage ? '' : 'card ') + 'p' + w.p + 'r' + w.r + 'b' + w.b + (button.text ? ' ' + String(button.text).slice(0, 20) : '')
       this.buttonText = button.text || ''
-      this.drawButton(button, page)
+      // Opened by the buttons page (an audio button): no screen of its own,
+      // only the audio's (REC, player), kept until it goes back; drawn
+      // here, the button flashed between the audio screen and the way back
+      if (this.fromPage) this.rect = { x: BTN_X, y: BTN_Y, w: BTN_W, h: BTN_H, radius: BTN_RADIUS, back: COLOR_GRAY }
+      else this.drawButton(button, page)
       if (!cardAllowed(button)) return this.message(getText('run_in_app'), true)
 
       // EXPERIMENT (test mode): record and send, or play the last recording
@@ -186,6 +190,14 @@ Page(
       return wd
     },
 
+    // Waiting for a file to play (opened by the buttons page): "♪ name",
+    // "Loading…", as the player's screen then shows them
+    drawLoading() {
+      const T = (o) => this.passThrough(createWidget(widget.TEXT, { x: 0, w: W, align_h: align.CENTER_H, align_v: align.CENTER_V, ...o }))
+      T({ y: Math.round(H * 0.24), h: Math.round(H * 0.12), text: '♪ ' + (this.buttonText || ''), text_size: Math.round(H * 0.07), color: 0x3cb371, text_style: text_style.ELLIPSIS })
+      T({ y: Math.round(H * 0.38), h: Math.round(H * 0.14), text: 'Loading…', text_size: Math.round(H * 0.075), color: COLOR_WHITE, text_style: text_style.NONE })
+    },
+
     // The pressed button, with its colors, radius and text
     drawButton(button, page) {
       const radius = Math.min(button.radius != null ? Number(button.radius) : BTN_RADIUS, BTN_H / 2)
@@ -208,8 +220,13 @@ Page(
       // A file comes after the answer: an image, or an audio file to play
       const style = Number(button.request && button.request.response_style)
       this.isImage = style === SHOW_IMAGE || style === PLAY_AUDIO || !!(button.request && button.request.audio_play)
-      this.status.setProperty(prop.TEXT, getText('run_sending'))
-      startLoader(loadingStyle(this.state.config), this.rect, this.rect.back)
+      // From the buttons page (a file to play): its screen at once, the
+      // player's look, while the phone fetches the file
+      if (this.fromPage) this.drawLoading()
+      else {
+        this.status.setProperty(prop.TEXT, getText('run_sending'))
+        startLoader(loadingStyle(this.state.config), this.rect, this.rect.back)
+      }
       let p
       try {
         p = this.executeButtonRequest(button.request, this.where.p, input, this.label)
@@ -344,10 +361,10 @@ Page(
       const secs = rec ? Math.min(30, Math.max(1, Number(rec.seconds) || AUDIO_DEFAULT.seconds)) : 0
       this.keepAwake(rec ? (secs + AWAKE_AFTER_RECORDING_S) * 1000 : AWAKE_PLAYBACK_MS)
       if (button.audio_last) {
-        if (!playLastRecording(this, p, this.label, () => {}, (why) => this.audioOver(why))) this.audioOver('nothing to play')
+        if (!playLastRecording(this, p, this.label, () => {}, (why) => this.audioOver(why), { keepScreen: this.fromPage })) this.audioOver('nothing to play')
         return
       }
-      if (button.audio_test) return runAudioTest(this, button, p, this.label, () => this.audioOver('recorded'))
+      if (button.audio_test) return runAudioTest(this, button, p, this.label, () => this.audioOver('recorded'), { keepScreen: this.fromPage })
       // An input button that records: the text first, then the recording; the
       // text goes in {input} (URL, headers, body: beside {audio} in JSON)
       if (button.input) return this.askInput(button, (text) => this.recordAndSend(button, secs, text))
@@ -362,6 +379,7 @@ Page(
       const p = this.where.p
       if (input != null && LOG_TRACE) devLog(`${this.tag} ${this.label}: ${String(input).length} chars typed, now the recording`)
       runAudioTest(this, { audio_test: { seconds: secs } }, p, this.label, () => this.audioOver('recorded'), {
+        keepScreen: this.fromPage,
         onRecorded: (bytes, run) => {
           this.recording = bytes
           let p2
@@ -411,7 +429,7 @@ Page(
       this.keepAwake(AWAKE_PLAYBACK_MS)
       this.setBgEnabled(false)
       infoLog(`${this.tag} ${this.label}: audio received, ${Date.now() - tIn}ms after it started to arrive`)
-      playAudioFile(this, file.filePath, { tag: '[play] ' + this.label, pageid: this.where.p, remove: true, label: this.buttonText, onEnd: (why) => this.audioOver(why) })
+      playAudioFile(this, file.filePath, { tag: '[play] ' + this.label, pageid: this.where.p, remove: true, label: this.buttonText, onEnd: (why) => this.audioOver(why), keepScreen: this.fromPage })
     },
 
     // The recording's result is shown, or playback is over: back after a

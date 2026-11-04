@@ -82,7 +82,9 @@ export function playAudioFile(vm, path, opts = {}) {
   // 'another file to play', …), called just after (page/run goes back)
   // duration (seconds): when the caller knows it (the watch's recording, for
   // which getDuration() gives 0), for the progress bar
-  const { tag = '[play]', pageid = 0, remove = false, label = '', onEnd = null, duration = 0 } = opts
+  // keepScreen: the player's screen stays until the page goes (page/run
+  // opened by the buttons page goes straight back when it ends)
+  const { tag = '[play]', pageid = 0, remove = false, label = '', onEnd = null, duration = 0, keepScreen = false } = opts
   const src = String(path || '')
   const dataPath = src.startsWith('data://') ? src.slice('data://'.length) : src.replace(/^\/?data\//, '')
   // A recording running: the file waits for its end (on the Cheetah the
@@ -113,7 +115,7 @@ export function playAudioFile(vm, path, opts = {}) {
     finish(current, 'another file to play')
   }
   const file = 'data://' + dataPath
-  const run = current = { vm, tag, pageid, remove, dataPath, onEnd, durationHint: Number(duration) || 0, t0: Date.now(), tPlay: 0, duration: 0, widgets: [], timers: [], done: false, prepared: false }
+  const run = current = { vm, tag, pageid, remove, dataPath, onEnd, keepScreen, durationHint: Number(duration) || 0, t0: Date.now(), tPlay: 0, duration: 0, widgets: [], timers: [], done: false, prepared: false }
 
   let size = 0
   try {
@@ -397,8 +399,10 @@ function finish(run, why) {
     try { player.stop() } catch (e) { if (why !== 'complete' && why !== 'failed') warnLog(`${run.tag}: stop() failed: ${errorText(e)}`) }
     releaseMedia(player, run.tag, 'player')
   }
-  run.widgets.forEach((w) => { try { deleteWidget(w) } catch (e) { /* gone */ } })
-  run.widgets = []
+  if (!run.keepScreen) {
+    run.widgets.forEach((w) => { try { deleteWidget(w) } catch (e) { /* gone */ } })
+    run.widgets = []
+  }
   run.timeText = run.barFill = null
   if (run.remove) {
     try { rmSync({ path: run.dataPath }) } catch (e) { /* not there */ }

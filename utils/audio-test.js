@@ -57,13 +57,15 @@ export function runAudioTest(vm, button, pageid, label, done, hooks = {}) {
   const opts = button.audio_test || {}
   const seconds = Math.min(MAX_SECONDS, Math.max(1, Number(opts.seconds) || DEFAULT_SECONDS))
   const tag = `[audio] ${label}`
-  const run = current = { vm, tag, button, pageid, onRecorded: hooks.onRecorded || null, t0: Date.now(), tStart: 0, tStop: 0, stopped: false, finished: false, widgets: [], timers: [], recorder: null }
+  const run = current = { vm, tag, button, pageid, onRecorded: hooks.onRecorded || null, keepScreen: !!hooks.keepScreen, t0: Date.now(), tStart: 0, tStop: 0, stopped: false, finished: false, widgets: [], timers: [], recorder: null }
   devLog(`${tag}: test asked, ${seconds}s max; ${memoryUsage()}`)
 
   const finish = (text, isError) => {
     if (run.finished) return
     run.finished = true
-    cleanup(run)
+    // keepScreen: the REC screen ("Sending…") stays until the page goes
+    // (page/run opened by the buttons page goes straight back)
+    cleanup(run, run.keepScreen)
     if (current === run) current = null
     recordingOver()
     if (text) vm.showResult(text, pageid, isError, SYSTEM_MODAL)
@@ -122,7 +124,7 @@ export function runAudioTest(vm, button, pageid, label, done, hooks = {}) {
 
 // The last recording, played on the watch: the player with the watch's own
 // OPUS, no phone involved (utils/audio-play.js)
-export function playLastRecording(vm, pageid, label, done, onEnd) {
+export function playLastRecording(vm, pageid, label, done, onEnd, extra = {}) {
   if (current) {
     vm.showResult('A recording is running', pageid, true, SYSTEM_MODAL)
     done()
@@ -146,7 +148,7 @@ export function playLastRecording(vm, pageid, label, done, onEnd) {
   } catch (e) {
     devLog(`[play] ${label}: the recording's length not worked out: ${errorText(e)}`)
   }
-  playAudioFile(vm, 'data://' + AUDIO_FILE, { tag: `[play] ${label}`, pageid, remove: false, label: 'Last recording', onEnd, duration })
+  playAudioFile(vm, 'data://' + AUDIO_FILE, { tag: `[play] ${label}`, pageid, remove: false, label: 'Last recording', onEnd, duration, ...extra })
   done()
   return true
 }
@@ -461,13 +463,14 @@ function drawOverlay(run, seconds, onTap) {
   run.widgets.forEach((w) => w.addEventListener(event.CLICK_DOWN, onTap))
 }
 
-function cleanup(run) {
+function cleanup(run, keepScreen = false) {
   run.timers.forEach((t) => { clearTimeout(t); clearInterval(t) })
   run.timers = []
   if (run.recorder && !run.stopped) {
     run.stopped = true
     try { run.recorder.stop() } catch (e) { /* already stopped */ }
   }
+  if (keepScreen) return
   run.widgets.forEach((w) => { try { deleteWidget(w) } catch (e) { /* gone */ } })
   run.widgets = []
   run.timeText = run.hintText = null
