@@ -25,6 +25,9 @@ import { COLOR_BLACK, COLOR_WHITE, COLOR_GRAY, COLOR_GREEN, CUSTOM_TOAST } from 
 import { devLog, infoLog, warnLog } from './remote-log.js'
 import { memoryUsage, errorText, sizeText } from './memory.js'
 
+// The progress bar's track
+const COLOR_BAR_BACK = 0x333333
+
 // No PREPARE event this long after prepare(): given up
 const PREPARE_WAIT_MS = 10000
 // After a stop, before the next file is set (see playAudioFile)
@@ -75,7 +78,9 @@ function runPending() {
 // `path`: the file (data://… or a path under /data). `remove`: delete it
 // after (a received file; not the recording, which can be played again)
 export function playAudioFile(vm, path, opts = {}) {
-  const { tag = '[play]', pageid = 0, remove = false, label = '' } = opts
+  // onEnd(why): playback is over ('complete', 'tap', 'failed', 'page closed',
+  // 'another file to play', …), called just after (page/run goes back)
+  const { tag = '[play]', pageid = 0, remove = false, label = '', onEnd = null } = opts
   const src = String(path || '')
   const dataPath = src.startsWith('data://') ? src.slice('data://'.length) : src.replace(/^\/?data\//, '')
   // A recording running: the file waits for its end (on the Cheetah the
@@ -106,7 +111,7 @@ export function playAudioFile(vm, path, opts = {}) {
     finish(current, 'another file to play')
   }
   const file = 'data://' + dataPath
-  const run = current = { vm, tag, pageid, remove, dataPath, t0: Date.now(), tPlay: 0, duration: 0, widgets: [], timers: [], done: false, prepared: false }
+  const run = current = { vm, tag, pageid, remove, dataPath, onEnd, t0: Date.now(), tPlay: 0, duration: 0, widgets: [], timers: [], done: false, prepared: false }
 
   let size = 0
   try {
@@ -326,13 +331,14 @@ function finish(run, why) {
   }
   run.widgets.forEach((w) => { try { deleteWidget(w) } catch (e) { /* gone */ } })
   run.widgets = []
-  run.timeText = null
+  run.timeText = run.barFill = null
   if (run.remove) {
     try { rmSync({ path: run.dataPath }) } catch (e) { /* not there */ }
   }
   devLog(`${run.tag}: playback over (${why}) ${Date.now() - run.t0}ms after the file was ready${run.remove ? ', file removed' : ''}; ${memoryUsage()}`)
   // A file waiting for this one (refused or stopped before playing)
   if (pending && why !== 'another file to play') setTimeout(runPending, 0)
+  if (typeof run.onEnd === 'function') { const cb = run.onEnd; setTimeout(() => cb(why), 0) }
 }
 
 function drawOverlay(run, label) {
@@ -345,19 +351,37 @@ function drawOverlay(run, label) {
     align_h: align.CENTER_H, align_v: align.CENTER_V, text_style: text_style.ELLIPSIS,
   })
   run.timeText = add(widget.TEXT, {
-    x: 0, y: Math.round(H * 0.42), w: W, h: Math.round(H * 0.14),
+    x: 0, y: Math.round(H * 0.38), w: W, h: Math.round(H * 0.14),
     text: 'Loading…', text_size: Math.round(H * 0.075), color: COLOR_WHITE,
     align_h: align.CENTER_H, align_v: align.CENTER_V, text_style: text_style.NONE,
   })
+  // The progress: a bar when the duration is known (an MP3), the time alone
+  // otherwise (the watch's own recording: getDuration() 0)
+  const bar = { x: Math.round(W * 0.2), y: Math.round(H * 0.555), w: Math.round(W * 0.6), h: Math.max(6, Math.round(H * 0.016)) }
+  add(widget.FILL_RECT, { ...bar, radius: Math.floor(bar.h / 2), color: COLOR_BAR_BACK })
+  run.barFill = add(widget.FILL_RECT, { ...bar, w: bar.h, radius: Math.floor(bar.h / 2), color: COLOR_GREEN })
   add(widget.TEXT, {
-    x: 0, y: Math.round(H * 0.6), w: W, h: Math.round(H * 0.1),
+    x: 0, y: Math.round(H * 0.62), w: W, h: Math.round(H * 0.1),
     text: 'Tap to stop', text_size: Math.round(H * 0.05), color: COLOR_GRAY,
     align_h: align.CENTER_H, align_v: align.CENTER_V, text_style: text_style.NONE,
   })
   run.widgets.forEach((w) => w.addEventListener(event.CLICK_DOWN, () => setTimeout(() => finish(run, 'tap'), 0)))
   run.timers.push(setInterval(() => {
     if (!run.timeText || !run.tPlay) return
+    // The clock: getCurrentTime() (not in the API docs) is logged once to
+    // learn its unit, the screen doesn't depend on it
     const s = (Date.now() - run.tPlay) / 1000
-    run.timeText.setProperty(prop.TEXT, run.duration ? `${s.toFixed(1)} / ${Number(run.duration).toFixed(1)} s` : `${s.toFixed(1)} s`)
+    if (!run.loggedTime && s >= 1) {
+      run.loggedTime = true
+      let t = '?'
+      try { t = typeof player.getCurrentTime === 'function' ? player.getCurrentTime() : 'no getCurrentTime' } catch (e) { t = errorText(e) }
+      devLog(`${run.tag}: getCurrentTime() at ${s.toFixed(2)} s of playback: ${t}`)
+    }
+    const d = Number(run.duration) || 0
+    run.timeText.setProperty(prop.TEXT, d ? `${Math.min(s, d).toFixed(1)} / ${d.toFixed(1)} s` : `${s.toFixed(1)} s`)
+    if (d && run.barFill) {
+      const w = Math.max(bar.h, Math.round(bar.w * Math.min(1, s / d)))
+      run.barFill.setProperty(prop.MORE, { x: bar.x, y: bar.y, w, h: bar.h })
+    }
   }, 250))
 }

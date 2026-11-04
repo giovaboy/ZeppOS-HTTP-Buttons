@@ -10,8 +10,6 @@ import { getDeviceInfo, SCREEN_SHAPE_ROUND } from '@zos/device'
 import { devLog, infoLog, warnLog, LOG_TRACE } from '../utils/remote-log.js'
 import { memoryUsage, errorText, sizeText } from '../utils/memory.js'
 import { urlForLog, authForLog, styleForLog } from '../utils/log-text.js'
-import { stopAudioTest } from '../utils/audio-test.js'
-import { playAudioFile, stopAudioPlay } from '../utils/audio-play.js'
 
 // Log lines (utils/remote-log.js): one per event, facts with numbers.
 // Running a button (requests, sessions, polling, results): utils/button-request.js
@@ -170,9 +168,10 @@ Page(
           const userData = file.params || {}
           if (LOG_TRACE) devLog(`${tag}: transferred in ${Date.now() - tIn}ms to ${file.filePath}; ${downloadFolderText(file.filePath)}`)
           if (userData.type === 'audio') {
-            // EXPERIMENT (test mode): played, then removed (utils/audio-play.js)
-            playAudioFile(this, file.filePath, { tag, pageid: this.pendingImagePage || 0, remove: true, label: run ? run.tag.replace(/^\[btn\] p\d+r\d+b\d+ ?/, '') : '' })
-            infoLog(`${tag}: audio received${run ? ` ${Date.now() - run.t0}ms after the press` : ''}`)
+            // EXPERIMENT: audio is played on page/run, which takes the files
+            // while open; one here came after it closed
+            warnLog(`${tag}: an audio file came to the buttons page: removed`)
+            try { rmSync({ path: file.filePath }) } catch (e) { /* not there */ }
           } else if (userData.type === 'image' && typeof layout.showImage === 'function') {
             const memBefore = LOG_TRACE ? memoryUsage() : ''
             let shown
@@ -344,9 +343,6 @@ Page(
       this.imageQueue = null
       if (this.imageWaitTimer) { clearTimeout(this.imageWaitTimer); this.imageWaitTimer = null }
       if (typeof layout.stopLoaders === 'function') layout.stopLoaders()
-      // EXPERIMENT: a recording under way stops, its overlay goes
-      stopAudioTest()
-      stopAudioPlay()
       this.pendingImageRun = null
     },
   })

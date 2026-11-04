@@ -119,19 +119,22 @@ export function runAudioTest(vm, button, pageid, label, done) {
 
 // The last recording, played on the watch: the player with the watch's own
 // OPUS, no phone involved (utils/audio-play.js)
-export function playLastRecording(vm, pageid, label, done) {
+export function playLastRecording(vm, pageid, label, done, onEnd) {
   if (current) {
     vm.showResult('A recording is running', pageid, true, SYSTEM_MODAL)
-    return done()
+    done()
+    return false
   }
   let st = null
   try { st = statSync({ path: AUDIO_FILE }) } catch (e) { st = null }
   if (!st || !st.size) {
     vm.showResult('No recording yet: record one with 🎤 first', pageid, true, SYSTEM_MODAL)
-    return done()
+    done()
+    return false
   }
-  playAudioFile(vm, 'data://' + AUDIO_FILE, { tag: `[play] ${label}`, pageid, remove: false, label: 'Last recording' })
+  playAudioFile(vm, 'data://' + AUDIO_FILE, { tag: `[play] ${label}`, pageid, remove: false, label: 'Last recording', onEnd })
   done()
+  return true
 }
 
 // The page goes away: the recording stops, nothing is sent. The recorder is

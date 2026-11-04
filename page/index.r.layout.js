@@ -10,7 +10,8 @@ import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, 
 import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard.js'
 import { openAppKeyboard } from '../utils/app-keyboard.js'
 import { pressButton } from '../utils/press-queue.js'
-import { runAudioTest, playLastRecording } from '../utils/audio-test.js'
+import { push } from '@zos/router'
+import { runParams } from '../utils/card.js'
 import { stopAllLoaders } from '../utils/button-loader.js'
 import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_GRAY, COLOR_RED, COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE, KB_TYPE_CHAR, KB_TYPE_NUMERIC } from '../utils/constants.js';
 
@@ -224,6 +225,15 @@ export const layout = {
               click_func: () => {
                 // Names the button in the log lines (page, row, button, label)
                 const label = 'p' + pi + 'r' + ri + 'b' + bi + (button.text ? ' ' + String(button.text).slice(0, 20) : '')
+                // EXPERIMENT (test mode): an audio button (record, play the
+                // last recording, play a file from a call) runs on its own
+                // page, as from the shortcut card (page/run.js): its screen,
+                // one audio object at a time, all of it stopped when it goes
+                if (button.audio_test || button.audio_last || (button.request && button.request.audio_play)) {
+                  this.hideToast()
+                  push({ url: 'page/run', params: runParams(pi, ri, bi, 'page') })
+                  return
+                }
                 // One press at a time per button (utils/press-queue.js): a tap
                 // on a busy button waits its turn; the loading animation
                 // (utils/button-loader.js, config loading_style) runs until
@@ -235,13 +245,7 @@ export const layout = {
                   back: button.back_color || COLOR_GRAY,
                   label,
                   start: (t, done) => {
-                    if (button.audio_last) {
-                      // EXPERIMENT (test mode): play the last recording
-                      playLastRecording(vm, pi, label, done)
-                    } else if (button.audio_test) {
-                      // EXPERIMENT (test mode): record and POST audio (utils/audio-test.js)
-                      runAudioTest(vm, button, pi, label, done)
-                    } else if (button.request && button.request.response_style === SHOW_IMAGE) {
+                    if (button.request && button.request.response_style === SHOW_IMAGE) {
                       // Images go one at a time, whatever the button
                       // (vm.pressImage); done once the picture is shown or
                       // failed.

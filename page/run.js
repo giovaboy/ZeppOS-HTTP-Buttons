@@ -22,6 +22,8 @@ import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard
 import { openAppKeyboard } from '../utils/app-keyboard.js'
 import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE } from 'zosLoader:./keyboard.[pf].layout.js'
 import { cardAllowed } from '../utils/card.js'
+import { runAudioTest, playLastRecording, stopAudioTest } from '../utils/audio-test.js'
+import { playAudioFile, stopAudioPlay } from '../utils/audio-play.js'
 import { BTN_RADIUS, COLOR_BLACK, COLOR_GRAY, COLOR_WHITE, NO_NOTIFICATION, SHOW_IMAGE } from '../utils/constants.js'
 import { infoLog, warnLog, devLog, LOG_TRACE } from '../utils/remote-log.js'
 import { errorText } from '../utils/memory.js'
@@ -72,13 +74,19 @@ Page(
 
     onInit(params) {
       this.where = parseParams(params)
+      // Opened by the buttons page (an audio button) or by the card
+      this.fromPage = !!(this.where && this.where.from === 'page')
+      this.destroyed = false
+      this.audio = false
+      this.bg = null
       this.closed = false
       this.closeTimer = null
       this.pollsCancelled = false
       this.pollTimers = null
       this.inFlight = 0
       this.shown = null
-      this.refreshed = false
+      // The buttons page keeps the watch's copy up to date itself
+      this.refreshed = this.fromPage
       this.state.config = null
       this.isImage = false
       this.imageShown = false
@@ -97,7 +105,7 @@ Page(
     build() {
       // Under everything: a black button the size of the screen, so a tap
       // anywhere goes back (texts and shapes on top are made not to take taps)
-      createWidget(widget.BUTTON, {
+      this.bg = createWidget(widget.BUTTON, {
         x: 0, y: 0, w: W, h: H, text: '', radius: 0,
         normal_color: COLOR_BLACK, press_color: COLOR_BLACK,
         click_func: () => this.close()
@@ -119,9 +127,13 @@ Page(
         return this.message(getText('run_missing'), true)
       }
       this.state.config = config
-      this.label = 'card p' + w.p + 'r' + w.r + 'b' + w.b + (button.text ? ' ' + String(button.text).slice(0, 20) : '')
+      this.label = (this.fromPage ? '' : 'card ') + 'p' + w.p + 'r' + w.r + 'b' + w.b + (button.text ? ' ' + String(button.text).slice(0, 20) : '')
+      this.buttonText = button.text || ''
       this.drawButton(button, page)
       if (!cardAllowed(button)) return this.message(getText('run_in_app'), true)
+
+      // EXPERIMENT (test mode): record and send, or play the last recording
+      if (button.audio_test || button.audio_last) return this.runAudio(button)
 
       if (button.input) {
         // The typed text fires the button; a cancel goes back to the card
@@ -217,6 +229,7 @@ Page(
         const state = e && e.data && e.data.readyState
         if (state === 'transferred') {
           if (this.closed) return
+          if ((file.params || {}).type === 'audio') return this.playReceived(file, tIn)
           this.imageShown = true
           this.clearImageSpinner()
           try {
@@ -264,6 +277,48 @@ Page(
       img.addEventListener(event.CLICK_DOWN, () => this.close())
     },
 
+    // EXPERIMENT (test mode): an audio button, on its own screen over this
+    // one (utils/audio-test.js, utils/audio-play.js). The background button
+    // (a tap goes back) is off meanwhile: a tap there stops the recording or
+    // the playback. The result shows here as any other
+    runAudio(button) {
+      this.audio = true
+      this.setBgEnabled(false)
+      const p = this.where.p
+      if (button.audio_last) {
+        if (!playLastRecording(this, p, this.label, () => {}, (why) => this.audioOver(why))) this.audioOver('nothing to play')
+        return
+      }
+      runAudioTest(this, button, p, this.label, () => this.audioOver('recorded'))
+    },
+
+    // An audio file from the button's call (request.audio_play), as the phone
+    // sent it: played, then removed
+    playReceived(file, tIn) {
+      this.imageShown = true // the media came: finished() and the wait leave it be
+      this.clearImageSpinner()
+      this.audio = true
+      this.setBgEnabled(false)
+      infoLog(`[card] ${this.label}: audio received, ${Date.now() - tIn}ms after it started to arrive`)
+      playAudioFile(this, file.filePath, { tag: '[play] ' + this.label, pageid: this.where.p, remove: true, label: this.buttonText, onEnd: (why) => this.audioOver(why) })
+    },
+
+    // The recording's result is shown, or playback is over: back after a
+    // moment (at once after a tap that stopped it)
+    audioOver(why) {
+      if (this.destroyed) return
+      this.setBgEnabled(true)
+      stopAllLoaders()
+      if (why === 'tap') return this.close()
+      if (why === 'complete') return this.closeAfter(DONE_MS)
+      const s = this.shown
+      this.closeAfter(s ? closeDelay(s.text, s.isError) : DONE_MS)
+    },
+
+    setBgEnabled(on) {
+      try { if (this.bg && typeof this.bg.setEnable === 'function') this.bg.setEnable(on) } catch (e) { /* older API */ }
+    },
+
     // A message instead of a run (button missing, no keyboard)
     message(text, isError) {
       this.showResult(text, 0, isError)
@@ -300,6 +355,11 @@ Page(
     },
 
     onDestroy() {
+      this.destroyed = true
+      // EXPERIMENT: a recording stops and nothing is sent (a swipe back
+      // cancels it); playback stops (stop + release)
+      stopAudioTest()
+      stopAudioPlay()
       if (this.closeTimer) { clearTimeout(this.closeTimer); this.closeTimer = null }
       if (this.imageWaitTimer) { clearTimeout(this.imageWaitTimer); this.imageWaitTimer = null }
       // The app's keyboard, if the page goes while it is open

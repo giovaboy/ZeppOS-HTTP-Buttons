@@ -27,5 +27,6 @@ export function cardButtons(config) {
   return out
 }
 
-// The params of the page the card opens for a button (page/run.js)
-export const runParams = (p, r, b) => JSON.stringify({ p, r, b })
+// The params of the page the card opens for a button (page/run.js). `from`:
+// 'page' when the buttons page opens it (an audio button)
+export const runParams = (p, r, b, from) => JSON.stringify(from ? { p, r, b, from } : { p, r, b })
