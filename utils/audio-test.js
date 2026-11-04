@@ -13,14 +13,14 @@
 // Logged (trace): recorder events and times, the file's size, bytes/s, its
 // first bytes (is it an Ogg file?), each part's transfer time, memory. Never
 // the audio itself.
-import { createWidget, deleteWidget, widget, prop, align, text_style, event } from '@zos/ui'
+import { deleteWidget } from '@zos/ui'
 import { create, id, codec } from '@zos/media'
 import { statSync, readFileSync, rmSync } from '@zos/fs'
-import { getDeviceInfo } from '@zos/device'
 import { bytesToBase64, hexHead } from './base64.js'
+import { progressScreen } from './progress-screen.js'
 import { playAudioFile, isAudioPlaying, stopAudioPlay, noteRecorderMade, releasePlayerForRecorder, releaseMedia, mediaMethods, availableText, setRecordingCheck, recordingOver, makePlayerAhead } from './audio-play.js'
 import { parseOpusFrames } from './opus-frames.js'
-import { COLOR_BLACK, COLOR_WHITE, COLOR_BRIGHT_RED, COLOR_GRAY, SYSTEM_MODAL } from './constants.js'
+import { COLOR_BRIGHT_RED, SYSTEM_MODAL } from './constants.js'
 import { devLog, infoLog, warnLog } from './remote-log.js'
 import { memoryUsage, errorText, sizeText } from './memory.js'
 
@@ -57,7 +57,7 @@ export function runAudioTest(vm, button, pageid, label, done, hooks = {}) {
   const opts = button.audio_test || {}
   const seconds = Math.min(MAX_SECONDS, Math.max(1, Number(opts.seconds) || DEFAULT_SECONDS))
   const tag = `[audio] ${label}`
-  const run = current = { vm, tag, button, pageid, onRecorded: hooks.onRecorded || null, keepScreen: !!hooks.keepScreen, t0: Date.now(), tStart: 0, tStop: 0, stopped: false, finished: false, widgets: [], timers: [], recorder: null }
+  const run = current = { vm, tag, button, pageid, onRecorded: hooks.onRecorded || null, keepScreen: !!hooks.keepScreen, title: hooks.title || button.text || '', t0: Date.now(), tStart: 0, tStop: 0, stopped: false, finished: false, widgets: [], timers: [], recorder: null }
   devLog(`${tag}: test asked, ${seconds}s max; ${memoryUsage()}`)
 
   const finish = (text, isError) => {
@@ -118,7 +118,7 @@ export function runAudioTest(vm, button, pageid, label, done, hooks = {}) {
     if (run.stopped) return
     const from = run.tStart || run.t0
     const s = Math.min(seconds, (Date.now() - from) / 1000)
-    if (run.timeText) run.timeText.setProperty(prop.TEXT, `${s.toFixed(1)} s / ${seconds} s`)
+    if (run.screen) { run.screen.setValue(`${s.toFixed(1)} / ${seconds} s`); run.screen.setProgress(s / seconds) }
   }, 200))
 }
 
@@ -255,8 +255,11 @@ function stopRecording(run, why) {
   const recMs = run.tStop - (run.tStart || run.t0)
   run.recMs = recMs
   devLog(`${run.tag}: stop (${why}) after ${recMs}ms of recording${run.tStart ? '' : ' (no START event yet)'}`)
-  if (run.timeText) run.timeText.setProperty(prop.TEXT, 'Sending…')
-  if (run.hintText) run.hintText.setProperty(prop.TEXT, '')
+  if (run.screen) {
+    run.screen.setValue('Sending…')
+    run.screen.setNote('')
+    run.screen.setStop('')
+  }
   try { run.recorder.stop() } catch (e) { warnLog(`${run.tag}: stop() failed: ${errorText(e)}`) }
   // The file is read on the STOP event, or after this wait without one. A
   // recorder that sent no START sends no STOP either (an API 3 watch, whose
@@ -440,27 +443,20 @@ function resultText(run, total, sendMs, r) {
 }
 
 // Full screen while recording: the time, and a tap anywhere stops
+// The recording's screen (utils/progress-screen.js, the design guide's
+// horizontal progress): "● name" in red, the time big, the bar up to the
+// longest time, how to stop or cancel, "Stop"; a tap anywhere stops
 function drawOverlay(run, seconds, onTap) {
-  const { width: W, height: H } = getDeviceInfo()
-  const add = (type, o) => { const w = createWidget(type, o); run.widgets.push(w); return w }
-  add(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: COLOR_BLACK })
-  add(widget.TEXT, {
-    x: 0, y: Math.round(H * 0.26), w: W, h: Math.round(H * 0.12),
-    text: '● REC', text_size: Math.round(H * 0.08), color: COLOR_BRIGHT_RED,
-    align_h: align.CENTER_H, align_v: align.CENTER_V, text_style: text_style.NONE,
+  const screen = run.screen = progressScreen({
+    title: '● ' + (run.title || 'REC'),
+    titleColor: COLOR_BRIGHT_RED,
+    value: `0.0 / ${seconds} s`,
+    note: 'Tap or select: stop and send. Back: cancel',
+    stop: 'Stop',
+    onTap,
   })
-  run.timeText = add(widget.TEXT, {
-    x: 0, y: Math.round(H * 0.42), w: W, h: Math.round(H * 0.14),
-    text: `0.0 s / ${seconds} s`, text_size: Math.round(H * 0.075), color: COLOR_WHITE,
-    align_h: align.CENTER_H, align_v: align.CENTER_V, text_style: text_style.NONE,
-  })
-  run.hintText = add(widget.TEXT, {
-    x: 0, y: Math.round(H * 0.6), w: W, h: Math.round(H * 0.1),
-    text: 'Tap to stop', text_size: Math.round(H * 0.05), color: COLOR_GRAY,
-    align_h: align.CENTER_H, align_v: align.CENTER_V, text_style: text_style.NONE,
-  })
-  // A tap on a text is the text's: each one stops
-  run.widgets.forEach((w) => w.addEventListener(event.CLICK_DOWN, onTap))
+  run.widgets.push(...screen.widgets)
+  run.timeText = true
 }
 
 function cleanup(run, keepScreen = false) {
@@ -474,4 +470,5 @@ function cleanup(run, keepScreen = false) {
   run.widgets.forEach((w) => { try { deleteWidget(w) } catch (e) { /* gone */ } })
   run.widgets = []
   run.timeText = run.hintText = null
+  run.screen = null
 }

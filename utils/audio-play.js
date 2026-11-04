@@ -16,17 +16,15 @@
 // the API docs; a page-level player library calls it after every stop and
 // after a refused file, and its "sound wasn't playing after the first play"
 // fix): called only where the object has it, and logged.
-import { createWidget, deleteWidget, widget, prop, align, text_style, event } from '@zos/ui'
+import { deleteWidget } from '@zos/ui'
 import { create, id } from '@zos/media'
 import { statSync, openSync, readSync, closeSync, rmSync, O_RDONLY } from '@zos/fs'
-import { getDeviceInfo } from '@zos/device'
 import { hexHead } from './base64.js'
-import { COLOR_BLACK, COLOR_WHITE, COLOR_GRAY, COLOR_GREEN, CUSTOM_TOAST } from './constants.js'
+import { progressScreen } from './progress-screen.js'
+import { CUSTOM_TOAST } from './constants.js'
 import { devLog, infoLog, warnLog } from './remote-log.js'
 import { memoryUsage, errorText, sizeText } from './memory.js'
 
-// The progress bar's track
-const COLOR_BAR_BACK = 0x333333
 
 // No PREPARE event this long after prepare(): given up
 const PREPARE_WAIT_MS = 10000
@@ -413,35 +411,24 @@ function finish(run, why) {
   if (typeof run.onEnd === 'function') { const cb = run.onEnd; setTimeout(() => cb(why), 0) }
 }
 
+// The player's screen (utils/progress-screen.js, the design guide's
+// horizontal progress): the name, the time big, the bar when the duration is
+// known (an MP3, or the watch's recording with its length worked out), how to
+// stop it, and "Stop"; a tap anywhere stops
 function drawOverlay(run, label) {
-  const { width: W, height: H } = getDeviceInfo()
-  const add = (type, o) => { const w = createWidget(type, o); run.widgets.push(w); return w }
-  add(widget.FILL_RECT, { x: 0, y: 0, w: W, h: H, color: COLOR_BLACK })
-  add(widget.TEXT, {
-    x: 0, y: Math.round(H * 0.24), w: W, h: Math.round(H * 0.12),
-    text: '♪ ' + (label || 'Playing'), text_size: Math.round(H * 0.07), color: COLOR_GREEN,
-    align_h: align.CENTER_H, align_v: align.CENTER_V, text_style: text_style.ELLIPSIS,
+  const screen = run.screen = progressScreen({
+    title: '♪ ' + (label || 'Playing'),
+    value: 'Loading…',
+    note: 'Tap or press select to stop',
+    stop: 'Stop',
+    onTap: () => setTimeout(() => finish(run, 'tap'), 0),
   })
-  run.timeText = add(widget.TEXT, {
-    x: 0, y: Math.round(H * 0.38), w: W, h: Math.round(H * 0.14),
-    text: 'Loading…', text_size: Math.round(H * 0.075), color: COLOR_WHITE,
-    align_h: align.CENTER_H, align_v: align.CENTER_V, text_style: text_style.NONE,
-  })
-  // The progress: a bar when the duration is known (an MP3), the time alone
-  // otherwise (the watch's own recording: getDuration() 0)
-  const bar = { x: Math.round(W * 0.2), y: Math.round(H * 0.555), w: Math.round(W * 0.6), h: Math.max(6, Math.round(H * 0.016)) }
-  add(widget.FILL_RECT, { ...bar, radius: Math.floor(bar.h / 2), color: COLOR_BAR_BACK })
-  run.barFill = add(widget.FILL_RECT, { ...bar, w: bar.h, radius: Math.floor(bar.h / 2), color: COLOR_GREEN })
-  add(widget.TEXT, {
-    x: 0, y: Math.round(H * 0.62), w: W, h: Math.round(H * 0.1),
-    text: 'Tap to stop', text_size: Math.round(H * 0.05), color: COLOR_GRAY,
-    align_h: align.CENTER_H, align_v: align.CENTER_V, text_style: text_style.NONE,
-  })
-  run.widgets.forEach((w) => w.addEventListener(event.CLICK_DOWN, () => setTimeout(() => finish(run, 'tap'), 0)))
+  run.widgets.push(...screen.widgets)
+  run.timeText = true
   run.timers.push(setInterval(() => {
     if (!run.timeText || !run.tPlay) return
-    // The clock: getCurrentTime() (not in the API docs) is logged once to
-    // learn its unit, the screen doesn't depend on it
+    // The clock: getCurrentTime() (not in the API docs; whole seconds on the
+    // watches seen) is logged once, the screen doesn't depend on it
     const s = (Date.now() - run.tPlay) / 1000
     if (!run.loggedTime && s >= 1) {
       run.loggedTime = true
@@ -450,10 +437,7 @@ function drawOverlay(run, label) {
       devLog(`${run.tag}: getCurrentTime() at ${s.toFixed(2)} s of playback: ${t}`)
     }
     const d = Number(run.duration) || 0
-    run.timeText.setProperty(prop.TEXT, d ? `${Math.min(s, d).toFixed(1)} / ${d.toFixed(1)} s` : `${s.toFixed(1)} s`)
-    if (d && run.barFill) {
-      const w = Math.max(bar.h, Math.round(bar.w * Math.min(1, s / d)))
-      run.barFill.setProperty(prop.MORE, { x: bar.x, y: bar.y, w, h: bar.h })
-    }
+    screen.setValue(d ? `${Math.min(s, d).toFixed(1)} / ${d.toFixed(1)} s` : `${s.toFixed(1)} s`)
+    if (d) screen.setProgress(s / d)
   }, 250))
 }

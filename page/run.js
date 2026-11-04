@@ -24,6 +24,7 @@ import { isSystemKeyboardAvailable, openSystemKeyboard } from '../utils/keyboard
 import { openAppKeyboard } from '../utils/app-keyboard.js'
 import { kb_lowercase, kb_uppercase, kb_numbers, kb_symbols, KEY_SYMB, KEY_NUM, KEY_ABC, KEY_abc, KEY_SEND, KEY_CANCEL, KEY_BACKSPACE } from 'zosLoader:./keyboard.[pf].layout.js'
 import { cardAllowed } from '../utils/card.js'
+import { progressScreen } from '../utils/progress-screen.js'
 import { runAudioTest, playLastRecording, stopAudioTest, stopRecordingNow, sendAudioParts } from '../utils/audio-test.js'
 import { playAudioFile, stopAudioPlay, stopPlaybackNow } from '../utils/audio-play.js'
 import { BTN_RADIUS, COLOR_BLACK, COLOR_GRAY, COLOR_WHITE, NO_NOTIFICATION, SHOW_IMAGE, PLAY_AUDIO, AUDIO_DEFAULT, REQUEST_TIMEOUT_RPC_MARGIN_MS } from '../utils/constants.js'
@@ -192,10 +193,9 @@ Page(
 
     // Waiting for a file to play (opened by the buttons page): "♪ name",
     // "Loading…", as the player's screen then shows them
+    // (utils/progress-screen.js, as the player's: the empty bar, a tap goes back)
     drawLoading() {
-      const T = (o) => this.passThrough(createWidget(widget.TEXT, { x: 0, w: W, align_h: align.CENTER_H, align_v: align.CENTER_V, ...o }))
-      T({ y: Math.round(H * 0.24), h: Math.round(H * 0.12), text: '♪ ' + (this.buttonText || ''), text_size: Math.round(H * 0.07), color: 0x3cb371, text_style: text_style.ELLIPSIS })
-      T({ y: Math.round(H * 0.38), h: Math.round(H * 0.14), text: 'Loading…', text_size: Math.round(H * 0.075), color: COLOR_WHITE, text_style: text_style.NONE })
+      progressScreen({ title: '♪ ' + (this.buttonText || ''), value: 'Loading…', note: 'Getting the file from the phone', onTap: () => this.close() })
     },
 
     // The pressed button, with its colors, radius and text
@@ -380,6 +380,7 @@ Page(
       if (input != null && LOG_TRACE) devLog(`${this.tag} ${this.label}: ${String(input).length} chars typed, now the recording`)
       runAudioTest(this, { audio_test: { seconds: secs } }, p, this.label, () => this.audioOver('recorded'), {
         keepScreen: this.fromPage,
+        title: this.buttonText,
         onRecorded: (bytes, run) => {
           this.recording = bytes
           let p2
