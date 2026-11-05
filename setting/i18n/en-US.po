@@ -324,3 +324,12 @@ msgstr "Button position: "
 
 msgid "title_color"
 msgstr "Title Color"
+
+msgid "button_width"
+msgstr "Width (% of the row)"
+
+msgid "button_radius"
+msgstr "Corner radius (px)"
+
+msgid "button_text_size"
+msgstr "Text size (px; Auto: the watch's)"

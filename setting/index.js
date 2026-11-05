@@ -126,40 +126,6 @@ function toColor(num) {
   return colorString;
 }
 
-const wRange = (options = {}) => {
-  const {
-    limit = 100,
-    step = 1,
-    start = 0,
-    customValues = []
-  } = options;
-
-  let arr = [];
-  for (let i = start; i <= limit; i = i + step) {
-    arr.push({ name: i.toString(), value: i });
-  }
-
-  customValues.forEach(val => {
-    arr.push({ name: val.toString(), value: val });
-  });
-
-  arr.sort((a, b) => a.value - b.value);
-  arr = arr.filter((item, index, self) =>
-    index === self.findIndex(t => t.value === item.value)
-  );
-
-  return arr;
-}
-
-
-const tSizeRange = () => {
-  let arr = [{ name: 'default', value: undefined }];
-  for (let i = 10; i <= 80; i = i + 2) {
-    arr.push({ name: i.toString() + 'px', value: i });
-  }
-  return arr;
-}
-
 // Request-timeout choices, stored in ms (what the fetch expects) but shown in
 // seconds. The "default" entry (undefined) makes a button fall back to the
 // global value — and the global select fall back to the app default (10 s).
@@ -396,18 +362,11 @@ const confirmBar = (context, id, question, actionLabel, run) => !askingFor(conte
 ];
 const quoted = (name) => name ? ' "' + name + '"' : '';
 
-// Two-column form controls have different intrinsic heights (the radius slider
-// is taller than the selects), so the two columns drift out of alignment. Wrap
-// each control in a fixed-height, vertically-centred cell and they line up on a
-// grid. Tune FIELD_MIN_H if the grid looks too airy or too tight.
-const FIELD_MIN_H = '64px';
 // The three "Add" buttons, one colour each, so they are told apart at a glance
 // (page, row, button nest in that order)
 const ADD_PAGE_COLOR = '#409EFF';
 const ADD_ROW_COLOR = '#2e8b57';
 const ADD_BUTTON_COLOR = '#d97706';
-const fieldCell = (child) => View({ style: { minHeight: FIELD_MIN_H, display: 'flex', flexDirection: 'column', justifyContent: 'center' } }, [child]);
-const fieldCol = (children) => View({ style: { flex: 1 } }, children.map(fieldCell));
 
 // What a collapsed button card shows under its preview: what it does
 // The request blocks the settings page can't edit (session login/logout, poll),
@@ -503,45 +462,21 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
         movePicker(context, 'btn:' + pindex + ':' + rindex + ':' + bindex, gettext('button_position'), bindex, buttonsInRow,
           (to) => context.moveButton(pindex, rindex, bindex, to))
       ] : []),
-      // Spacer toggle + width on one line (so the spacer switch isn't full-width).
-      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
-        View({ style: { flex: 1 } }, [
-          Toggle({
-            label: gettext('is_spacer'),
-            value: button.spacer,
-            subStyle: { color: '#333', fontSize: '10px' },
-            onChange: (value) => context.editButton('spacer', value, pindex, rindex, bindex)
-          })
-        ]),
-        View({ style: { flex: 1 } }, [
-          Select({
-            title: gettext('w') + button.w,
-            value: button.w,
-            options: wRange({ customValues: [16.66, 33.33, 66.66, 83.33] }),
-            onChange: (value) => context.editButton('w', value, pindex, rindex, bindex)
-          })
-        ])
-      ]),
-      // STYLE — two columns (hidden for spacers, which have no visible content).
+      // Spacer, then the width (a spacer has one too); the radius and the text
+      // size for a visible button. Each as its usual values plus a field
+      Toggle({
+        label: gettext('is_spacer'),
+        value: button.spacer,
+        subStyle: { color: '#333', fontSize: '10px' },
+        onChange: (value) => context.editButton('spacer', value, pindex, rindex, bindex)
+      }),
+      quickPick({ label: gettext('button_width'), options: BUTTON_WIDTHS, value: Number(button.w), min: 1, max: 100,
+        onValue: (value) => context.editButton('w', value, pindex, rindex, bindex) }),
       ...(button.spacer ? [] : [
-        View({ style: { display: 'flex', flexDirection: 'row' } }, [
-          fieldCol([
-            Slider({
-              label: gettext('radius') + (button.radius != null ? button.radius : 0),
-              min: 0, max: 100, step: 1,
-              value: button.radius || 0,
-              onChange: (value) => context.editButton('radius', value, pindex, rindex, bindex)
-            })
-          ]),
-          fieldCol([
-            Select({
-              title: gettext('text_size') + (button.text_size != null ? button.text_size : 'default'),
-              value: button.text_size,
-              options: tSizeRange(),
-              onChange: (value) => context.editButton('text_size', value, pindex, rindex, bindex)
-            })
-          ])
-        ]),
+        quickPick({ label: gettext('button_radius'), options: BUTTON_RADII, value: button.radius != null ? Number(button.radius) : undefined, min: 0, max: 100,
+          onValue: (value) => context.editButton('radius', value, pindex, rindex, bindex) }),
+        quickPick({ label: gettext('button_text_size'), options: TEXT_SIZES, value: button.text_size != null ? Number(button.text_size) : undefined, min: 10, max: 80, emptyIs: null,
+          onValue: (value) => context.editButton('text_size', value, pindex, rindex, bindex) }),
         // The colors full width: open, their grid needs it
         colorPicker(context, 'btn:' + pindex + ':' + rindex + ':' + bindex + ':back', gettext('back_color'), button.back_color,
           (c) => context.editButton('back_color', c, pindex, rindex, bindex)),
@@ -764,9 +699,42 @@ const buildRowSummary = (row, page) => {
     miniButtons(row, MINI_SCALE, { x: miniPad(page, MINI_SCALE).x, y: 1 }));
 };
 
-// The rows' usual heights (% of the page), as buttons; another one in the
-// field beside them
+// A number as its usual values (buttons) plus a field for any other one:
+// row heights, button widths, radii, text sizes. The field takes "42,5" or
+// "42.5" (a % or "px" after it is fine) between min and max; anything else is
+// ignored. With `emptyIs` set, an empty field gives that value (Auto)
+const quickPick = ({ label, options, value, onValue, min, max, emptyIs, marginBottom = '0' }) => {
+  const chosen = options.some((o) => o.value === value) ? value : '__other__';
+  return View({ style: { marginBottom } }, [
+    fieldLabel(label),
+    View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
+      View({ style: { flex: 1 } }, [choice(options, chosen, onValue)]),
+      View({ style: { width: '72px', marginLeft: '8px' } }, [
+        TextInput({
+          bold: false,
+          value: value != null ? String(value) : '',
+          placeholder: emptyIs !== undefined || value == null ? 'auto' : '',
+          subStyle: { color: COLOR_BLACK, fontSize: '15px', textAlign: 'center' },
+          maxLength: 6,
+          onChange: (v) => {
+            const text = String(v).trim();
+            if (!text && emptyIs !== undefined) return onValue(emptyIs === null ? undefined : emptyIs);
+            const n = Math.round(parseFloat(text.replace(',', '.').replace(/%|px/i, '')) * 100) / 100;
+            if (n >= min && n <= max) onValue(n);
+          }
+        })
+      ])
+    ])
+  ]);
+};
+
+// The usual values: rows' heights (% of the page), buttons' widths (% of the
+// row), radii (px; 0 isn't one: the watch draws a 0 as 12) and text sizes (px;
+// Auto is the watch's own, 1/16 of the screen's width)
 const ROW_HEIGHTS = [{ name: '25%', value: 25 }, { name: '33%', value: 33.33 }, { name: '50%', value: 50 }, { name: '100%', value: 100 }];
+const BUTTON_WIDTHS = [{ name: '25%', value: 25 }, { name: '33%', value: 33.33 }, { name: '50%', value: 50 }, { name: '66%', value: 66.66 }, { name: '100%', value: 100 }];
+const BUTTON_RADII = [{ name: '12', value: 12 }, { name: '18', value: 18 }, { name: '24', value: 24 }, { name: '36', value: 36 }, { name: '50', value: 50 }];
+const TEXT_SIZES = [{ name: 'Auto', value: undefined }, { name: '24', value: 24 }, { name: '28', value: 28 }, { name: '32', value: 32 }, { name: '40', value: 40 }];
 
 // Where an item goes, as buttons (1, 2, …, the current one in the accent),
 // collapsed like the colors: moving is rare. One open at a time in the page
@@ -824,25 +792,8 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
     ...(page.rows.length > 1 ? [
       movePicker(context, 'row:' + pindex + ':' + rindex, gettext('row_position'), rindex, page.rows.length, (to) => context.moveRow(pindex, rindex, to))
     ] : []),
-    fieldLabel(gettext('row_height')),
-    View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '12px' } }, [
-      View({ style: { flex: 1 } }, [
-        choice(ROW_HEIGHTS, ROW_HEIGHTS.some((o) => o.value === h) ? h : undefined, (value) => context.editRow('h', value, pindex, rindex))
-      ]),
-      View({ style: { width: '72px', marginLeft: '8px' } }, [
-        TextInput({
-          bold: false,
-          value: String(row.h != null ? row.h : ''),
-          placeholder: '%',
-          subStyle: { color: COLOR_BLACK, fontSize: '15px', textAlign: 'center' },
-          maxLength: 6,
-          onChange: (v) => {
-            const n = Math.round(parseFloat(String(v).replace(',', '.').replace('%', '')) * 100) / 100;
-            if (n > 0 && n <= 100) context.editRow('h', n, pindex, rindex);
-          }
-        })
-      ])
-    ]),
+    quickPick({ label: gettext('row_height'), options: ROW_HEIGHTS, value: h, min: 0.01, max: 100, marginBottom: '12px',
+      onValue: (value) => context.editRow('h', value, pindex, rindex) }),
   ]);
 };
 
