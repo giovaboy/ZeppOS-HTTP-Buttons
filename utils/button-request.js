@@ -4,6 +4,7 @@
 // shortcut card opens (page/run.js): a page spreads requestMethods into its
 // BasePage definition and provides showResult(text, pageid, isError, style).
 import { digestRequest, basicRequest, bearerRequest } from './auth-request.js'
+import { getText } from '@zos/i18n'
 import { CUSTOM_TOAST, SHOW_IMAGE, PLAY_AUDIO, DEFAULT_REQUEST_TIMEOUT_MS, MIN_REQUEST_TIMEOUT_MS, MAX_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_RPC_MARGIN_MS, RESULT_TEXT_MAX } from './constants.js'
 import { devLog, infoLog, warnLog, LOG_TRACE } from './remote-log.js'
 import { memoryUsage, errorText, sizeText } from './memory.js'
@@ -599,7 +600,7 @@ export const requestMethods = {
           if (!resp || !resp.ok) {
             warnLog(`${run.tag}: image failed on the phone after ${Date.now() - run.t0}ms: ${(resp && resp.error) || 'no answer'}`)
             this.clearImageSpinner()
-            this.showResult((resp && resp.error) || 'Image error', pageid, true, CUSTOM_TOAST)
+            this.showResult((resp && resp.error) || getText('image_error'), pageid, true, CUSTOM_TOAST)
           } else {
             if (LOG_TRACE) devLog(`${run.tag}: phone has the image, ${Date.now() - run.t0}ms after the press`)
             // A file that never arrives must not hold the button (and its

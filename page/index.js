@@ -6,6 +6,7 @@ import { CUSTOM_TOAST } from '../utils/constants.js'
 import { requestMethods, parseJSON, configCounts, cachedSessions, clearSessionCache } from '../utils/button-request.js'
 import { readConfigCopy, writeConfigCopy, removeConfigCopy } from '../utils/config-copy.js'
 import { replace } from '@zos/router'
+import { getText } from '@zos/i18n'
 import { swipeToIndex, getSwiperIndex, SCROLL_ANIMATION_NONE } from '@zos/page'
 import { getDeviceInfo, SCREEN_SHAPE_ROUND } from '@zos/device'
 import { devLog, infoLog, warnLog, LOG_TRACE } from '../utils/remote-log.js'
@@ -236,7 +237,7 @@ Page(
           warnLog(`${tag}: image transfer ${state} after ${Date.now() - tIn}ms`)
           // A part left behind would only take room (zeppamp removes them too)
           try { if (file.filePath) rmSync({ path: file.filePath }) } catch (e) { /* not there */ }
-          layout.notifyResult('Image transfer failed', this.pendingImagePage || 0, true, CUSTOM_TOAST)
+          layout.notifyResult(getText('image_failed'), this.pendingImagePage || 0, true, CUSTOM_TOAST)
         } else if (LOG_TRACE) {
           devLog(`${tag}: transfer ${state} at ${Date.now() - tIn}ms`)
         }

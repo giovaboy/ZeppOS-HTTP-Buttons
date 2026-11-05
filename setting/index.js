@@ -175,8 +175,11 @@ const timeoutRange = () => {
   ];
 }
 
+// The names shown (translated: color_<name>, blanks as _)
 const colors = () => {
-  return [
+  return COLOR_LIST.map((c) => ({ name: gettext('color_' + c.name.replace(/ /g, '_')), value: c.value }));
+};
+const COLOR_LIST = [
     { name: 'black', value: COLOR_BLACK },
     { name: 'white', value: COLOR_WHITE },
     { name: 'gray', value: COLOR_GRAY },
@@ -223,8 +226,7 @@ const colors = () => {
     { name: 'light gray', value: COLOR_LIGHT_GRAY },
     { name: 'dark gray', value: COLOR_DARK_GRAY },
     { name: 'silver', value: COLOR_SILVER }
-  ];
-}
+];
 
 const responseStyles = () => [
   { name: gettext('system_toast'), value: SYSTEM_TOAST },
@@ -478,7 +480,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
       View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
         View({ style: { flex: 1 } }, [
           TextInput({
-            placeholder: gettext('buttonText'),
+            placeholder: gettext('button_text'),
             bold: false,
             value: button.spacer ? gettext('**SPACER**') : button.text || gettext('**NO TEXT**'),
             labelStyle: { fontSize: '12px', display: 'none' },
@@ -534,7 +536,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
       ...(button.spacer ? [] : [
         quickPick({ label: gettext('button_radius'), options: BUTTON_RADII, value: button.radius != null ? Number(button.radius) : undefined, min: 0, max: 100,
           onValue: (value) => context.editButton('radius', value, pindex, rindex, bindex) }),
-        quickPick({ label: gettext('button_text_size'), options: TEXT_SIZES, value: button.text_size != null ? Number(button.text_size) : undefined, min: 10, max: 80, emptyIs: null,
+        quickPick({ label: gettext('button_text_size'), options: textSizes(), value: button.text_size != null ? Number(button.text_size) : undefined, min: 10, max: 80, emptyIs: null,
           onValue: (value) => context.editButton('text_size', value, pindex, rindex, bindex) }),
         // The colors full width: open, their grid needs it
         colorPicker(context, 'btn:' + pindex + ':' + rindex + ':' + bindex + ':back', gettext('back_color'), button.back_color,
@@ -759,15 +761,15 @@ const quickPick = ({ label, options, value, onValue, min, max, emptyIs, marginBo
           bold: false,
           // No value: "Auto", as the lit button says (empty, the box shrank to
           // a line); typing "auto" or emptying it gives Auto back
-          value: value != null ? String(value) : (emptyIs !== undefined ? 'Auto' : ''),
-          placeholder: emptyIs !== undefined ? 'Auto' : '',
+          value: value != null ? String(value) : (emptyIs !== undefined ? gettext('auto') : ''),
+          placeholder: emptyIs !== undefined ? gettext('auto') : '',
           // A sunken white box (a border, a shadow inside at the top) against the
           // raised grey buttons beside it: it reads as a field to type in
           subStyle: { color: COLOR_BLACK, fontSize: '15px', textAlign: 'center', background: '#ffffff', border: '1px solid #b0b0b0', borderRadius: '8px', padding: '2px 4px', boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.25)' },
           maxLength: 6,
           onChange: (v) => {
             const text = String(v).trim();
-            if ((!text || /^auto$/i.test(text)) && emptyIs !== undefined) return onValue(emptyIs === null ? undefined : emptyIs);
+            if ((!text || /^auto$/i.test(text) || text.toLowerCase() === gettext('auto').toLowerCase()) && emptyIs !== undefined) return onValue(emptyIs === null ? undefined : emptyIs);
             const n = Math.round(parseFloat(text.replace(',', '.').replace(/%|px/i, '')) * 100) / 100;
             if (n >= min && n <= max) onValue(n);
           }
@@ -784,7 +786,7 @@ const quickPick = ({ label, options, value, onValue, min, max, emptyIs, marginBo
 const ROW_HEIGHTS = [{ name: '25%', value: 25 }, { name: '33%', value: 33.33 }, { name: '50%', value: 50 }, { name: '100%', value: 100 }];
 const BUTTON_WIDTHS = [{ name: '25%', value: 25 }, { name: '33%', value: 33.33 }, { name: '50%', value: 50 }, { name: '66%', value: 66.66 }, { name: '100%', value: 100 }];
 const BUTTON_RADII = [{ name: '12', value: 12 }, { name: '18', value: 18 }, { name: '24', value: 24 }, { name: '36', value: 36 }, { name: '50', value: 50 }];
-const TEXT_SIZES = [{ name: 'Auto', value: undefined }, { name: '24', value: 24 }, { name: '28', value: 28 }, { name: '32', value: 32 }, { name: '40', value: 40 }];
+const textSizes = () => [{ name: gettext('auto'), value: undefined }, { name: '24', value: 24 }, { name: '28', value: 28 }, { name: '32', value: 32 }, { name: '40', value: 40 }];
 
 // Where an item goes, as buttons (1, 2, …, the current one in the accent),
 // collapsed like the colors: moving is rare. One open at a time in the page

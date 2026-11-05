@@ -12,6 +12,7 @@ msgstr "Configuration error: the settings are not valid JSON. Please fix them in
 
 msgid "load_example"
 msgstr "Load example"
+
 msgid "no_pages"
 msgstr "No pages to show. Add one in the app on your phone."
 
@@ -35,3 +36,72 @@ msgstr "Open the app"
 
 msgid "run_no_image"
 msgstr "The picture didn't arrive."
+
+msgid "stop"
+msgstr "Stop"
+
+msgid "rec_title"
+msgstr "REC"
+
+msgid "rec_note"
+msgstr "Stop or select: send. Back: cancel"
+
+msgid "audio_no_recorder"
+msgstr "Recorder not available:"
+
+msgid "audio_start_failed"
+msgstr "Recording failed to start:"
+
+msgid "audio_not_started"
+msgstr "The recorder did not start"
+
+msgid "audio_nothing"
+msgstr "Nothing was recorded"
+
+msgid "audio_not_read"
+msgstr "Recording not read:"
+
+msgid "audio_send_failed"
+msgstr "Sending failed:"
+
+msgid "audio_part_failed"
+msgstr "Sending to the phone failed (part {i}/{n})"
+
+msgid "play_title"
+msgstr "Playing"
+
+msgid "play_loading"
+msgstr "Loading…"
+
+msgid "play_getting"
+msgstr "Getting the file from the phone"
+
+msgid "play_note"
+msgstr "Stop or select to end"
+
+msgid "play_no_file"
+msgstr "No audio file to play"
+
+msgid "play_no_player"
+msgstr "No player available"
+
+msgid "play_failed"
+msgstr "Player failed:"
+
+msgid "play_not_loaded"
+msgstr "The player did not load the file"
+
+msgid "play_format"
+msgstr "Audio format not supported"
+
+msgid "play_not_started"
+msgstr "Playback did not start"
+
+msgid "run_no_answer"
+msgstr "No answer from the phone"
+
+msgid "image_failed"
+msgstr "Image transfer failed"
+
+msgid "image_error"
+msgstr "Image error"

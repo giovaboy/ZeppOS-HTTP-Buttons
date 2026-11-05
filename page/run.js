@@ -205,7 +205,7 @@ Page(
     // (utils/progress-screen.js, as the player's: the empty bar; a swipe back
     // cancels, a tap does nothing)
     drawLoading() {
-      progressScreen({ title: '♪ ' + (this.buttonText || ''), value: 'Loading…', note: 'Getting the file from the phone' })
+      progressScreen({ title: '♪ ' + (this.buttonText || ''), value: getText('play_loading'), note: getText('play_getting') })
     },
 
     // The pressed button, with its colors, radius and text
@@ -451,7 +451,7 @@ Page(
             timeout, send_as: a.send_as, field: a.field,
           },
         }, { timeout: timeout + REQUEST_TIMEOUT_RPC_MARGIN_MS + 15000 }).then((r) => {
-          if (!r || r.error) throw new Error((r && r.error) || 'No answer from the phone')
+          if (!r || r.error) throw new Error((r && r.error) || getText('run_no_answer'))
           if (LOG_TRACE) devLog(`${tag}: the phone answered HTTP ${r.status} in ${Date.now() - t0}ms`)
           return r
         })

@@ -37,12 +37,6 @@ msgstr "Add Row"
 msgid "delete_row"
 msgstr "Delete Row"
 
-msgid "row_number"
-msgstr "Row Number"
-
-msgid "page"
-msgstr "Page:"
-
 msgid "row"
 msgstr "Row:"
 
@@ -73,17 +67,11 @@ msgstr "Button Text"
 msgid "delete_button"
 msgstr "Delete Button"
 
-msgid "move_to"
-msgstr "Move to -> "
-
 msgid "**NO TEXT**"
 msgstr "**NO TEXT**"
 
 msgid "is_spacer"
 msgstr "Spacer"
-
-msgid "insert_method"
-msgstr "Method: "
 
 msgid "insert_parse_result"
 msgstr "key or path, e.g. choices[0].message.content"
@@ -124,12 +112,6 @@ msgstr "Add Variable"
 msgid "edit_variable"
 msgstr "Rename"
 
-msgid "delete_variable"
-msgstr "Delete"
-
-msgid "rename_variable"
-msgstr "rename"
-
 msgid "auth"
 msgstr "Auth: "
 
@@ -138,15 +120,6 @@ msgstr "auth user"
 
 msgid "pass"
 msgstr "auth pass"
-
-msgid "yes"
-msgstr "Yes"
-
-msgid "no"
-msgstr "No"
-
-msgid "confirm_delete"
-msgstr "Delete "
 
 msgid "is_input"
 msgstr "Input"
@@ -207,12 +180,6 @@ msgstr "Corner spinner"
 
 msgid "loading_hint"
 msgstr "Shown on a button while its request runs. Taps on a busy button wait their turn (up to 10)."
-
-msgid "position"
-msgstr "Position: "
-
-msgid "move_title"
-msgstr "Move to…"
 
 msgid "json_no_pages"
 msgstr "Not saved: the config needs a \"pages\" list"
@@ -360,3 +327,123 @@ msgstr "The widths add up to {sum}%, more than the row's 100%: the watch makes t
 
 msgid "page_over_100"
 msgstr "The rows' heights add up to {sum}%, more than the page's 100%: the watch makes the {n} rows equal ({each}% each)."
+
+msgid "**SPACER**"
+msgstr "**SPACER**"
+
+msgid "auto"
+msgstr "Auto"
+
+msgid "color_black"
+msgstr "black"
+
+msgid "color_white"
+msgstr "white"
+
+msgid "color_gray"
+msgstr "gray"
+
+msgid "color_red"
+msgstr "red"
+
+msgid "color_dark_red"
+msgstr "dark red"
+
+msgid "color_crimson"
+msgstr "crimson"
+
+msgid "color_pink"
+msgstr "pink"
+
+msgid "color_hot_pink"
+msgstr "hot pink"
+
+msgid "color_orange"
+msgstr "orange"
+
+msgid "color_orange2"
+msgstr "orange 2"
+
+msgid "color_dark_orange"
+msgstr "dark orange"
+
+msgid "color_coral"
+msgstr "coral"
+
+msgid "color_tomato"
+msgstr "tomato"
+
+msgid "color_yellow"
+msgstr "yellow"
+
+msgid "color_gold"
+msgstr "gold"
+
+msgid "color_khaki"
+msgstr "khaki"
+
+msgid "color_green"
+msgstr "green"
+
+msgid "color_dark_green"
+msgstr "dark green"
+
+msgid "color_lime"
+msgstr "lime"
+
+msgid "color_olive"
+msgstr "olive"
+
+msgid "color_teal"
+msgstr "teal"
+
+msgid "color_mint"
+msgstr "mint"
+
+msgid "color_blue"
+msgstr "blue"
+
+msgid "color_navy"
+msgstr "navy"
+
+msgid "color_sky_blue"
+msgstr "sky blue"
+
+msgid "color_cyan"
+msgstr "cyan"
+
+msgid "color_turquoise"
+msgstr "turquoise"
+
+msgid "color_indigo"
+msgstr "indigo"
+
+msgid "color_violet"
+msgstr "violet"
+
+msgid "color_purple"
+msgstr "purple"
+
+msgid "color_magenta"
+msgstr "magenta"
+
+msgid "color_lavender"
+msgstr "lavender"
+
+msgid "color_brown"
+msgstr "brown"
+
+msgid "color_tan"
+msgstr "tan"
+
+msgid "color_beige"
+msgstr "beige"
+
+msgid "color_light_gray"
+msgstr "light gray"
+
+msgid "color_dark_gray"
+msgstr "dark gray"
+
+msgid "color_silver"
+msgstr "silver"

@@ -17,6 +17,7 @@
 // after a refused file, and its "sound wasn't playing after the first play"
 // fix): called only where the object has it, and logged.
 import { deleteWidget } from '@zos/ui'
+import { getText } from '@zos/i18n'
 import { create, id } from '@zos/media'
 import { statSync, openSync, readSync, closeSync, rmSync, O_RDONLY } from '@zos/fs'
 import { hexHead } from './base64.js'
@@ -127,14 +128,14 @@ export function playAudioFile(vm, path, opts = {}) {
   }
   if (!size) {
     warnLog(`${tag}: nothing to play at ${file}`)
-    return fail(run, 'No audio file to play')
+    return fail(run, getText('play_no_file'))
   }
 
   drawOverlay(run, label)
   const load = () => {
     if (run.done) return
     const p = getPlayer(run)
-    if (!p) return fail(run, 'No player available')
+    if (!p) return fail(run, getText('play_no_player'))
     try {
       const before = statusText(p)
       p.setSource(p.source.FILE, { file })
@@ -145,12 +146,12 @@ export function playAudioFile(vm, path, opts = {}) {
       p.prepare()
     } catch (e) {
       warnLog(`${tag}: setSource/prepare failed: ${errorText(e)}`)
-      return fail(run, 'Player failed: ' + errorText(e))
+      return fail(run, getText('play_failed') + ' ' + errorText(e))
     }
     run.timers.push(setTimeout(() => {
       if (run.prepared || run.done) return
       warnLog(`${tag}: no PREPARE event in ${PREPARE_WAIT_MS}ms (status ${statusText(p)})`)
-      fail(run, 'The player did not load the file')
+      fail(run, getText('play_not_loaded'))
     }, PREPARE_WAIT_MS))
   }
   // Right after stopping a file, the next one was refused (status 7 after
@@ -311,7 +312,7 @@ function listenPlayer(p) {
     const ms = Date.now() - r.t0
     if (!result) {
       warnLog(`${r.tag}: the player refused the file (PREPARE ${result}) after ${ms}ms: format or bitrate not supported?`)
-      setTimeout(() => fail(r, 'Audio format not supported'), 0)
+      setTimeout(() => fail(r, getText('play_format')), 0)
       return
     }
     try { r.duration = p.getDuration() || 0 } catch (e) { r.duration = 0 }
@@ -329,7 +330,7 @@ function listenPlayer(p) {
     if (!r || r.done) return
     r.tPlay = Date.now()
     infoLog(`${r.tag}: playing (PLAY ${result}) ${r.tPlay - r.t0}ms after the file was ready, ${r.duration}s long`)
-    if (result === false) setTimeout(() => fail(r, 'Playback did not start'), 0)
+    if (result === false) setTimeout(() => fail(r, getText('play_not_started')), 0)
     // A file asked while this one loaded: now, out of this event
     else if (pending) setTimeout(runPending, 0)
   })
@@ -418,10 +419,10 @@ function finish(run, why) {
 // tap elsewhere does nothing
 function drawOverlay(run, label) {
   const screen = run.screen = progressScreen({
-    title: '♪ ' + (label || 'Playing'),
-    value: 'Loading…',
-    note: 'Stop or select to end',
-    stop: 'Stop',
+    title: '♪ ' + (label || getText('play_title')),
+    value: getText('play_loading'),
+    note: getText('play_note'),
+    stop: getText('stop'),
     onStop: () => setTimeout(() => finish(run, 'tap'), 0),
   })
   run.widgets.push(...screen.widgets)

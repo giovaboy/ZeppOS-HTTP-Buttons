@@ -14,6 +14,7 @@
 // first bytes (is it an Ogg file?), each part's transfer time, memory. Never
 // the audio itself.
 import { deleteWidget } from '@zos/ui'
+import { getText } from '@zos/i18n'
 import { create, id, codec } from '@zos/media'
 import { statSync, readFileSync, rmSync } from '@zos/fs'
 import { bytesToBase64, hexHead } from './base64.js'
@@ -84,7 +85,7 @@ export function runAudioTest(vm, button, pageid, label, done, hooks = {}) {
   } catch (e) {
     warnLog(`${tag}: recorder not created: ${errorText(e)}`)
     // e.g. PERMISSION_DENIED device:os.mic without the app.json permission
-    return finish('Recorder not available:\n' + errorText(e), true)
+    return finish(getText('audio_no_recorder') + '\n' + errorText(e), true)
   }
   const start = () => {
     if (run.finished) return
@@ -94,7 +95,7 @@ export function runAudioTest(vm, button, pageid, label, done, hooks = {}) {
       devLog(`${tag}: start() called, status ${statusText(recorder)}`)
     } catch (e) {
       warnLog(`${tag}: recording failed to start: ${errorText(e)}`)
-      return finish('Recording failed to start:\n' + errorText(e), true)
+      return finish(getText('audio_start_failed') + '\n' + errorText(e), true)
     }
     // The stop at the limit, from the start (the START event resets it). A
     // 10 s test stopped at 14.4 s on the 200 ms ticks below while a file
@@ -215,7 +216,7 @@ function listenRecorder(r) {
     devLog(`${run.tag}: START event (result ${result}) ${run.tStart - run.t0}ms after the press, status ${statusText(r)}`)
     if (result === false) {
       warnLog(`${run.tag}: the recorder did not start (permission? microphone busy?)`)
-      return run.finish('The recorder did not start', true)
+      return run.finish(getText('audio_not_started'), true)
     }
     // The limit counts from here
     if (run.limitTimer && !run.stopped) {
@@ -259,7 +260,7 @@ function stopRecording(run, why) {
     // Sending: no more REC (nor its dot); the bar stays where it got
     run.screen.stopBlink(false)
     run.screen.setTitle('')
-    run.screen.setValue('Sending…')
+    run.screen.setValue(getText('run_sending'))
     run.screen.setNote('')
     run.screen.setStop('')
   }
@@ -317,14 +318,14 @@ function readRecording(run, why) {
     const st = statSync({ path: AUDIO_FILE })
     if (!st || !st.size) {
       warnLog(`${tag}: no recording on file (${why}): ${st ? 'empty' : 'no file'}`)
-      return run.finish('Nothing was recorded', true)
+      return run.finish(getText('audio_nothing'), true)
     }
     const buf = readFileSync({ path: AUDIO_FILE })
     if (!buf) throw new Error('file not read')
     bytes = new Uint8Array(buf)
   } catch (e) {
     warnLog(`${tag}: recording not read: ${errorText(e)}`)
-    return run.finish('Recording not read:\n' + errorText(e), true)
+    return run.finish(getText('audio_not_read') + '\n' + errorText(e), true)
   }
   const recS = (run.recMs || 0) / 1000
   const ogg = bytes.length >= 4 && bytes[0] === 0x4f && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53
@@ -339,7 +340,7 @@ function readRecording(run, why) {
       `${f.stereo ? ', stereo' : ', mono'}; ${f.parsed === f.total ? 'the whole file reads so' : `breaks at byte ${f.parsed} of ${f.total}`}`)
   }
   if (run.onRecorded) {
-    try { run.onRecorded(bytes, run) } catch (e) { run.finish('Sending failed:\n' + errorText(e), true) }
+    try { run.onRecorded(bytes, run) } catch (e) { run.finish(getText('audio_send_failed') + '\n' + errorText(e), true) }
     return
   }
   sendParts(run, bytes)
@@ -399,7 +400,7 @@ function sendParts(run, bytes) {
       })
       .catch((e) => {
         warnLog(`${tag}: part ${i + 1}/${n} failed after ${Date.now() - tPart}ms: ${errorText(e)}`)
-        run.finish(`Sending to the phone failed (part ${i + 1}/${n})`, true)
+        run.finish(getText('audio_part_failed').replace('{i}', String(i + 1)).replace('{n}', String(n)), true)
       })
   }
   devLog(`${tag}: sending ${sizeText(total)} in ${n} parts`)
@@ -452,11 +453,11 @@ function resultText(run, total, sendMs, r) {
 // the select key, page/run) stops and sends: a tap elsewhere does nothing
 function drawOverlay(run, seconds, onStop) {
   const screen = run.screen = progressScreen({
-    title: 'REC',
+    title: getText('rec_title'),
     dot: true,
     value: `0.0 / ${seconds} s`,
-    note: 'Stop or select: send. Back: cancel',
-    stop: 'Stop',
+    note: getText('rec_note'),
+    stop: getText('stop'),
     onStop,
   })
   run.widgets.push(...screen.widgets)
