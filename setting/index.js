@@ -718,9 +718,9 @@ const quickPick = ({ label, options, value, onValue, min, max, emptyIs, marginBo
           // a line); typing "auto" or emptying it gives Auto back
           value: value != null ? String(value) : (emptyIs !== undefined ? 'Auto' : ''),
           placeholder: emptyIs !== undefined ? 'Auto' : '',
-          // A grey box with a border, so it reads as a field to type in (on the
-          // white button cards and the light grey row cards alike)
-          subStyle: { color: COLOR_BLACK, fontSize: '15px', textAlign: 'center', background: '#e2e2e2', border: '1px solid #c4c4c4', borderRadius: '8px', padding: '2px 4px' },
+          // A sunken white box (a border, a shadow inside at the top) against the
+          // raised grey buttons beside it: it reads as a field to type in
+          subStyle: { color: COLOR_BLACK, fontSize: '15px', textAlign: 'center', background: '#ffffff', border: '1px solid #b0b0b0', borderRadius: '8px', padding: '2px 4px', boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.25)' },
           maxLength: 6,
           onChange: (v) => {
             const text = String(v).trim();
