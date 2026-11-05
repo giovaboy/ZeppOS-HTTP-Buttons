@@ -818,6 +818,9 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
       deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
       chevron
     ]),
+    ...(page.rows.length > 1 ? [
+      movePicker(context, 'row:' + pindex + ':' + rindex, gettext('row_position'), rindex, page.rows.length, (to) => context.moveRow(pindex, rindex, to))
+    ] : []),
     fieldLabel(gettext('row_height')),
     View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
       View({ style: { flex: 1 } }, [
@@ -837,9 +840,6 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
         })
       ])
     ]),
-    ...(page.rows.length > 1 ? [
-      movePicker(context, 'row:' + pindex + ':' + rindex, gettext('row_position'), rindex, page.rows.length, (to) => context.moveRow(pindex, rindex, to))
-    ] : [])
   ]);
 };
 
