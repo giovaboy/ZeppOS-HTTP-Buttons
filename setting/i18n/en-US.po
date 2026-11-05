@@ -312,3 +312,12 @@ msgstr "Row"
 
 msgid "row_height"
 msgstr "Height (% of the page)"
+
+msgid "row_position"
+msgstr "Row position: "
+
+msgid "page_position"
+msgstr "Page position: "
+
+msgid "button_position"
+msgstr "Button position: "

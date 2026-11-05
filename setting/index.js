@@ -151,18 +151,6 @@ const wRange = (options = {}) => {
   return arr;
 }
 
-function indexRange(index, limit) {
-  let arr = [];
-  for (let i = 0; i <= limit; i++) {
-    if (i !== index) {
-      arr.push({
-        name: gettext('move_to') + (i + 1).toString(),
-        value: i
-      })
-    }
-  }
-  return arr;
-}
 
 const tSizeRange = () => {
   let arr = [{ name: 'default', value: undefined }];
@@ -504,15 +492,11 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
       ] : [
       ...jsonOnlyNote(button),
       // ---- open: every field ----
-      // Position in the row, on its own line: beside the preview it slid under
-      // the delete × (seen on the phone), and with no title it read as an
-      // empty field. Its title says where the button is.
+      // Position in the row, on its own line, as buttons folded like the
+      // colours (as rows and pages): "Button position: 2 / 3"
       ...(buttonsInRow > 1 ? [
-        Select({
-          title: gettext('position') + (bindex + 1) + '/' + buttonsInRow,
-          options: indexRange(bindex, buttonsInRow - 1),
-          onChange: (value) => { if (value < 999) { context.moveButton(pindex, rindex, bindex, value); } }
-        })
+        movePicker(context, 'btn:' + pindex + ':' + rindex + ':' + bindex, gettext('button_position'), bindex, buttonsInRow,
+          (to) => context.moveButton(pindex, rindex, bindex, to))
       ] : []),
       // Spacer toggle + width on one line (so the spacer switch isn't full-width).
       View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
@@ -781,13 +765,14 @@ const ROW_HEIGHTS = [{ name: '25%', value: 25 }, { name: '33%', value: 33.33 }, 
 
 // Where an item goes, as buttons (1, 2, …, the current one in the accent),
 // collapsed like the colors: moving is rare. One open at a time in the page
-// (ui_move_open holds its id), closed by any reordering. `onMove(to)`, 0-based
+// (ui_move_open holds its id), closed by any reordering. `label` says what
+// moves ("Row position: "); `onMove(to)`, 0-based. For pages, rows, buttons
 const MOVE_OPEN_KEY = 'ui_move_open';
-const movePicker = (context, id, index, count, onMove) => {
+const movePicker = (context, id, label, index, count, onMove) => {
   const storage = context.state.props.settingsStorage;
   const open = storage.getItem(MOVE_OPEN_KEY) === id;
   const header = View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '8px' } }, [
-    Text({ style: { flex: 1, fontSize: '15px' } }, [gettext('position') + (index + 1) + ' / ' + count]),
+    Text({ style: { flex: 1, fontSize: '15px' } }, [label + (index + 1) + ' / ' + count]),
     Button({
       label: open ? '▾' : '◂',
       style: { fontSize: '16px', fontWeight: '700', minWidth: '30px', width: '30px', height: '30px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
@@ -853,7 +838,7 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
       ])
     ]),
     ...(page.rows.length > 1 ? [
-      movePicker(context, 'row:' + pindex + ':' + rindex, rindex, page.rows.length, (to) => context.moveRow(pindex, rindex, to))
+      movePicker(context, 'row:' + pindex + ':' + rindex, gettext('row_position'), rindex, page.rows.length, (to) => context.moveRow(pindex, rindex, to))
     ] : [])
   ]);
 };
@@ -939,22 +924,15 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount, screen) => {
               if (t.length <= 200) context.editPage('title', t, pindex);
             }
           }),
-          ...(pageCount > 1 ? [
-            Select({
-              title: gettext('move_title'),
-              value: undefined,
-              options: indexRange(pindex, pageCount - 1),
-              onChange: (value) => {
-                if (value < 999) {
-                  context.movePage(pindex, value);
-                }
-              }
-            })
-          ] : [])
         ]),
         deleteX(context, 'page:' + pindex, { marginLeft: '4px' }),
         chevron
       ]),
+      // Position among the pages, as buttons folded like the colours (as rows
+      // and buttons): "Page position: 2 / 3"
+      ...(pageCount > 1 ? [
+        movePicker(context, 'page:' + pindex, gettext('page_position'), pindex, pageCount, (to) => context.movePage(pindex, to))
+      ] : []),
       // Editing controls, only when the page is expanded: page colors. (Add Row
       // lives at the bottom of the row list, like Add Page after the pages.)
       ...(pageOpen ? [
