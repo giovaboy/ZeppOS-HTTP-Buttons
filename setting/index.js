@@ -401,6 +401,11 @@ const quoted = (name) => name ? ' "' + name + '"' : '';
 // each control in a fixed-height, vertically-centred cell and they line up on a
 // grid. Tune FIELD_MIN_H if the grid looks too airy or too tight.
 const FIELD_MIN_H = '64px';
+// The three "Add" buttons, one colour each, so they are told apart at a glance
+// (page, row, button nest in that order)
+const ADD_PAGE_COLOR = '#409EFF';
+const ADD_ROW_COLOR = '#2e8b57';
+const ADD_BUTTON_COLOR = '#d97706';
 const fieldCell = (child) => View({ style: { minHeight: FIELD_MIN_H, display: 'flex', flexDirection: 'column', justifyContent: 'center' } }, [child]);
 const fieldCol = (children) => View({ style: { flex: 1 } }, children.map(fieldCell));
 
@@ -803,10 +808,8 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
   if (!rowOpen) {
     return View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', paddingTop: '6px' } }, [
       View({ style: { flex: 1, minWidth: 0 } }, [buildRowSummary(row, page)]),
-      View({ style: { display: 'flex', flexDirection: 'column', alignItems: 'center' } }, [
-        deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
-        View({ style: { marginTop: '6px' } }, [chevron])
-      ])
+      deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
+      chevron
     ]);
   }
   const h = Number(row.h);
@@ -822,7 +825,7 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
       movePicker(context, 'row:' + pindex + ':' + rindex, gettext('row_position'), rindex, page.rows.length, (to) => context.moveRow(pindex, rindex, to))
     ] : []),
     fieldLabel(gettext('row_height')),
-    View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
+    View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginBottom: '12px' } }, [
       View({ style: { flex: 1 } }, [
         choice(ROW_HEIGHTS, ROW_HEIGHTS.some((o) => o.value === h) ? h : undefined, (value) => context.editRow('h', value, pindex, rindex))
       ]),
@@ -882,11 +885,11 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount, screen) => {
   // delete and the chevron beside it; the title field, Move to… and the
   // colors are for the open page
   if (!pageOpen) {
-    return View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
+    return View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'flex-start' } }, [
       View({ style: { flex: 1 } }, [buildPageSummary(page, screen)]),
-      View({ style: { display: 'flex', flexDirection: 'column', alignItems: 'center' } }, [
+      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', paddingTop: '6px' } }, [
         deleteX(context, 'page:' + pindex, { marginLeft: '4px' }),
-        View({ style: { marginTop: '8px' } }, [chevron])
+        chevron
       ])
     ]);
   }
@@ -916,7 +919,8 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount, screen) => {
               // != null, NOT ||: black is 0 (falsy), so `back_color || WHITE`
               // would turn a black background white.
               color: toColor(page.text_color != null ? page.text_color : COLOR_BLACK),
-              background: toColor(page.back_color != null ? page.back_color : COLOR_WHITE)
+              background: toColor(page.back_color != null ? page.back_color : COLOR_WHITE),
+              borderRadius: '10px'
             },
             maxLength: 200,
             onChange: (title) => {
@@ -1260,7 +1264,7 @@ AppSettingsPage({
     // "Add Page" button (kept as text, not a "+", because tapping it opens a
     // dialog to type the new page's title). Blue pill at the bottom of the
     // page-picker card.
-    const addPageBTN = View({ style: { fontSize: '13px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background: '#409EFF', color: 'white', textAlign: 'center', padding: '0 20px' }}, [
+    const addPageBTN = View({ style: { fontSize: '13px', fontWeight: '500', lineHeight: '35px', borderRadius: '30px', background: ADD_PAGE_COLOR, color: 'white', textAlign: 'center', padding: '0 20px' }}, [
       TextInput({
         label: gettext('add_page'),
         labelStyle: { fontWeight: '500', textAlign: 'center' },
@@ -1549,7 +1553,7 @@ AppSettingsPage({
                 View({ style: { display: 'flex', justifyContent: 'center', margin: '4px 0 2px' }}, [
                   Button({
                     label: gettext('add_button'),
-                    style: { fontSize: '13px', fontWeight: '500', borderRadius: '30px', background: '#ababab', color: 'white', padding: '4px 22px' },
+                    style: { fontSize: '13px', fontWeight: '500', borderRadius: '30px', background: ADD_BUTTON_COLOR, color: 'white', padding: '4px 22px' },
                     onClick: () => this.addButton(pindex, rindex)
                   })
                 ])
@@ -1564,7 +1568,7 @@ AppSettingsPage({
             View({ style: { display: 'flex', justifyContent: 'center', margin: '8px 0 2px' }}, [
               Button({
                 label: gettext('add_row'),
-                style: { fontSize: '13px', fontWeight: '500', borderRadius: '30px', background: '#ababab', color: 'white', padding: '4px 22px' },
+                style: { fontSize: '13px', fontWeight: '500', borderRadius: '30px', background: ADD_ROW_COLOR, color: 'white', padding: '4px 22px' },
                 onClick: () => this.addRow(pindex)
               })
             ])
