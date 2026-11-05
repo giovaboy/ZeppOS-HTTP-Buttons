@@ -862,10 +862,10 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
   }
   const h = Number(row.h);
   return View({}, [
-    // The row's title bar: across the top of the row's container (its negative
-    // margins cancel the container's padding), darker, a line under it
-    View({ style: { margin: '0 -6px 6px', padding: '6px 8px', borderBottom: '1px solid #c9c9c9', display: 'flex', flexDirection: 'row', alignItems: 'center', background: '#dcdcdc' } }, [
-      Text({ bold: true, style: { flex: 1, fontSize: '18px', paddingLeft: '4px' } }, [gettext('row_title') + ' ' + (rindex + 1)]),
+    // The row's title bar: on the row's own grey, lined up with what follows
+    // (the × and chevron where a collapsed row has them), no line under it
+    View({ style: { paddingTop: '6px', marginBottom: '6px', display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
+      Text({ bold: true, style: { flex: 1, fontSize: '18px', paddingLeft: '2px' } }, [gettext('row_title') + ' ' + (rindex + 1)]),
       ...(over ? [overIcon()] : []),
       deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
       chevron
