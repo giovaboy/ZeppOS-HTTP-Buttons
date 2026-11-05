@@ -777,11 +777,17 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
     style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
     onClick: () => context.state.props.settingsStorage.setItem('ui_row_' + pindex + '_' + rindex, rowOpen ? 'false' : 'true')
   });
+  // Delete's question right under the × (open: under the row's bar, before
+  // the position and the height), as for pages and buttons
+  const confirm = confirmBar(context, 'row:' + pindex + ':' + rindex, gettext('delete_row') + ' ' + (rindex + 1) + '?', gettext('delete_action'), () => context.deleteRow(pindex, rindex));
   if (!rowOpen) {
-    return View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', paddingTop: '6px' } }, [
-      View({ style: { flex: 1, minWidth: 0 } }, [buildRowSummary(row, page)]),
-      deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
-      chevron
+    return View({}, [
+      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', paddingTop: '6px' } }, [
+        View({ style: { flex: 1, minWidth: 0 } }, [buildRowSummary(row, page)]),
+        deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
+        chevron
+      ]),
+      ...confirm
     ]);
   }
   const h = Number(row.h);
@@ -793,6 +799,7 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
       deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
       chevron
     ]),
+    ...confirm,
     ...(page.rows.length > 1 ? [
       movePicker(context, 'row:' + pindex + ':' + rindex, gettext('row_position'), rindex, page.rows.length, (to) => context.moveRow(pindex, rindex, to))
     ] : []),
@@ -1495,8 +1502,7 @@ AppSettingsPage({
             // a one-line summary of the button names. UI-only key, default closed.
             const rowOpen = this.state.props.settingsStorage.getItem('ui_row_' + pindex + '_' + rindex) === 'true';
             const rowChildren = [
-              buildRowView(row, page, pindex, rindex, this, rowOpen),
-              ...confirmBar(this, 'row:' + pindex + ':' + rindex, gettext('delete_row') + ' ' + (rindex + 1) + '?', gettext('delete_action'), () => this.deleteRow(pindex, rindex))
+              buildRowView(row, page, pindex, rindex, this, rowOpen)
             ];
             if (rowOpen) {
               for (let [bindex, button] of row.buttons.entries()) {
