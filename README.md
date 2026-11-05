@@ -154,7 +154,7 @@ One request runs at a time per button: tapping a button that is still busy queue
 
 Up to 6 buttons can also sit on the app's **shortcut card**, among the cards beside the watch face. In the settings, open a button and switch on **Show on the watch card**; a collapsed button card then says "on card". Add the card from the watch's list of cards (it is called HTTP-Buttons).
 
-A tap on a button of the card shows it, runs it like the app does (variables, authentication, sessions, polling, the typed text of an input button) and shows the result for a moment, then goes back to the card by itself; a tap goes back at once. An image button shows its picture full screen until a tap (at most 30 s). The card draws itself from the copy of the config the watch keeps, so open the app once after installing it. In the JSON, a card button has `"card": true`. An input button on the card needs the system keyboard (API_LEVEL 4.0 watches); on older ones the card says to open the app. In test mode the card shows six buttons of the test suite.
+A tap on a button of the card shows it, runs it like the app does (variables, authentication, sessions, polling, the typed text of an input button) and shows the result for a moment, then goes back to the card by itself; a tap goes back at once. An image button shows its picture full screen until a tap (at most 30 s). The card draws itself from the copy of the config the watch keeps, so open the app once after installing it. In the JSON, a card button has `"card": true`. An input button on the card asks for its text with the system keyboard (API_LEVEL 4.0 watches) or the app's own keyboard (older ones). An audio button records or plays on its own screen, as in the app. In test mode the card shows six buttons of the test suite.
 
 ### Image Display
 
@@ -326,7 +326,7 @@ Server-side, any backend or automation platform can implement the matching pair:
 
 ## Compatibility
 
-Works with ZeppOS 3.0+ devices (input buttons use the system keyboard on API_LEVEL 4.0 watches and the app's own keyboard on older ones; on the card they need API_LEVEL 4.0; audio buttons need a microphone to record and a speaker to play), including:
+Works with ZeppOS 3.0+ devices (input buttons use the system keyboard on API_LEVEL 4.0 watches and the app's own keyboard on older ones, in the app and on the card; audio buttons need a microphone to record and a speaker to play), including:
 - Amazfit GTR/GTS series
 - Amazfit Balance, Cheetah, T-Rex Ultra
 - And other ZeppOS compatible watches
