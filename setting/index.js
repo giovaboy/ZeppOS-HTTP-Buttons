@@ -299,20 +299,37 @@ const fieldLabel = (text) => Text({ align: 'left', paragraph: true, style: { fon
 // a screenshot; confirming the dots unchanged keeps the value, typing replaces
 // it. A variable reference ("{ring_token}") isn't a secret and shows as is.
 const EMPTY_FIELD = '—';
-const textField = (label, value, placeholderKey, max, oldMarker, onValue, { secret = false } = {}) => {
+// A URL one query parameter a line, for reading: the address, then "?a=1",
+// "&b=2"… joinUrlLines puts it back together (a URL has no line breaks of its
+// own, so every break, and the blanks around it, goes).
+const urlLines = (url) => {
+  const s = String(url || '');
+  const q = s.indexOf('?');
+  if (q < 0) return s;
+  return s.slice(0, q) + '\n?' + s.slice(q + 1).split('&').join('\n&');
+};
+const joinUrlLines = (v) => String(v == null ? '' : v).replace(/[ \t]*\r?\n[ \t]*/g, '');
+// `url`: shown one line per query parameter (urlLines), a line too long cut
+// by the field's own ellipsis rather than wrapped; the breaks go on save
+const textField = (label, value, placeholderKey, max, oldMarker, onValue, { secret = false, url = false } = {}) => {
   const current = unmark(value, EMPTY_FIELD, oldMarker);
   const masked = secret && current && current.indexOf('{') === -1 ? '•'.repeat(Math.min(current.length, 10)) : null;
+  const shown = url && current ? urlLines(current) : current;
   return View({ style: { marginTop: '2px', marginBottom: '6px' } }, [
     fieldLabel(label),
     TextInput({
       bold: false,
-      value: masked || current || EMPTY_FIELD,
+      value: masked || shown || EMPTY_FIELD,
       placeholder: gettext(placeholderKey),
-      subStyle: { color: current ? COLOR_BLACK : '#999', fontSize: '14px', wordBreak: 'break-all' },
-      maxLength: max,
+      subStyle: url && current
+        ? { color: COLOR_BLACK, fontSize: '14px', display: 'block', whiteSpace: 'pre', overflow: 'hidden', textOverflow: 'ellipsis' }
+        : { color: current ? COLOR_BLACK : '#999', fontSize: '14px', wordBreak: 'break-all' },
+      ...(url ? { multiline: true, rows: 4 } : {}),
+      // The line breaks count in the dialog, not in what is saved
+      maxLength: url ? max + 40 : max,
       onChange: (v) => {
         if (masked && v === masked) return;
-        const clean = unmark(v, EMPTY_FIELD, oldMarker);
+        const clean = unmark(url ? joinUrlLines(v) : v, EMPTY_FIELD, oldMarker);
         if (clean.length <= max) onValue(clean);
       }
     })
@@ -491,7 +508,7 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
       ...(button.spacer ? [] : [
         View({ style: { display: 'flex', flexDirection: 'column', borderTop: '1px solid #d5d5d5', marginTop: '8px', paddingTop: '2px' } }, [
           textField(gettext('field_url'), button.request.url, 'insert_url', 200, '**URL**',
-            (v) => context.editButton('url', v.trim() || null, pindex, rindex, bindex)),
+            (v) => context.editButton('url', v.trim() || null, pindex, rindex, bindex), { url: true }),
           // Method and timeout as buttons, folded like the colours (one line
           // each, closed): the method rarely changes, the timeout is for few
           foldedChoice(context, 'btn:' + pindex + ':' + rindex + ':' + bindex + ':method', gettext('method_title'), HTTP_METHODS,
