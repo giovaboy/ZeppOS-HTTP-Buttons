@@ -15,7 +15,9 @@ import { readConfigCopy } from '../utils/config-copy.js'
 import { cardButtons, runParams } from '../utils/card.js'
 import { BTN_RADIUS, COLOR_GRAY, COLOR_WHITE, btnPressColor } from '../utils/constants.js'
 
-const M = px(12)          // inside the card
+// Between the card's edge and its content, on every side: 16 px (design
+// guide, "Cards": 16 px between a card and the content around it)
+const M = px(16)
 const BTN_H = px(76)
 const GAP = px(10)
 const HINT_H = px(96)
