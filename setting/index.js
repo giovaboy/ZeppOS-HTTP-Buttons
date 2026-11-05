@@ -54,6 +54,25 @@ const unmark = (value, ...markers) => {
   return markers.some((m) => v === m || v === gettext(m)) ? '' : v;
 }
 
+// Every opening of the settings starts folded: the first build of this page
+// (the module is loaded anew each time the settings are opened) forgets what
+// was open last time (pages, rows, buttons, variables, the JSON, a pick or a
+// question left open). Each removal builds the page again: the flag is down
+// before the first one, so those builds don't start over.
+let firstBuild = true;
+const UI_SINGLE_KEYS = ['ui_vars_open', 'ui_json_open', 'ui_color_open', 'ui_move_open', 'ui_pick_open', 'ui_confirm', 'ui_notice'];
+function forgetOpenState(storage, pages) {
+  const keys = [...UI_SINGLE_KEYS];
+  (pages || []).forEach((page, p) => {
+    keys.push('ui_page_' + p);
+    ((page && page.rows) || []).forEach((row, r) => {
+      keys.push('ui_row_' + p + '_' + r);
+      ((row && row.buttons) || []).forEach((b, i) => keys.push('ui_btn_' + p + '_' + r + '_' + i));
+    });
+  });
+  keys.forEach((k) => { if (storage.getItem(k) != null) storage.removeItem(k); });
+}
+
 // The open pages, rows and buttons (keys ui_page_<p> / ui_row_<p>_<r> /
 // ui_btn_<p>_<r>_<b> = 'true', by position). When pages or rows are deleted or moved, their state moves with
 // them: by position alone the next page inherited a deleted page's state, and
@@ -1298,6 +1317,10 @@ AppSettingsPage({
 
   build(props) {
     this.setState(props)
+    if (firstBuild) {
+      firstBuild = false;
+      forgetOpenState(props.settingsStorage, this.state.data && this.state.data.pages);
+    }
 
     const contentItems = []
     const contentVariables = []
