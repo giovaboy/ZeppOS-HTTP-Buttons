@@ -715,7 +715,9 @@ const quickPick = ({ label, options, value, onValue, min, max, emptyIs, marginBo
           bold: false,
           value: value != null ? String(value) : '',
           placeholder: emptyIs !== undefined || value == null ? 'auto' : '',
-          subStyle: { color: COLOR_BLACK, fontSize: '15px', textAlign: 'center' },
+          // A grey box with a border, so it reads as a field to type in (on the
+          // white button cards and the light grey row cards alike)
+          subStyle: { color: COLOR_BLACK, fontSize: '15px', textAlign: 'center', background: '#e2e2e2', border: '1px solid #c4c4c4', borderRadius: '8px', padding: '2px 4px' },
           maxLength: 6,
           onChange: (v) => {
             const text = String(v).trim();
