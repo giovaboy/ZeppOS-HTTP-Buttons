@@ -705,11 +705,12 @@ const buildRowSummary = (row, page) => {
 // ignored. With `emptyIs` set, an empty field gives that value (Auto)
 const quickPick = ({ label, options, value, onValue, min, max, emptyIs, marginBottom = '0' }) => {
   const chosen = options.some((o) => o.value === value) ? value : '__other__';
+  // The field on the label's line, at its right: beside the buttons it was
+  // squeezed to one digit a line (five buttons fill a phone's width)
   return View({ style: { marginBottom } }, [
-    fieldLabel(label),
-    View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
-      View({ style: { flex: 1 } }, [choice(options, chosen, onValue)]),
-      View({ style: { width: '72px', marginLeft: '8px' } }, [
+    View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'flex-end' } }, [
+      View({ style: { flex: 1, minWidth: 0 } }, [fieldLabel(label)]),
+      View({ style: { width: '84px', minWidth: '84px', flexShrink: 0, marginLeft: '8px' } }, [
         TextInput({
           bold: false,
           value: value != null ? String(value) : '',
@@ -724,7 +725,8 @@ const quickPick = ({ label, options, value, onValue, min, max, emptyIs, marginBo
           }
         })
       ])
-    ])
+    ]),
+    choice(options, chosen, onValue)
   ]);
 };
 
