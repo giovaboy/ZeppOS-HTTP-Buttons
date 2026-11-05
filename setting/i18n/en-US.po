@@ -333,3 +333,12 @@ msgstr "Corner radius (px)"
 
 msgid "button_text_size"
 msgstr "Text size (px; Auto: the watch's)"
+
+msgid "method_title"
+msgstr "Method"
+
+msgid "timeout_button_hint"
+msgstr "Default: the request timeout set for all buttons (below the pages). The phone drops a request after about 10 s of silence from the server, whatever is set: a longer timeout helps only with servers that keep sending while they work."
+
+msgid "parse_result_hint"
+msgstr "What to show of a JSON answer. Empty: all of it. A name (e.g. text) finds that key anywhere in the answer. A path picks exactly: data.items[0].name (the first), items[-1] (the last), items[*].name (every one), items[?type==done].name (those whose type is done). Nothing found: the whole answer. Not used by Show image and Play audio."

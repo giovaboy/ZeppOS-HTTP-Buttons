@@ -492,45 +492,21 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
         View({ style: { display: 'flex', flexDirection: 'column', borderTop: '1px solid #d5d5d5', marginTop: '8px', paddingTop: '2px' } }, [
           textField(gettext('field_url'), button.request.url, 'insert_url', 200, '**URL**',
             (v) => context.editButton('url', v.trim() || null, pindex, rindex, bindex)),
-          View({ style: { display: 'flex', flexDirection: 'row', marginTop: '4px' } }, [
-            View({ style: { flex: 1 } }, [
-              Select({
-                title: gettext('insert_method') + (button.request.method || '--'),
-                options: [
-                  { name: 'GET', value: 'GET' },
-                  { name: 'POST', value: 'POST' },
-                  { name: 'PUT', value: 'PUT' },
-                  { name: 'HEAD', value: 'HEAD' },
-                  { name: 'DELETE', value: 'DELETE' },
-                  { name: 'PATCH', value: 'PATCH' },
-                  { name: 'OPTIONS', value: 'OPTIONS' },
-                  { name: 'CONNECT', value: 'CONNECT' }
-                ],
-                onChange: (value) => context.editButton('method', value, pindex, rindex, bindex)
-              })
-            ]),
-            View({ style: { flex: 1, marginLeft: '8px' } }, [
-              Select({
-                title: gettext('timeout') + ': ' + (button.request.timeout ? timeoutLabel(button.request.timeout) : gettext('timeout_default')),
-                value: button.request.timeout,
-                options: timeoutRange(),
-                onChange: (value) => context.editButton('timeout', value, pindex, rindex, bindex)
-              })
-            ])
-          ]),
+          // Method and timeout as buttons, folded like the colours (one line
+          // each, closed): the method rarely changes, the timeout is for few
+          foldedChoice(context, 'btn:' + pindex + ':' + rindex + ':' + bindex + ':method', gettext('method_title'), HTTP_METHODS,
+            String(button.request.method || 'GET').trim().toUpperCase(),
+            (value) => context.editButton('method', value, pindex, rindex, bindex), 4),
+          foldedChoice(context, 'btn:' + pindex + ':' + rindex + ':' + bindex + ':timeout', gettext('timeout'), timeoutRange(), button.request.timeout || undefined,
+            (value) => context.editButton('timeout', value, pindex, rindex, bindex), 4,
+            { other: button.request.timeout ? timeoutLabel(button.request.timeout) : '', note: gettext('timeout_button_hint') }),
           ...buildAuthFields(button, pindex, rindex, bindex, context),
           textField(gettext('field_headers'), button.request.headers, 'insert_headers', 200, '**HEADERS**',
             (v) => context.editButton('headers', v, pindex, rindex, bindex)),
           textField(gettext('field_body'), button.request.body, 'insert_body', 200, '**BODY**',
             (v) => context.editButton('body', v, pindex, rindex, bindex)),
-          textField(gettext('field_parse_result'), button.request.parse_result, 'insert_parse_result', 200, '**parse_result**',
-            (v) => context.editButton('parse_result', v, pindex, rindex, bindex)),
-          ...buildAudioFields(button, pindex, rindex, bindex, context),
-          // No style set: the watch shows a system toast
-          fieldLabel(gettext('response_style')),
-          choice(responseStyles(), responseStyleValue(button.request.response_style),
-            (value) => context.editButton('response_style', value, pindex, rindex, bindex), 3),
-          // Input: the switch, and beside it the keyboard when it's on
+          // What the press asks first: a text (Input, with its keyboard), a
+          // recording; then how the answer shows, and what part of it
           View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '6px' } }, [
             View({ style: { flex: 1 } }, [
               Toggle({
@@ -546,6 +522,14 @@ const buildButtonView = (button, pindex, rindex, bindex, context) => {
                 (value) => context.editButton('keyboard_type', value, pindex, rindex, bindex))
             ] : [])
           ]),
+          ...buildAudioFields(button, pindex, rindex, bindex, context),
+          // No style set: the watch shows a system toast
+          fieldLabel(gettext('response_style')),
+          choice(responseStyles(), responseStyleValue(button.request.response_style),
+            (value) => context.editButton('response_style', value, pindex, rindex, bindex), 3),
+          textField(gettext('field_parse_result'), button.request.parse_result, 'insert_parse_result', 200, '**parse_result**',
+            (v) => context.editButton('parse_result', v, pindex, rindex, bindex)),
+          Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#555', background: '#eef4fb', borderRadius: '6px', padding: '4px 6px', margin: '0 0 4px' } }, [gettext('parse_result_hint')]),
           // On the watch's shortcut card (app-widget/index.js), up to CARD_MAX
           ...(cardAllowed(button) ? [
             View({ style: { marginTop: '6px' } }, [
@@ -768,6 +752,33 @@ const movePicker = (context, id, label, index, count, onMove) => {
     }, Math.min(count, 5))
   ]);
 };
+
+// A choice folded like the colours: one line ("Method: GET" and a chevron),
+// open: its buttons, `perRow` a line; a pick folds it. One open at a time in
+// the page (ui_pick_open), closed by any reordering. `other`: what the line
+// says when the value isn't among the options (a timeout set in the JSON);
+// `note`: a line under the buttons, when open
+const PICK_OPEN_KEY = 'ui_pick_open';
+const foldedChoice = (context, id, title, options, value, onPick, perRow = options.length, { other = '', note = '' } = {}) => {
+  const storage = context.state.props.settingsStorage;
+  const open = storage.getItem(PICK_OPEN_KEY) === id;
+  const match = options.find((o) => o.value === value);
+  const header = View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '8px' } }, [
+    Text({ style: { flex: 1, fontSize: '15px' } }, [title + ': ' + (match ? match.name : (other || String(value)))]),
+    Button({
+      label: open ? '▾' : '◂',
+      style: { fontSize: '16px', fontWeight: '700', minWidth: '30px', width: '30px', height: '30px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
+      onClick: () => open ? storage.removeItem(PICK_OPEN_KEY) : storage.setItem(PICK_OPEN_KEY, id)
+    })
+  ]);
+  if (!open) return header;
+  return View({}, [
+    header,
+    choice(options, match ? value : '__other__', (v) => { storage.removeItem(PICK_OPEN_KEY); onPick(v) }, perRow),
+    ...(note ? [Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#666', padding: '6px 2px 0' } }, [note])] : [])
+  ]);
+};
+const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS', 'CONNECT'].map((m) => ({ name: m, value: m }));
 
 // A row. Collapsed: only its miniature (the buttons on the page's colours),
 // delete and the chevron beside it, as a collapsed page. Open: "Row N", delete
@@ -1048,6 +1059,7 @@ AppSettingsPage({
     const st = this.state.props.settingsStorage;
     if (st.getItem(COLOR_OPEN_KEY)) st.removeItem(COLOR_OPEN_KEY);
     if (st.getItem(MOVE_OPEN_KEY)) st.removeItem(MOVE_OPEN_KEY);
+    if (st.getItem(PICK_OPEN_KEY)) st.removeItem(PICK_OPEN_KEY);
     const pages = this.state.data.pages;
     const before = openUiKeys(st, pages);
     applyUiKeys(st, before, pagesUiAfter(before, pages, order));
@@ -1059,6 +1071,7 @@ AppSettingsPage({
     const st = this.state.props.settingsStorage;
     if (st.getItem(COLOR_OPEN_KEY)) st.removeItem(COLOR_OPEN_KEY);
     if (st.getItem(MOVE_OPEN_KEY)) st.removeItem(MOVE_OPEN_KEY);
+    if (st.getItem(PICK_OPEN_KEY)) st.removeItem(PICK_OPEN_KEY);
     const page = this.state.data.pages[pindex];
     const before = openUiKeys(st, this.state.data.pages);
     applyUiKeys(st, before, rowsUiAfter(before, this.state.data.pages, pindex, order));
@@ -1177,6 +1190,7 @@ AppSettingsPage({
     const st = this.state.props.settingsStorage;
     if (st.getItem(COLOR_OPEN_KEY)) st.removeItem(COLOR_OPEN_KEY);
     if (st.getItem(MOVE_OPEN_KEY)) st.removeItem(MOVE_OPEN_KEY);
+    if (st.getItem(PICK_OPEN_KEY)) st.removeItem(PICK_OPEN_KEY);
     const row = this.state.data.pages[pindex].rows[rindex];
     const before = openUiKeys(st, this.state.data.pages);
     applyUiKeys(st, before, buttonsUiAfter(before, pindex, rindex, order));
