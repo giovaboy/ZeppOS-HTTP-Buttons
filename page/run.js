@@ -43,8 +43,8 @@ const ROUND = screenShape === SCREEN_SHAPE_ROUND
 // The page, as the audio screens (utils/progress-screen.js) and the design
 // guide: the button's name as the title at the top, the waiting animation in
 // the middle with "Sending…" under it, then the result in the page's body
-const TITLE_Y = Math.round(H * (ROUND ? 0.10 : 0.07))
-const TITLE_H = Math.round(H * 0.08)
+const TITLE_Y = Math.round(H * (ROUND ? 0.085 : 0.05))
+const TITLE_H = Math.round(H * (ROUND ? 0.11 : 0.12))
 const TITLE_W = Math.round(W * (ROUND ? 0.64 : 0.84))
 const BODY_X = Math.round(W * (ROUND ? 0.10 : 0.06))
 const BODY_W = W - 2 * BODY_X
@@ -227,7 +227,7 @@ Page(
         x: Math.round((W - SPIN) / 2), y: SPIN_Y
       }))
       this.spinnerText = this.passThrough(createWidget(widget.TEXT, {
-        x: BODY_X, y: SPIN_Y + SPIN + 12, w: BODY_W, h: Math.round(H * 0.1),
+        x: BODY_X, y: SPIN_Y + SPIN + 12, w: BODY_W, h: Math.round(H * 0.12),
         color: COLOR_NOTE, text_size: RESULT_SIZE,
         align_h: align.CENTER_H, align_v: align.CENTER_V,
         text_style: text_style.NONE, text: getText('run_sending')

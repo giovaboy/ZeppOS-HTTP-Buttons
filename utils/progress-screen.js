@@ -30,8 +30,8 @@ export function progressScreen({ title = '', titleColor = COLOR_WHITE, value = '
   const widgets = []
   const add = (type, o) => { const w = createWidget(type, o); widgets.push(w); return w }
   const L = round
-    ? { titleY: 0.10, titleH: 0.08, valueY: 0.29, valueH: 0.10, barX: 0.116, barW: 0.768, barY: 0.45, noteY: 0.54, noteH: 0.22, stopY: 0.80 }
-    : { titleY: 0.07, titleH: 0.08, valueY: 0.24, valueH: 0.10, barX: 0.062, barW: 0.876, barY: 0.41, noteY: 0.49, noteH: 0.22, stopY: 0.79 }
+    ? { titleY: 0.085, titleH: 0.11, valueY: 0.27, valueH: 0.14, barX: 0.116, barW: 0.768, barY: 0.45, noteY: 0.54, noteH: 0.22, stopY: 0.80 }
+    : { titleY: 0.05, titleH: 0.12, valueY: 0.227, valueH: 0.14, barX: 0.062, barW: 0.876, barY: 0.41, noteY: 0.49, noteH: 0.22, stopY: 0.79 }
   const barH = Math.max(6, Math.round(H * (round ? 10 / 318 : 10 / 298)))
   const bar = { x: Math.round(W * L.barX), y: Math.round(H * L.barY), w: Math.round(W * L.barW), h: barH, radius: Math.floor(barH / 2) }
 
