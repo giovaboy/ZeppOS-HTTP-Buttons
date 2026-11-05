@@ -942,7 +942,7 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount, screen) => {
       ...(pageOpen ? [
         colorPicker(context, 'page:' + pindex + ':back', gettext('back_color'), page.back_color,
           (c) => context.editPage('back_color', c, pindex)),
-        colorPicker(context, 'page:' + pindex + ':text', gettext('text_color'), page.text_color,
+        colorPicker(context, 'page:' + pindex + ':text', gettext('title_color'), page.text_color,
           (c) => context.editPage('text_color', c, pindex))
       ] : [])
     ]

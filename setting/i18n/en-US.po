@@ -321,3 +321,6 @@ msgstr "Page position: "
 
 msgid "button_position"
 msgstr "Button position: "
+
+msgid "title_color"
+msgstr "Title Color"
