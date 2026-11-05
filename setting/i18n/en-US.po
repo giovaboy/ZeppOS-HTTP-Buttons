@@ -342,3 +342,15 @@ msgstr "Default: the request timeout set for all buttons (below the pages). The 
 
 msgid "parse_result_hint"
 msgstr "What to show of a JSON answer. Empty: all of it. A name (e.g. text) finds that key anywhere in the answer. A path picks exactly: data.items[0].name (the first), items[-1] (the last), items[*].name (every one), items[?type==done].name (those whose type is done). Nothing found: the whole answer. Not used by Show image and Play audio."
+
+msgid "insert_url"
+msgstr "https://… ({input}, {variables} work)"
+
+msgid "insert_headers"
+msgstr "JSON, e.g. {\"Authorization\": \"Bearer …\"}"
+
+msgid "insert_body"
+msgstr "JSON or text, e.g. {\"on\": true}"
+
+msgid "token"
+msgstr "auth token"
