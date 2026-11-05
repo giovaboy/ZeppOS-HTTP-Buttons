@@ -1023,7 +1023,7 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount, screen) => {
 // not an image: sharp at any size, nothing to load.
 const LOGO_H = 64;   // px, the height of the three buttons (~325 px wide in all)
 const appLogo = () => {
-  const h = LOGO_H, gap = Math.round(h * 0.22) + "px";
+  const h = LOGO_H, gap = Math.round(h * 0.11) + "px";
   const label = (text) => Text({ style: { color: "white", fontSize: Math.round(h * 0.42) + "px", fontWeight: "500", lineHeight: "1" } }, [text]);
   const round = (text, color, first) => View({ style: {
     width: h + "px", height: h + "px", borderRadius: "50%", background: toColor(color), marginLeft: first ? "0" : gap,
