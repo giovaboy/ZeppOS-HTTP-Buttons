@@ -58,6 +58,24 @@ const unmark = (value, ...markers) => {
 // ui_btn_<p>_<r>_<b> = 'true', by position). When pages or rows are deleted or moved, their state moves with
 // them: by position alone the next page inherited a deleted page's state, and
 // keys of deleted pages lingered.
+// Closing a page closes its rows and their buttons, closing a row its
+// buttons: opened again, they start folded. The inner ones first, the page or
+// row itself last (each change builds the page again).
+function collapseOpen(context, key, pindex, rindex) {
+  const st = context.state.props.settingsStorage;
+  const page = ((context.state.data && context.state.data.pages) || [])[pindex] || {};
+  (page.rows || []).forEach((row, r) => {
+    if (rindex !== undefined && r !== rindex) return;
+    (row.buttons || []).forEach((b, i) => {
+      const k = 'ui_btn_' + pindex + '_' + r + '_' + i;
+      if (st.getItem(k) === 'true') st.removeItem(k);
+    });
+    const rk = 'ui_row_' + pindex + '_' + r;
+    if (rindex === undefined && st.getItem(rk) === 'true') st.removeItem(rk);
+  });
+  st.setItem(key, 'false');
+}
+
 function openUiKeys(storage, pages) {
   const open = new Set();
   (pages || []).forEach((pg, p) => {
@@ -823,7 +841,8 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
   const chevron = Button({
     label: rowOpen ? '▾' : '◂',
     style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
-    onClick: () => context.state.props.settingsStorage.setItem('ui_row_' + pindex + '_' + rindex, rowOpen ? 'false' : 'true')
+    onClick: () => rowOpen ? collapseOpen(context, 'ui_row_' + pindex + '_' + rindex, pindex, rindex)
+      : context.state.props.settingsStorage.setItem('ui_row_' + pindex + '_' + rindex, 'true')
   });
   const widths = sumOf((row.buttons || []).map((b) => b.w));
   const over = widths > OVER_100;
@@ -894,7 +913,8 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount, screen) => {
   const chevron = Button({
     label: pageOpen ? '▾' : '◂',
     style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
-    onClick: () => context.state.props.settingsStorage.setItem('ui_page_' + pindex, pageOpen ? 'false' : 'true')
+    onClick: () => pageOpen ? collapseOpen(context, 'ui_page_' + pindex, pindex)
+      : context.state.props.settingsStorage.setItem('ui_page_' + pindex, 'true')
   });
   const heights = sumOf((page.rows || []).map((r) => r.h));
   const over = heights > OVER_100;

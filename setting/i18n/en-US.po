@@ -2,10 +2,10 @@ msgid "title_text"
 msgstr "HTTP-Buttons"
 
 msgid "welcome_text"
-msgstr "Set up the pages, rows and buttons of your watch. Tap ◂ to open a page, a row or a button; tap a color to pick it. The whole configuration can also be edited as JSON in Configuration, at the bottom."
+msgstr "Set up the pages, rows and buttons of your watch. Tap ◂ to open a page, a row or a button; tap a color to pick it. The whole configuration can also be edited as JSON in Configuration (raw JSON), at the bottom."
 
 msgid "conf"
-msgstr "Configuration"
+msgstr "Configuration (raw JSON)"
 
 msgid "conf_hint"
 msgstr "Tap, select all and copy to back up — or paste an edited config. Saved automatically while the JSON is valid."
