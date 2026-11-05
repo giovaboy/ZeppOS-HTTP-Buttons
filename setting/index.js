@@ -292,13 +292,18 @@ const choice = (options, chosen, onPick, perRow = options.length) => {
 // A small grey label above a field or a choice
 const fieldLabel = (text) => Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#666', padding: '8px 2px 0' } }, [text]);
 
-// A text field under its label. Empty, it shows a grey dash (still tappable);
-// confirming the dash, or an old marker ("**USER**") a config may hold,
-// gives an empty value. onValue gets the cleaned text.
+// A text field under its label. Empty, its value is empty (the dialog opens
+// with the hint, not with something to delete first: a dash as the value
+// stayed in the dialog, seen on the phone) and it is drawn as a sunken white
+// box of one line, as the quick picks' field, so it still shows and takes a
+// tap. A dash or an old marker ("**USER**") a config may hold gives an empty
+// value. onValue gets the cleaned text.
 // secret (password, token): shown as dots, so it doesn't show on screen or in
 // a screenshot; confirming the dots unchanged keeps the value, typing replaces
 // it. A variable reference ("{ring_token}") isn't a secret and shows as is.
 const EMPTY_FIELD = '—';
+const EMPTY_FIELD_STYLE = { display: 'block', minHeight: '22px', boxSizing: 'border-box', color: COLOR_BLACK, fontSize: '14px',
+  background: '#ffffff', border: '1px solid #b0b0b0', borderRadius: '8px', padding: '2px 6px', margin: '2px 0', boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.25)' };
 // A URL one query parameter a line, for reading: the address, then "?a=1",
 // "&b=2"… joinUrlLines puts it back together (a URL has no line breaks of its
 // own, so every break, and the blanks around it, goes).
@@ -319,11 +324,11 @@ const textField = (label, value, placeholderKey, max, oldMarker, onValue, { secr
     fieldLabel(label),
     TextInput({
       bold: false,
-      value: masked || shown || EMPTY_FIELD,
+      value: masked || shown || '',
       placeholder: gettext(placeholderKey),
-      subStyle: url && current
-        ? { color: COLOR_BLACK, fontSize: '14px', display: 'block', whiteSpace: 'pre', overflow: 'hidden', textOverflow: 'ellipsis' }
-        : { color: current ? COLOR_BLACK : '#999', fontSize: '14px', wordBreak: 'break-all' },
+      subStyle: !current ? EMPTY_FIELD_STYLE
+        : url ? { color: COLOR_BLACK, fontSize: '14px', display: 'block', whiteSpace: 'pre', overflow: 'hidden', textOverflow: 'ellipsis' }
+        : { color: COLOR_BLACK, fontSize: '14px', wordBreak: 'break-all' },
       ...(url ? { multiline: true, rows: 4 } : {}),
       // The line breaks count in the dialog, not in what is saved
       maxLength: url ? max + 40 : max,
