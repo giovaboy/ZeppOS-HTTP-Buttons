@@ -843,16 +843,22 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount, screen) => {
     style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
     onClick: () => context.state.props.settingsStorage.setItem('ui_page_' + pindex, pageOpen ? 'false' : 'true')
   });
+  // Delete's question right under the × (open: under the title's line,
+  // before the position and the colours), as for rows and buttons
+  const confirm = confirmBar(context, 'page:' + pindex, gettext('delete_page') + quoted(page.title || String(pindex + 1)) + '?', gettext('delete_action'), () => context.deletePage(pindex));
   // Collapsed: only the miniature (it shows the title in its colors), with
-  // delete and the chevron beside it; the title field, Move to… and the
+  // delete and the chevron beside it; the title field, the position and the
   // colors are for the open page
   if (!pageOpen) {
-    return View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'flex-start' } }, [
-      View({ style: { flex: 1 } }, [buildPageSummary(page, screen)]),
-      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', paddingTop: '6px' } }, [
-        deleteX(context, 'page:' + pindex, { marginLeft: '4px' }),
-        chevron
-      ])
+    return View({}, [
+      View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'flex-start' } }, [
+        View({ style: { flex: 1 } }, [buildPageSummary(page, screen)]),
+        View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', paddingTop: '6px' } }, [
+          deleteX(context, 'page:' + pindex, { marginLeft: '4px' }),
+          chevron
+        ])
+      ]),
+      ...confirm
     ]);
   }
   return View(
@@ -894,6 +900,7 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount, screen) => {
         deleteX(context, 'page:' + pindex, { marginLeft: '4px' }),
         chevron
       ]),
+      ...confirm,
       // Position among the pages, as buttons folded like the colours (as rows
       // and buttons): "Page position: 2 / 3"
       ...(pageCount > 1 ? [
@@ -1493,8 +1500,7 @@ AppSettingsPage({
       for (let [pindex, page] of pages.entries()) {
         const pageOpen = this.state.props.settingsStorage.getItem('ui_page_' + pindex) === 'true';
         const pageChildren = [
-          buildPageView(page, pindex, this, pageOpen, pages.length, watchScreen(props.settingsStorage)),
-          ...confirmBar(this, 'page:' + pindex, gettext('delete_page') + quoted(page.title || String(pindex + 1)) + '?', gettext('delete_action'), () => this.deletePage(pindex))
+          buildPageView(page, pindex, this, pageOpen, pages.length, watchScreen(props.settingsStorage))
         ];
         if (pageOpen) {
           for (let [rindex, row] of page.rows.entries()) {
