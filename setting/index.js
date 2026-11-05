@@ -707,21 +707,24 @@ const quickPick = ({ label, options, value, onValue, min, max, emptyIs, marginBo
   const chosen = options.some((o) => o.value === value) ? value : '__other__';
   // The field on the label's line, at its right: beside the buttons it was
   // squeezed to one digit a line (five buttons fill a phone's width)
-  return View({ style: { marginBottom } }, [
-    View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'flex-end' } }, [
+  // Room above each block: its field touched the control above it
+  return View({ style: { marginTop: '14px', marginBottom } }, [
+    View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
       View({ style: { flex: 1, minWidth: 0 } }, [fieldLabel(label)]),
       View({ style: { width: '84px', minWidth: '84px', flexShrink: 0, marginLeft: '8px' } }, [
         TextInput({
           bold: false,
-          value: value != null ? String(value) : '',
-          placeholder: emptyIs !== undefined || value == null ? 'auto' : '',
+          // No value: "Auto", as the lit button says (empty, the box shrank to
+          // a line); typing "auto" or emptying it gives Auto back
+          value: value != null ? String(value) : (emptyIs !== undefined ? 'Auto' : ''),
+          placeholder: emptyIs !== undefined ? 'Auto' : '',
           // A grey box with a border, so it reads as a field to type in (on the
           // white button cards and the light grey row cards alike)
           subStyle: { color: COLOR_BLACK, fontSize: '15px', textAlign: 'center', background: '#e2e2e2', border: '1px solid #c4c4c4', borderRadius: '8px', padding: '2px 4px' },
           maxLength: 6,
           onChange: (v) => {
             const text = String(v).trim();
-            if (!text && emptyIs !== undefined) return onValue(emptyIs === null ? undefined : emptyIs);
+            if ((!text || /^auto$/i.test(text)) && emptyIs !== undefined) return onValue(emptyIs === null ? undefined : emptyIs);
             const n = Math.round(parseFloat(text.replace(',', '.').replace(/%|px/i, '')) * 100) / 100;
             if (n >= min && n <= max) onValue(n);
           }
