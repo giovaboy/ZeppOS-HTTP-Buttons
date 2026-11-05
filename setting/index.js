@@ -775,60 +775,87 @@ const buildRowSummary = (row, page) => {
     miniButtons(row, MINI_SCALE, { x: miniPad(page, MINI_SCALE).x, y: 1 }));
 };
 
-// Row header — all controls on one line: Row:N (emphasized) · reorder · height
-// · delete (×) · collapse chevron (open = show buttons; Add Button is under them).
+// The rows' usual heights (% of the page), as buttons; another one in the
+// field beside them
+const ROW_HEIGHTS = [{ name: '25%', value: 25 }, { name: '33%', value: 33.33 }, { name: '50%', value: 50 }, { name: '100%', value: 100 }];
+
+// Where an item goes, as buttons (1, 2, …, the current one in the accent),
+// collapsed like the colors: moving is rare. One open at a time in the page
+// (ui_move_open holds its id), closed by any reordering. `onMove(to)`, 0-based
+const MOVE_OPEN_KEY = 'ui_move_open';
+const movePicker = (context, id, index, count, onMove) => {
+  const storage = context.state.props.settingsStorage;
+  const open = storage.getItem(MOVE_OPEN_KEY) === id;
+  const header = View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', marginTop: '8px' } }, [
+    Text({ style: { flex: 1, fontSize: '15px' } }, [gettext('position') + (index + 1) + ' / ' + count]),
+    Button({
+      label: open ? '▾' : '◂',
+      style: { fontSize: '16px', fontWeight: '700', minWidth: '30px', width: '30px', height: '30px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
+      onClick: () => open ? storage.removeItem(MOVE_OPEN_KEY) : storage.setItem(MOVE_OPEN_KEY, id)
+    })
+  ]);
+  if (!open) return header;
+  return View({}, [
+    header,
+    choice(Array.from({ length: count }, (_, i) => ({ name: String(i + 1), value: i })), index, (to) => {
+      storage.removeItem(MOVE_OPEN_KEY);
+      onMove(to);
+    }, Math.min(count, 5))
+  ]);
+};
+
+// A row. Collapsed: only its miniature (the buttons on the page's colours),
+// delete and the chevron beside it, as a collapsed page. Open: "Row N", delete
+// and the chevron across the top; the height as the usual values plus a field
+// for any other; the position as buttons, collapsed. The buttons' cards and
+// Add Button follow (the page's builder adds them)
 const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
-  // The row's title bar: across the top of the row's container (its negative
-  // margins cancel the container's padding), darker, a line under it. As a
-  // box of its own it read as one more item beside the buttons.
-  return View(
-    {
-      style: {
-        margin: '0 -6px 6px',
-        padding: '6px 8px',
-        borderBottom: '1px solid #c9c9c9',
-        display: 'flex',
-        flexDirection: 'row',
-        alignItems: 'center',
-        background: '#dcdcdc'
-      }
-    },
-    [
-      // Row:N kept as a styled Text (a Select's title can't be styled) with the
-      // reorder select beneath it. The reorder select is hidden when the page
-      // has a single row (nothing to reorder) — the title still shows.
-      View({ style: { flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' } }, [
-        Text({ bold: true, align: 'center', style: { fontSize: '18px' } }, [gettext('row') + (rindex + 1)]),
-        ...(page.rows.length > 1 ? [
-          Select({
-            title: gettext('move_title'),
-            options: indexRange(rindex, page.rows.length - 1),
-            onChange: (value) => {
-              if (value < 999) {
-                context.moveRow(pindex, rindex, value);
-              }
-            }
-          })
-        ] : [])
-      ]),
-      View({ style: { flex: 1 } }, [
-        Select({
-          title: gettext('h') + row.h,
-          value: row.h,
-          options: wRange({ customValues: [16.66, 33.33, 66.66, 83.33] }),
-          onChange: (value) => context.editRow('h', value, pindex, rindex)
-        })
-      ]),
+  const chevron = Button({
+    label: rowOpen ? '▾' : '◂',
+    style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
+    onClick: () => context.state.props.settingsStorage.setItem('ui_row_' + pindex + '_' + rindex, rowOpen ? 'false' : 'true')
+  });
+  if (!rowOpen) {
+    return View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', paddingTop: '6px' } }, [
+      View({ style: { flex: 1, minWidth: 0 } }, [buildRowSummary(row, page)]),
+      View({ style: { display: 'flex', flexDirection: 'column', alignItems: 'center' } }, [
+        deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
+        View({ style: { marginTop: '6px' } }, [chevron])
+      ])
+    ]);
+  }
+  const h = Number(row.h);
+  return View({}, [
+    // The row's title bar: across the top of the row's container (its negative
+    // margins cancel the container's padding), darker, a line under it
+    View({ style: { margin: '0 -6px 6px', padding: '6px 8px', borderBottom: '1px solid #c9c9c9', display: 'flex', flexDirection: 'row', alignItems: 'center', background: '#dcdcdc' } }, [
+      Text({ bold: true, style: { flex: 1, fontSize: '18px', paddingLeft: '4px' } }, [gettext('row_title') + ' ' + (rindex + 1)]),
       deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
-      // Expand/collapse chevron. A Button (not a switch) so its arrow always
-      // reflects the real state — ▾ open, ▸ collapsed.
-      Button({
-        label: rowOpen ? '▾' : '◂',
-        style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
-        onClick: () => context.state.props.settingsStorage.setItem('ui_row_' + pindex + '_' + rindex, rowOpen ? 'false' : 'true')
-      })
-    ]
-  );
+      chevron
+    ]),
+    fieldLabel(gettext('row_height')),
+    View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center' } }, [
+      View({ style: { flex: 1 } }, [
+        choice(ROW_HEIGHTS, ROW_HEIGHTS.some((o) => o.value === h) ? h : undefined, (value) => context.editRow('h', value, pindex, rindex))
+      ]),
+      View({ style: { width: '72px', marginLeft: '8px' } }, [
+        TextInput({
+          bold: false,
+          value: String(row.h != null ? row.h : ''),
+          placeholder: '%',
+          subStyle: { color: COLOR_BLACK, fontSize: '15px', textAlign: 'center' },
+          maxLength: 6,
+          onChange: (v) => {
+            const n = Math.round(parseFloat(String(v).replace(',', '.').replace('%', '')) * 100) / 100;
+            if (n > 0 && n <= 100) context.editRow('h', n, pindex, rindex);
+          }
+        })
+      ])
+    ]),
+    ...(page.rows.length > 1 ? [
+      movePicker(context, 'row:' + pindex + ':' + rindex, rindex, page.rows.length, (to) => context.moveRow(pindex, rindex, to))
+    ] : [])
+  ]);
 };
 
 // A collapsed page: a small screen with its title and rows (the title takes
@@ -1066,6 +1093,7 @@ AppSettingsPage({
   reorderPages(order) {
     const st = this.state.props.settingsStorage;
     if (st.getItem(COLOR_OPEN_KEY)) st.removeItem(COLOR_OPEN_KEY);
+    if (st.getItem(MOVE_OPEN_KEY)) st.removeItem(MOVE_OPEN_KEY);
     const pages = this.state.data.pages;
     const before = openUiKeys(st, pages);
     applyUiKeys(st, before, pagesUiAfter(before, pages, order));
@@ -1076,6 +1104,7 @@ AppSettingsPage({
   reorderRows(pindex, order) {
     const st = this.state.props.settingsStorage;
     if (st.getItem(COLOR_OPEN_KEY)) st.removeItem(COLOR_OPEN_KEY);
+    if (st.getItem(MOVE_OPEN_KEY)) st.removeItem(MOVE_OPEN_KEY);
     const page = this.state.data.pages[pindex];
     const before = openUiKeys(st, this.state.data.pages);
     applyUiKeys(st, before, rowsUiAfter(before, this.state.data.pages, pindex, order));
@@ -1193,6 +1222,7 @@ AppSettingsPage({
   reorderButtons(pindex, rindex, order) {
     const st = this.state.props.settingsStorage;
     if (st.getItem(COLOR_OPEN_KEY)) st.removeItem(COLOR_OPEN_KEY);
+    if (st.getItem(MOVE_OPEN_KEY)) st.removeItem(MOVE_OPEN_KEY);
     const row = this.state.data.pages[pindex].rows[rindex];
     const before = openUiKeys(st, this.state.data.pages);
     applyUiKeys(st, before, buttonsUiAfter(before, pindex, rindex, order));
@@ -1546,8 +1576,6 @@ AppSettingsPage({
                   })
                 ])
               );
-            } else {
-              rowChildren.push(buildRowSummary(row, page));
             }
             pageChildren.push(
               View({ style: { border: '1px solid #c9c9c9', borderRadius: '10px', padding: '0 6px 6px', marginBottom: '10px', background: '#f0f0f0', overflow: 'hidden' }}, rowChildren)

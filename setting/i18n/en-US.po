@@ -306,3 +306,9 @@ msgstr "A recording button shows its answer as text: \"Play audio\" is for a but
 
 msgid "audio_note_input"
 msgstr "Input is on too: the watch asks for the text first, then records. The text goes in {input} (in the URL, the headers or the body, beside {audio})."
+
+msgid "row_title"
+msgstr "Row"
+
+msgid "row_height"
+msgstr "Height (% of the page)"
