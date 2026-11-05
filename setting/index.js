@@ -753,6 +753,18 @@ const movePicker = (context, id, label, index, count, onMove) => {
   ]);
 };
 
+// Widths of a row's buttons (spacers too) or heights of a page's rows adding
+// up to more than 100%: the watch then makes them all equal (page/index
+// layouts). A ⚠ beside delete says so, open or not; open, a note says by how
+// much and what the watch does. Half a point of slack: 3 × 33.33 is 99.99,
+// 33 + 33 + 34 is 100
+const sumOf = (values) => Math.round(values.reduce((a, v) => a + (Number(v) || 0), 0) * 100) / 100;
+const OVER_100 = 100.5;
+const overIcon = () => Text({ style: { fontSize: '20px', color: '#d97706', marginLeft: '4px', lineHeight: '1' } }, ['⚠']);
+const overNote = (key, sum, count) => Text({ align: 'left', paragraph: true, style: { fontSize: '12px', color: '#8a6d3b', background: '#fff3cd', borderRadius: '6px', padding: '4px 6px', margin: '4px 0' } }, [
+  gettext(key).replace('{sum}', String(sum)).replace('{n}', String(count)).replace('{each}', String(Math.round(10000 / Math.max(1, count)) / 100))
+]);
+
 // A choice folded like the colours: one line ("Method: GET" and a chevron),
 // open: its buttons, `perRow` a line; a pick folds it. One open at a time in
 // the page (ui_pick_open), closed by any reordering. `other`: what the line
@@ -791,6 +803,8 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
     style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
     onClick: () => context.state.props.settingsStorage.setItem('ui_row_' + pindex + '_' + rindex, rowOpen ? 'false' : 'true')
   });
+  const widths = sumOf((row.buttons || []).map((b) => b.w));
+  const over = widths > OVER_100;
   // Delete's question right under the × (open: under the row's bar, before
   // the position and the height), as for pages and buttons
   const confirm = confirmBar(context, 'row:' + pindex + ':' + rindex, gettext('delete_row') + ' ' + (rindex + 1) + '?', gettext('delete_action'), () => context.deleteRow(pindex, rindex));
@@ -798,6 +812,7 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
     return View({}, [
       View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', paddingTop: '6px' } }, [
         View({ style: { flex: 1, minWidth: 0 } }, [buildRowSummary(row, page)]),
+        ...(over ? [overIcon()] : []),
         deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
         chevron
       ]),
@@ -810,10 +825,12 @@ const buildRowView = (row, page, pindex, rindex, context, rowOpen) => {
     // margins cancel the container's padding), darker, a line under it
     View({ style: { margin: '0 -6px 6px', padding: '6px 8px', borderBottom: '1px solid #c9c9c9', display: 'flex', flexDirection: 'row', alignItems: 'center', background: '#dcdcdc' } }, [
       Text({ bold: true, style: { flex: 1, fontSize: '18px', paddingLeft: '4px' } }, [gettext('row_title') + ' ' + (rindex + 1)]),
+      ...(over ? [overIcon()] : []),
       deleteX(context, 'row:' + pindex + ':' + rindex, { marginLeft: '4px' }),
       chevron
     ]),
     ...confirm,
+    ...(over ? [overNote('row_over_100', widths, row.buttons.length)] : []),
     ...(page.rows.length > 1 ? [
       movePicker(context, 'row:' + pindex + ':' + rindex, gettext('row_position'), rindex, page.rows.length, (to) => context.moveRow(pindex, rindex, to))
     ] : []),
@@ -857,6 +874,8 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount, screen) => {
     style: { fontSize: '18px', fontWeight: '700', minWidth: '32px', width: '32px', height: '32px', borderRadius: '8px', background: '#e0e0e0', color: '#333', padding: '0', marginLeft: '4px' },
     onClick: () => context.state.props.settingsStorage.setItem('ui_page_' + pindex, pageOpen ? 'false' : 'true')
   });
+  const heights = sumOf((page.rows || []).map((r) => r.h));
+  const over = heights > OVER_100;
   // Delete's question right under the × (open: under the title's line,
   // before the position and the colours), as for rows and buttons
   const confirm = confirmBar(context, 'page:' + pindex, gettext('delete_page') + quoted(page.title || String(pindex + 1)) + '?', gettext('delete_action'), () => context.deletePage(pindex));
@@ -868,6 +887,7 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount, screen) => {
       View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'flex-start' } }, [
         View({ style: { flex: 1 } }, [buildPageSummary(page, screen)]),
         View({ style: { display: 'flex', flexDirection: 'row', alignItems: 'center', paddingTop: '6px' } }, [
+          ...(over ? [overIcon()] : []),
           deleteX(context, 'page:' + pindex, { marginLeft: '4px' }),
           chevron
         ])
@@ -911,10 +931,12 @@ const buildPageView = (page, pindex, context, pageOpen, pageCount, screen) => {
             }
           }),
         ]),
+        ...(over ? [overIcon()] : []),
         deleteX(context, 'page:' + pindex, { marginLeft: '4px' }),
         chevron
       ]),
       ...confirm,
+      ...(over ? [overNote('page_over_100', heights, page.rows.length)] : []),
       // Position among the pages, as buttons folded like the colours (as rows
       // and buttons): "Page position: 2 / 3"
       ...(pageCount > 1 ? [

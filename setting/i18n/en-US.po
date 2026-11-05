@@ -354,3 +354,9 @@ msgstr "JSON or text, e.g. {\"on\": true}"
 
 msgid "token"
 msgstr "auth token"
+
+msgid "row_over_100"
+msgstr "The widths add up to {sum}%, more than the row's 100%: the watch makes the {n} buttons equal ({each}% each)."
+
+msgid "page_over_100"
+msgstr "The rows' heights add up to {sum}%, more than the page's 100%: the watch makes the {n} rows equal ({each}% each)."
