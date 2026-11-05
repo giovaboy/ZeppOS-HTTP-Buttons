@@ -257,13 +257,13 @@ msgid "insert_audio_field"
 msgstr "file"
 
 msgid "audio_note_multipart"
-msgstr "The watch records when you press the button (a tap or the select key stops, back cancels). The recording goes as recording.ogg (Ogg Opus, audio/ogg) in this form field, with the URL, method, headers and auth above."
+msgstr "The watch records when you press the button (Stop or the select key sends it, back cancels). The recording goes as recording.ogg (Ogg Opus, audio/ogg) in this form field, with the URL, method, headers and auth above."
 
 msgid "audio_note_raw"
-msgstr "The watch records when you press the button (a tap or the select key stops, back cancels). The body is the recording itself: Ogg Opus, Content-Type audio/ogg (unless the headers set another)."
+msgstr "The watch records when you press the button (Stop or the select key sends it, back cancels). The body is the recording itself: Ogg Opus, Content-Type audio/ogg (unless the headers set another)."
 
 msgid "audio_note_json"
-msgstr "The watch records when you press the button (a tap or the select key stops, back cancels). Put {audio} in the body: it becomes the recording (Ogg Opus) in base64, e.g. {\"audio\":\"{audio}\",\"lang\":\"en\"}. Without it the body is {\"audio\":\"…\"}."
+msgstr "The watch records when you press the button (Stop or the select key sends it, back cancels). Put {audio} in the body: it becomes the recording (Ogg Opus) in base64, e.g. {\"audio\":\"{audio}\",\"lang\":\"en\"}. Without it the body is {\"audio\":\"…\"}."
 
 msgid "audio_note_play"
 msgstr "The answer is an audio file (MP3) that the watch downloads and plays."

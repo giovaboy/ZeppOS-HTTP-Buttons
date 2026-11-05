@@ -4,14 +4,29 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 
 ## Screenshots
 
+On the watch:
+
 <p align="center">
-  <img src="screen/1.png" width="180" alt="Main screen">
-  <img src="screen/2.png" width="180" alt="Button configuration">
-  <img src="screen/3.png" width="180" alt="Multiple pages">
+  <img src="screen/1.png" width="180" alt="A page with a title and two rows of buttons">
+  <img src="screen/2.png" width="180" alt="Two full-height buttons">
+  <img src="screen/3.png" width="180" alt="Rows of different heights">
 </p>
 <p align="center">
-  <img src="screen/4.png" width="180" alt="Custom colors">
-  <img src="screen/5.png" width="180" alt="Settings">
+  <img src="screen/4.png" width="180" alt="A pill-shaped button on a colored page">
+  <img src="screen/5.png" width="180" alt="A request's answer shown on the watch">
+</p>
+
+The settings page on the phone: a page's preview in the watch's shape, a page, a row and a button opened:
+
+<p align="center">
+  <img src="screen/settings-page.png" width="360" alt="A closed page: its preview in the watch's shape">
+</p>
+<p align="center">
+  <img src="screen/settings-page-open.png" width="270" alt="An open page: position, colors, its rows as strips">
+  <img src="screen/settings-row.png" width="270" alt="An open row: position, height, its buttons">
+</p>
+<p align="center">
+  <img src="screen/settings-button.png" width="270" alt="An open button: style and request">
 </p>
 
 ## Features
@@ -23,8 +38,9 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 - **Authentication** — Basic, Bearer, and Digest authentication support, plus an optional two-step (session) flow: login → token → reuse → logout
 - **Global Variables** — Define reusable variables like IP addresses or tokens
 - **Input Keyboard** — On-watch keyboard for dynamic request parameters
-- **Response Handling** — Choose between toast, modal, or silent notifications
+- **Response Handling** — Choose between toast, custom toast, modal, or silent notifications
 - **Image Display** — Fetch a remote image (PNG/JPEG) and show it fullscreen on the watch
+- **Audio** — Record from the watch's microphone and send it (a form upload, the raw body, or base64 in JSON), and play an MP3 a request returns
 - **JSON Parsing** — Extract specific fields from API responses, with path expressions like `choices[0].message.content`, `[*]` wildcards and `[?field==value]` filters
 - **Timeouts** — Global and per-button request timeouts (5–60 s) for slow endpoints
 - **Async jobs** — A button can start a long job and check back until the result is ready
@@ -46,13 +62,15 @@ A highly customizable ZeppOS application that lets you create buttons to trigger
 
 All configuration is done in the app's settings page on your phone:
 
-- **Pages, rows and buttons** open and close: a closed page shows a preview in your watch's shape (once the watch has connected), a closed row a strip of its buttons, a closed button one line saying what it does (method and URL)
+- **Pages, rows and buttons** open and close: a closed page shows a preview in your watch's shape (once the watch has connected), a closed row a strip of its buttons, a closed button one line saying what it does (method and URL). The settings open with everything closed, and closing a page or a row closes what is inside it
+- **Positions**: a page, a row or a button moves with its **position** buttons (1, 2, 3…)
 - **Add Page**, **Add Row** and **Add Button** sit under what they add to; a new page starts with two colored buttons, centered
-- **Button style**: width, radius, text size, and colors picked from a grid of swatches
-- **Request**: URL, method, timeout, authentication (with user and password, or a token, hidden on screen), headers and body as JSON, the value to show (`parse_result`), how the result shows (toast, custom toast, modal, nothing, image), an input keyboard, and whether the button goes on the watch card
+- **Sizes**: a row's height, a button's width, radius and text size are picked from the usual values, or typed in the field beside them. A ⚠ marks a row whose buttons are wider than 100% in all, or a page whose rows are taller than 100% (the watch then makes them all the same size)
+- **Colors** are picked from a grid of swatches
+- **Request**: URL (shown one query parameter a line), method, timeout, authentication (with user and password, or a token, hidden on screen), headers and body as JSON, an input keyboard, a recording, how the result shows (toast, custom toast, nothing, modal, image, play audio), the value to show (`parse_result`, explained under its field), and whether the button goes on the watch card
 - **Variables**, the global **Request timeout** and the **Loading animation** for every button
 - Deleting a page, row, button or variable, and **Re-Init configuration** (back to the example), ask for confirmation in the page
-- **Configuration** holds the whole config as JSON: copy it for a backup, or paste one back (only a config with a `"pages"` list is saved)
+- **Configuration (raw JSON)** holds the whole config as JSON: copy it for a backup, or paste one back (only a config with a `"pages"` list is saved)
 - **Test mode** loads a built-in test suite instead of your buttons; your config comes back when it is off
 
 Buttons with a `session` or `poll` block (see below) say so on their card: those blocks are edited in the JSON.
@@ -95,7 +113,7 @@ The filter also accepts the JSONPath spelling `[?(@.finish_reason=='stop')]`; qu
 
 ### Request Timeouts
 
-By default each request may run for **10 seconds** before failing. Slow endpoints (e.g. AI services that generate a response) may need more: raise the global **Request timeout** in the settings, or override it per button with the **Timeout** select (5–60 s). The same timeout also bounds the image download of Image-style buttons.
+By default each request may run for **10 seconds** before failing. Slow endpoints (e.g. AI services that generate a response) may need more: raise the global **Request timeout** in the settings, or override it per button with its **Timeout** choice (5–60 s). The same timeout also bounds the image download of Image-style buttons.
 
 > **Platform limit:** the phone's native HTTP client aborts a request after ~10 s of *silence* from the server (generic `network error`), regardless of the timeout configured here. The total duration may exceed 10 s as long as the server keeps sending bytes — timeouts above 10 s therefore only help with endpoints that stream or send keep-alive bytes while working. For servers that stay silent until the full response is ready, use an async pattern instead — see *Async jobs (polling)* below.
 
@@ -155,6 +173,34 @@ Set a button's **response style** to **Image** to fetch a remote image (PNG or J
   }
 }
 ```
+
+### Audio Buttons
+
+**Recording.** Switch on **Record audio before sending** on a button: a press opens the recording screen ("● REC", the time, a bar up to the longest time). **Stop** or the watch's select key sends the recording, the back gesture cancels it; it stops by itself at the length you chose (5, 10, 15 or 30 s). The recording is sent as an Ogg Opus file (`audio/ogg`), with the button's URL, headers and authentication, in one of three ways:
+
+| Send as | Body |
+|---|---|
+| `multipart` (default) | a form upload: the file `recording.ogg` in the form field you name (`file` by default) |
+| `raw` | the file itself, `Content-Type: audio/ogg` (unless the headers set another) |
+| `json` | the button's body, with `{audio}` replaced by the file in base64 (no body: `{"audio": "…"}`) |
+
+A recording needs a body, so a GET or HEAD button sends it as POST. With **Input** on too, the watch asks for the text first, then records: the text goes in `{input}`, beside the recording. The answer shows in the button's response style once the watch is back on the buttons page.
+
+```json
+{
+  "text": "🎤 Voice note",
+  "request": {
+    "url": "https://host/api/voice?chat={chat}",
+    "method": "POST",
+    "audio": { "seconds": 15, "send_as": "multipart", "field": "voice" },
+    "response_style": 0
+  }
+}
+```
+
+**Playing.** Set a button's response style to **Play audio** (`"response_style": 5`): the answer is an audio file (MP3), which the phone downloads and the watch plays, with a progress bar; **Stop**, the select key or the back gesture ends it.
+
+The watch's screen stays on while it records or plays. Recording needs a watch with a microphone, playing one with a speaker.
 
 ### Two-step (session) authentication
 
@@ -276,10 +322,11 @@ Server-side, any backend or automation platform can implement the matching pair:
 - **API Testing** — Quick endpoint testing from your wrist
 - **Shortcuts** — Run webhooks and automations on your home-automation hub or automation service
 - **AI agents** — Ask a question and wait for the answer with an async job
+- **Voice** — Send a voice note to a chat or a transcription service, or hear a spoken answer
 
 ## Compatibility
 
-Works with ZeppOS 3.0+ devices (input buttons use the system keyboard on API_LEVEL 4.0 watches and the app's own keyboard on older ones; on the card they need API_LEVEL 4.0), including:
+Works with ZeppOS 3.0+ devices (input buttons use the system keyboard on API_LEVEL 4.0 watches and the app's own keyboard on older ones; on the card they need API_LEVEL 4.0; audio buttons need a microphone to record and a speaker to play), including:
 - Amazfit GTR/GTS series
 - Amazfit Balance, Cheetah, T-Rex Ultra
 - And other ZeppOS compatible watches
