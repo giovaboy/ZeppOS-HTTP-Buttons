@@ -9,11 +9,16 @@
 // Shared by both layouts. One interval drives every running animation and
 // stops when none is left (and in stopAllLoaders, from the page's onDestroy).
 // The corner spinner animates natively (IMG_ANIM) and needs no tick.
-import { px } from '@zos/utils'
 import { createWidget, deleteWidget, widget, prop, anim_status } from '@zos/ui'
 import { COLOR_BLACK, COLOR_WHITE, LOADING_STYLE_BORDER, LOADING_STYLE_PULSE, LOADING_STYLE_CORNER } from './constants.js'
 import { devLog, LOG_TRACE } from './remote-log.js'
 import { errorText } from './memory.js'
+
+// The button rects handed in are in device pixels (the layouts compute them
+// from getDeviceInfo()), so they must not go through @zos/utils px(), which
+// multiplies by deviceWidth / designWidth: on the 432 px Bip Max (square
+// target designed at 390) the animation drew ~11% off its button. Only round.
+const px = (v) => Math.round(v)
 
 const TICK_MS = 40 // 25 frames per second
 
