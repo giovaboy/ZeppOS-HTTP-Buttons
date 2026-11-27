@@ -329,6 +329,7 @@ Server-side, any backend or automation platform can implement the matching pair:
 Works with ZeppOS 3.0+ devices (input buttons use the system keyboard on API_LEVEL 4.0 watches and the app's own keyboard on older ones, in the app and on the card; audio buttons need a microphone to record and a speaker to play), including:
 - Amazfit GTR/GTS series
 - Amazfit Balance, Cheetah, T-Rex Ultra
+- Amazfit Bip Max
 - And other ZeppOS compatible watches
 
 ## License
