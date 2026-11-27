@@ -65,29 +65,6 @@
           "dw": 194
         }
       ]
-    },
-    "bipmax.s": {
-      "module": {
-        "page": {
-          "pages": [
-            "page/index",
-            "page/run"
-          ]
-        },
-        "app-side": {
-          "path": "app-side/index"
-        },
-        "setting": {
-          "path": "setting/index"
-        }
-      },
-      "platforms": [
-        {
-          "name": "Amazfit Bip Max",
-          "deviceSource": 11206915,
-          "dw": 432
-        }
-      ]
     }
   },
   "i18n": {
