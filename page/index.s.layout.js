@@ -1,4 +1,3 @@
-import { px } from '@zos/utils'
 import { createWidget, deleteWidget, widget, align, prop, text_style, event, getTextLayout, anim_status, setStatusBarVisible } from '@zos/ui'
 import { setPageBrightTime } from '@zos/display'
 import { setScrollMode, setScrollLock, SCROLL_MODE_SWIPER } from '@zos/page'
@@ -15,6 +14,13 @@ import { runParams } from '../utils/card.js'
 import { isAudioButton } from '../utils/constants.js'
 import { stopAllLoaders } from '../utils/button-loader.js'
 import { BTN_PADDING, ROW_PADDING, BTN_RADIUS, btnPressColor, COLOR_BLACK, COLOR_GRAY_TOAST, COLOR_GRAY, COLOR_RED, COLOR_WHITE, CUSTOM_TOAST, SYSTEM_TOAST, SYSTEM_MODAL, NO_NOTIFICATION, SHOW_IMAGE, KB_TYPE_CHAR, KB_TYPE_NUMERIC } from '../utils/constants.js';
+
+// Every value laid out here is already in device pixels (from getDeviceInfo()),
+// so it must not go through @zos/utils px(), which multiplies by
+// deviceWidth / designWidth: on a screen wider than the target's design width
+// (the Bip Max is 432 px against the square target's 390) that grew pages,
+// buttons and toasts by ~11% and made every swiped page drift. Only round.
+const px = (v) => Math.round(v)
 
 const { width: DEVICE_WIDTH, height: DEVICE_HEIGHT } = getDeviceInfo();
 // This screen's key layouts, for the keyboard the app draws
